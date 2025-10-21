@@ -1,0 +1,1431 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Music Library Management API",
+    "description": "API for managing music library integration with MusicBrainz, Lidarr, and OIDC authentication",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Music Library API Support"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.example.com",
+      "description": "Production server"
+    }
+  ],
+  "security": [
+    {
+      "sessionAuth": []
+    }
+  ],
+  "paths": {
+    "/auth/login": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Initiate OIDC login",
+        "description": "Starts the OpenID Connect login flow with PKCE",
+        "security": [],
+        "responses": {
+          "302": {
+            "description": "Redirect to OIDC provider"
+          },
+          "400": {
+            "description": "Authentication not configured",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "OIDC client configuration error",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/callback": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Handle OIDC callback",
+        "description": "Processes the OIDC callback and validates tokens",
+        "security": [],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Authorization code from OIDC provider"
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "State parameter for CSRF protection"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Successful authentication, redirect to application"
+          },
+          "400": {
+            "description": "Authentication error or validation failure"
+          },
+          "500": {
+            "description": "Server error during authentication"
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Logout user",
+        "description": "Destroys session and redirects to OIDC logout",
+        "responses": {
+          "302": {
+            "description": "Redirect to logout page or OIDC provider logout"
+          }
+        }
+      }
+    },
+    "/auth/debug": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Authentication debug info",
+        "description": "Returns authentication configuration and status",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Authentication debug information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "authEnabled": {
+                      "type": "boolean"
+                    },
+                    "clientAvailable": {
+                      "type": "boolean"
+                    },
+                    "sessionExists": {
+                      "type": "boolean"
+                    },
+                    "userLoggedIn": {
+                      "type": "boolean"
+                    },
+                    "oidcConfig": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+	"/api": {
+      "get": {
+        "summary": "Get OpenAPI Specification",
+        "description": "Returns the full OpenAPI specification as raw JSON. Useful for clients or tools that need to auto-generate code or documentation.",
+        "operationId": "getOpenApiSpec",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "The OpenAPI specification in JSON format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "The OpenAPI specification document"
+                }
+              }
+            }
+          }
+        }
+      }
+	},
+	"/docs": {
+      "get": {
+        "summary": "Swagger UI",
+        "description": "Interactive API documentation served via Swagger UI.",
+        "operationId": "getSwaggerUI",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "Swagger UI HTML page",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string",
+                  "example": "<!DOCTYPE html><html>...</html>"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/user": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Get user authentication status",
+        "description": "Public endpoint returning login status",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Authentication status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "loggedIn": {
+                      "type": "boolean"
+                    },
+                    "authEnabled": {
+                      "type": "boolean"
+                    },
+                    "user": {
+                      "type": "object"
+                    }
+                  },
+                  "required": ["loggedIn", "authEnabled"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Get current user info",
+        "description": "Returns current authenticated user information",
+        "responses": {
+          "200": {
+            "description": "User information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/debug": {
+      "get": {
+        "tags": ["System"],
+        "summary": "System debug information",
+        "description": "Comprehensive system status and metrics",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "System debug information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "nodeVersion": {
+                      "type": "string"
+                    },
+                    "environment": {
+                      "type": "string"
+                    },
+                    "authEnabled": {
+                      "type": "boolean"
+                    },
+                    "authenticated": {
+                      "type": "boolean",
+                      "nullable": true
+                    },
+                    "userId": {
+                      "type": "string"
+                    },
+                    "redis": {
+                      "type": "object",
+                      "properties": {
+                        "connected": {
+                          "type": "boolean"
+                        },
+                        "url": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "cache": {
+                      "type": "object"
+                    },
+                    "queue": {
+                      "type": "object"
+                    },
+                    "memoryUsage": {
+                      "type": "object",
+                      "properties": {
+                        "rss_mb": {
+                          "type": "number"
+                        },
+                        "heapUsed_mb": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stats": {
+      "get": {
+        "tags": ["System"],
+        "summary": "System statistics",
+        "description": "Detailed system statistics for authenticated users",
+        "responses": {
+          "200": {
+            "description": "System statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "string"
+                    },
+                    "cache": {
+                      "type": "object"
+                    },
+                    "queue": {
+                      "type": "object"
+                    },
+                    "server": {
+                      "type": "object",
+                      "properties": {
+                        "uptime": {
+                          "type": "number"
+                        },
+                        "memory": {
+                          "type": "object"
+                        },
+                        "nodeVersion": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "redis": {
+                      "type": "object",
+                      "properties": {
+                        "connected": {
+                          "type": "boolean"
+                        },
+                        "url": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/musicbrainz/recording": {
+      "get": {
+        "tags": ["MusicBrainz"],
+        "summary": "Search recordings",
+        "description": "Search MusicBrainz recordings database",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search query string"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "minimum": 1,
+              "maximum": 100
+            },
+            "description": "Maximum number of results"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recording search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing query parameter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/musicbrainz/release-group": {
+      "get": {
+        "tags": ["MusicBrainz"],
+        "summary": "Search release groups",
+        "description": "Search MusicBrainz release groups (albums)",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search query string"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
+            },
+            "description": "Maximum number of results"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Release group search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing query parameter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/musicbrainz/release/{id}": {
+      "get": {
+        "tags": ["MusicBrainz"],
+        "summary": "Get release details",
+        "description": "Get detailed information about a specific release",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "MusicBrainz release ID"
+          },
+          {
+            "name": "inc",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": "release-groups"
+            },
+            "description": "Additional data to include"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Release details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/musicbrainz/release": {
+      "get": {
+        "tags": ["MusicBrainz"],
+        "summary": "Get releases by release group",
+        "description": "Get all releases for a specific release group",
+        "parameters": [
+          {
+            "name": "release-group",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Release group ID"
+          },
+          {
+            "name": "inc",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": "recordings"
+            },
+            "description": "Additional data to include"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Releases for the release group",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing release-group parameter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/coverart/{mbid}": {
+      "get": {
+        "tags": ["Cover Art"],
+        "summary": "Get cover art",
+        "description": "Get cover art information for a release group",
+        "parameters": [
+          {
+            "name": "mbid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "MusicBrainz release group ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cover art information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Cover art not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lidarr/lookup": {
+      "get": {
+        "tags": ["Lidarr"],
+        "summary": "Lookup album in Lidarr",
+        "description": "Check if an album exists in the Lidarr library",
+        "parameters": [
+          {
+            "name": "mbid",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "MusicBrainz ID of the album"
+          },
+          {
+            "name": "title",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Album title"
+          },
+          {
+            "name": "artist",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Artist name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Album lookup results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LidarrAlbum"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing mbid parameter or Lidarr not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lidarr/lookup-search": {
+      "get": {
+        "tags": ["Lidarr"],
+        "summary": "Alternative album lookup",
+        "description": "Alternative method for checking album in Lidarr using direct search",
+        "parameters": [
+          {
+            "name": "mbid",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "MusicBrainz ID of the album"
+          },
+          {
+            "name": "title",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Album title"
+          },
+          {
+            "name": "artist",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Artist name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Album search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LidarrAlbum"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lidarr/add": {
+      "post": {
+        "tags": ["Lidarr"],
+        "summary": "Add artist and monitor album",
+        "description": "Add artist to Lidarr and monitor specific album",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mbid": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "MusicBrainz album ID"
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "Album title"
+                  },
+                  "artist": {
+                    "type": "string",
+                    "description": "Artist name"
+                  }
+                },
+                "required": ["mbid"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Artist/album added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "description": "Lidarr artist ID"
+                    },
+                    "title": {
+                      "type": "string",
+                      "description": "Album title"
+                    },
+                    "artist": {
+                      "type": "string",
+                      "description": "Artist name"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Success message"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing mbid or Lidarr not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/config/lidarr": {
+      "get": {
+        "tags": ["Configuration"],
+        "summary": "Get Lidarr configuration",
+        "description": "Get current Lidarr settings (API key masked)",
+        "responses": {
+          "200": {
+            "description": "Lidarr configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LidarrConfig"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Configuration"],
+        "summary": "Update Lidarr configuration",
+        "description": "Update Lidarr connection settings",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Lidarr base URL"
+                  },
+                  "apiKey": {
+                    "type": "string",
+                    "description": "Lidarr API key"
+                  },
+                  "rootFolder": {
+                    "type": "string",
+                    "description": "Root folder path"
+                  },
+                  "qualityProfileId": {
+                    "type": "integer",
+                    "description": "Quality profile ID"
+                  }
+                },
+                "required": ["url", "apiKey", "rootFolder", "qualityProfileId"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Configuration updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid configuration data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/config/lidarr/test": {
+      "post": {
+        "tags": ["Configuration"],
+        "summary": "Test Lidarr connection",
+        "description": "Test connection to Lidarr and retrieve quality profiles",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "apiKey": {
+                    "type": "string"
+                  },
+                  "useSavedApiKey": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Connection test successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "version": {
+                      "type": "string"
+                    },
+                    "profiles": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Connection test failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/config/lidarr/rootfolders": {
+      "post": {
+        "tags": ["Configuration"],
+        "summary": "Get Lidarr root folders",
+        "description": "Retrieve available root folders from Lidarr",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "apiKey": {
+                    "type": "string"
+                  },
+                  "useSavedApiKey": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Root folders retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rootFolders": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer"
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "accessible": {
+                            "type": "boolean"
+                          },
+                          "freeSpace": {
+                            "type": "integer"
+                          },
+                          "totalSpace": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/config/auth": {
+      "get": {
+        "tags": ["Configuration"],
+        "summary": "Get OIDC configuration",
+        "description": "Get current OIDC authentication settings (client secret masked)",
+        "responses": {
+          "200": {
+            "description": "OIDC configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthConfig"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Configuration"],
+        "summary": "Update OIDC configuration",
+        "description": "Update OIDC authentication settings",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "issuerUrl": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "OIDC issuer URL"
+                  },
+                  "clientId": {
+                    "type": "string",
+                    "description": "OIDC client ID"
+                  },
+                  "clientSecret": {
+                    "type": "string",
+                    "description": "OIDC client secret"
+                  },
+                  "domain": {
+                    "type": "string",
+                    "description": "Application domain"
+                  }
+                },
+                "required": ["issuerUrl", "clientId", "clientSecret", "domain"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OIDC configuration updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "authEnabled": {
+                      "type": "boolean"
+                    },
+                    "issuer": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid OIDC configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/config/auth/test": {
+      "post": {
+        "tags": ["Configuration"],
+        "summary": "Test OIDC configuration",
+        "description": "Test OIDC connection and configuration (no authentication required)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "issuerUrl": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "clientId": {
+                    "type": "string"
+                  },
+                  "clientSecret": {
+                    "type": "string"
+                  },
+                  "domain": {
+                    "type": "string"
+                  }
+                },
+                "required": ["issuerUrl"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OIDC test successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "issuer": {
+                      "type": "string"
+                    },
+                    "issuerUrl": {
+                      "type": "string"
+                    },
+                    "discoveredEndpoints": {
+                      "type": "object",
+                      "properties": {
+                        "authorization": {
+                          "type": "string"
+                        },
+                        "token": {
+                          "type": "string"
+                        },
+                        "userinfo": {
+                          "type": "string"
+                        },
+                        "jwks": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "clientTest": {
+                      "type": "object",
+                      "properties": {
+                        "success": {
+                          "type": "boolean"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "OIDC test failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/cache/stats": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get cache statistics",
+        "description": "Get cache performance and usage statistics",
+        "responses": {
+          "200": {
+            "description": "Cache statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/cache/flush": {
+      "delete": {
+        "tags": ["Admin"],
+        "summary": "Flush cache",
+        "description": "Clear all cached data",
+        "responses": {
+          "200": {
+            "description": "Cache flushed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/queue/stats": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get queue statistics",
+        "description": "Get request queue performance and usage statistics",
+        "responses": {
+          "200": {
+            "description": "Queue statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "connect.sid",
+        "description": "Session-based authentication using OIDC"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error message"
+          }
+        },
+        "required": ["error"]
+      },
+      "LidarrAlbum": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Lidarr album ID"
+          },
+          "title": {
+            "type": "string",
+            "description": "Album title"
+          },
+          "foreignAlbumId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "MusicBrainz album ID"
+          },
+          "artist": {
+            "type": "object",
+            "properties": {
+              "artistName": {
+                "type": "string"
+              },
+              "foreignArtistId": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          "inLibrary": {
+            "type": "boolean",
+            "description": "Whether album exists in Lidarr library"
+          },
+          "fullyAvailable": {
+            "type": "boolean",
+            "description": "Whether all tracks are available"
+          },
+          "percentComplete": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Percentage of tracks available"
+          },
+          "monitored": {
+            "type": "boolean",
+            "description": "Whether album is monitored"
+          },
+          "grabbed": {
+            "type": "boolean",
+            "description": "Whether album is being downloaded"
+          },
+          "statistics": {
+            "type": "object",
+            "properties": {
+              "trackCount": {
+                "type": "integer"
+              },
+              "trackFileCount": {
+                "type": "integer"
+              },
+              "percentOfTracks": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              }
+            }
+          }
+        }
+      },
+      "LidarrConfig": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Lidarr base URL (without API key)"
+          },
+          "apiKey": {
+            "type": "string",
+            "description": "Masked API key (only last 4 characters shown)"
+          },
+          "rootFolder": {
+            "type": "string",
+            "description": "Root folder path for music files"
+          },
+          "qualityProfileId": {
+            "type": "integer",
+            "description": "Quality profile ID"
+          }
+        }
+      },
+      "AuthConfig": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "Application domain"
+          },
+          "issuerUrl": {
+            "type": "string",
+            "description": "OIDC issuer URL"
+          },
+          "clientId": {
+            "type": "string",
+            "description": "OIDC client ID"
+          },
+          "clientSecret": {
+            "type": "string",
+            "description": "Masked client secret (only last 4 characters shown)"
+          },
+          "callbackUrl": {
+            "type": "string",
+            "description": "OIDC callback URL"
+          },
+          "authEnabled": {
+            "type": "boolean",
+            "description": "Whether authentication is enabled"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "OIDC authentication endpoints"
+    },
+    {
+      "name": "System",
+      "description": "System information and user management"
+    },
+    {
+      "name": "MusicBrainz",
+      "description": "MusicBrainz database integration"
+    },
+    {
+      "name": "Cover Art",
+      "description": "Cover Art Archive integration"
+    },
+    {
+      "name": "Lidarr",
+      "description": "Lidarr music library management"
+    },
+    {
+      "name": "Configuration",
+      "description": "Application configuration management"
+    },
+    {
+      "name": "Admin",
+      "description": "Administrative functions"
+    }
+  ]
+}
+                          

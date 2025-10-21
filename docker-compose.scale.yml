@@ -1,0 +1,111 @@
+# Docker Compose override file for scaling Album Finder with Caddy load balancing
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.scale.yml up -d
+
+version: '3.8'
+
+services:
+  # Primary app instance (same as base config)
+  app:
+    ports:
+      - "${APP_PORT:-3001}:3000"
+    container_name: album-finder-app-1
+
+  # Second app instance
+  app2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT_2:-3011}:3000"  # Second instance on port 3011
+    container_name: album-finder-app-2
+    environment:
+      # Inherit all environment variables from main app
+      PORT: 3000
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+      SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      OIDC_ISSUER: ${OIDC_ISSUER}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
+      OIDC_CALLBACK_URL: ${OIDC_CALLBACK_URL}
+      LIDARR_URL: ${LIDARR_URL}
+      LIDARR_API_KEY: ${LIDARR_API_KEY}
+      LIDARR_ROOT_FOLDER: ${LIDARR_ROOT_FOLDER:-/music}
+      LIDARR_QUALITY_PROFILE_ID: ${LIDARR_QUALITY_PROFILE_ID:-1}
+      CACHE_TTL: ${CACHE_TTL:-3600}
+      MAX_CACHE_SIZE: ${MAX_CACHE_SIZE:-1000}
+      MAX_CACHE_MEMORY: ${MAX_CACHE_MEMORY:-100}
+      MUSICBRAINZ_DELAY: ${MUSICBRAINZ_DELAY:-1000}
+      MAX_CONCURRENT_REQUESTS: ${MAX_CONCURRENT_REQUESTS:-10}
+      REQUEST_TIMEOUT: ${REQUEST_TIMEOUT:-30000}
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # Third app instance
+  app3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT_3:-3021}:3000"  # Third instance on port 3021
+    container_name: album-finder-app-3
+    environment:
+      # Inherit all environment variables from main app
+      PORT: 3000
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+      SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      OIDC_ISSUER: ${OIDC_ISSUER}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
+      OIDC_CALLBACK_URL: ${OIDC_CALLBACK_URL}
+      LIDARR_URL: ${LIDARR_URL}
+      LIDARR_API_KEY: ${LIDARR_API_KEY}
+      LIDARR_ROOT_FOLDER: ${LIDARR_ROOT_FOLDER:-/music}
+      LIDARR_QUALITY_PROFILE_ID: ${LIDARR_QUALITY_PROFILE_ID:-1}
+      CACHE_TTL: ${CACHE_TTL:-3600}
+      MAX_CACHE_SIZE: ${MAX_CACHE_SIZE:-1000}
+      MAX_CACHE_MEMORY: ${MAX_CACHE_MEMORY:-100}
+      MUSICBRAINZ_DELAY: ${MUSICBRAINZ_DELAY:-1000}
+      MAX_CONCURRENT_REQUESTS: ${MAX_CONCURRENT_REQUESTS:-10}
+      REQUEST_TIMEOUT: ${REQUEST_TIMEOUT:-30000}
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+networks:
+  internal:
+    external: false

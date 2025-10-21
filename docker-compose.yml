@@ -1,0 +1,149 @@
+
+services:
+  # Redis for session storage and caching
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 64M
+
+  # Main application - exposed on port for Caddy to proxy
+  album-finder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    user: "1000:1000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-3001}:3000"  # Expose on configurable port for Caddy
+    volumes:
+      - albumfinder-data:/app/server/data
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      # Server configuration
+      PORT: 3000
+      NODE_ENV: production
+      
+      # Redis configuration
+      REDIS_URL: redis://redis:6379
+      
+      # Session configuration
+      SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      
+      LIDARR_WEBHOOK_KEY: ${LIDARR_WEBHOOK_KEY}
+      
+      # Timezone
+      TZ: ${TZ:-UTC}
+      
+      # Cache configuration
+      CACHE_TTL: ${CACHE_TTL:-3600}
+      MAX_CACHE_SIZE: ${MAX_CACHE_SIZE:-1000}
+      MAX_CACHE_MEMORY: ${MAX_CACHE_MEMORY:-100}
+      
+      # Rate limiting configuration
+      MUSICBRAINZ_DELAY: ${MUSICBRAINZ_DELAY:-1000}
+      MAX_CONCURRENT_REQUESTS: ${MAX_CONCURRENT_REQUESTS:-10}
+      REQUEST_TIMEOUT: ${REQUEST_TIMEOUT:-30000}
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # Redis monitoring (optional) - exposed on port for Caddy to proxy
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    restart: unless-stopped
+    depends_on:
+      - redis
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8081}:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+      - HTTP_USER=${REDIS_COMMANDER_USER:-admin}
+      - HTTP_PASSWORD=${REDIS_COMMANDER_PASSWORD:-password}
+    networks:
+      - internal
+    profiles:
+      - monitoring
+
+  # Prometheus for metrics collection (optional) - exposed on port for Caddy to proxy
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.time=30d'
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - internal
+    profiles:
+      - monitoring
+
+  # Grafana for metrics visualization (optional) - exposed on port for Caddy to proxy
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    ports:
+      - "${GRAFANA_PORT:-3002}:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - internal
+    profiles:
+      - monitoring
+
+volumes:
+  albumfinder-data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  # Only internal network needed - no external network for reverse proxy
+  internal:
+    driver: bridge

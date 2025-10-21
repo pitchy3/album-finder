@@ -1,0 +1,57 @@
+{
+  "name": "album-finder-scalable",
+  "version": "2.0.0",
+  "description": "Scalable multi-user Album Finder with MusicBrainz and Lidarr integration",
+  "main": "scalable_server.js",
+  "scripts": {
+    "start": "node scalable_server.js",
+    "dev": "NODE_ENV=development nodemon scalable_server.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "docker:build": "docker build -t album-finder:latest .",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f app",
+    "docker:restart": "docker-compose restart app",
+    "docker:scale": "docker-compose up -d --scale app=3",
+    "monitor:up": "docker-compose --profile monitoring up -d",
+    "monitor:down": "docker-compose --profile monitoring down"
+  },
+  "keywords": [
+    "music",
+    "musicbrainz",
+    "lidarr",
+    "album",
+    "finder",
+    "scalable",
+    "multi-user"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@babel/parser": "^7.28.4",
+    "@babel/traverse": "^7.28.4",
+    "body-parser": "^1.20.2",
+    "connect-redis": "^7.1.0",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "fuse.js": "^6.6.2",
+    "node-cache": "^5.1.2",
+    "openid-client": "^5.4.2",
+    "redis": "^4.6.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/album-finder"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/album-finder/issues"
+  },
+  "homepage": "https://github.com/yourusername/album-finder#readme"
+}

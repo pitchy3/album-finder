@@ -1,0 +1,37 @@
+{
+  "name": "album-finder-server",
+  "version": "2.0.0",
+  "description": "AlbumFinder server with modular architecture",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "music",
+    "albums",
+    "musicbrainz",
+    "lidarr"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "connect-redis": "^7.1.1",
+    "csurf": "^1.11.0",
+    "express": "^4.18.2",
+    "express-session": "^1.18.2",
+    "node-cache": "^5.1.2",
+    "openid-client": "^5.6.4",
+    "redis": "^4.6.12",
+    "sqlite3": "^5.1.7",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

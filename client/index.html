@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>Album Finder</title>
+	<link rel="icon" type="image/x-icon" href="/src/favicon.ico"> 
+	<script>
+      (() => {
+        try {
+          const saved = localStorage.getItem("albumfinder-preferences");
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.darkMode) {
+              document.documentElement.classList.add("dark");
+            }
+          } else {
+            // no saved preference → use system
+            if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+              document.documentElement.classList.add("dark");
+            }
+          }
+        } catch {
+          // fallback: system preference
+          if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+            document.documentElement.classList.add("dark");
+          }
+        }
+      })();
+    </script>
+  </head>
+  <body class="bg-gray-100">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
