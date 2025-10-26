@@ -6,7 +6,6 @@
   "scripts": {
     "start": "node scalable_server.js",
     "dev": "NODE_ENV=development nodemon scalable_server.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
     "docker:build": "docker build -t album-finder:latest .",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
@@ -14,7 +13,23 @@
     "docker:restart": "docker-compose restart app",
     "docker:scale": "docker-compose up -d --scale app=3",
     "monitor:up": "docker-compose --profile monitoring up -d",
-    "monitor:down": "docker-compose --profile monitoring down"
+    "monitor:down": "docker-compose --profile monitoring down",
+    "test": "npm run test:server && npm run test:client",
+    "test:server": "cd server && npm test",
+    "test:client": "cd client && npm test",
+    "test:integration": "cd server && npm run test:integration",
+    "test:e2e": "docker-compose --profile e2e up --build --abort-on-container-exit --exit-code-from e2e-tests",
+    "test:e2e:watch": "docker-compose --profile e2e up --build e2e-tests",
+    "test:e2e:ui": "docker-compose --profile e2e run --rm e2e-tests npx playwright test --ui",
+    "test:e2e:debug": "docker-compose --profile e2e run --rm e2e-tests npx playwright test --debug",
+    "test:e2e:report": "docker-compose --profile e2e run --rm e2e-tests npx playwright show-report",
+    "test:e2e:down": "docker-compose --profile e2e down",
+    "test:performance": "cd server && npm run test:performance",
+    "test:load": "artillery run load-tests/config.yml",
+    "test:smoke": "playwright test smoke.spec.js",
+    "test:coverage": "npm run test:server -- --coverage && npm run test:client -- --coverage",
+    "test:watch": "npm run test:server -- --watch",
+    "test:all": "npm run test && npm run test:e2e"
   },
   "keywords": [
     "music",
@@ -40,7 +55,8 @@
     "redis": "^4.6.7"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.0.1",
+    "@playwright/test": "^1.40.0"
   },
   "engines": {
     "node": ">=18.0.0",

@@ -1,6 +1,11 @@
 // Create centralized API service with CSRF handling
 let csrfToken = null;
 
+// Allow tests to reset CSRF cache between runs
+export function __resetCsrfToken() {
+  csrfToken = null;
+}
+
 // Get CSRF token with retry logic
 async function getCsrfToken(forceRefresh = false) {
   if (!csrfToken || forceRefresh) {
@@ -71,37 +76,46 @@ export async function secureApiCall(url, options = {}) {
       if (responseText.includes('csrf') || responseText.includes('CSRF')) {
         console.warn('CSRF token validation failed, attempting to refresh token...');
         
+        // Always clear cached token before retry
+        csrfToken = null;
+
         // Only retry once to avoid infinite loops
         if (!options._csrfRetried) {
           try {
             // Force refresh the CSRF token
             token = await getCsrfToken(true);
-            
+
             // Update headers with new token
             const retryHeaders = {
               ...headers,
               'csrf-token': token
             };
-            
+
             console.log('Retrying request with refreshed CSRF token...');
-            
+
             // Retry the request with new token
-            return await fetch(url, {
+            const retryResponse = await fetch(url, {
               ...requestOptions,
               headers: retryHeaders,
               _csrfRetried: true // Prevent infinite retry loop
             });
+
+            // If retry also fails, throw
+            if (!retryResponse.ok) {
+              throw new Error(`CSRF retry failed with status ${retryResponse.status}`);
+            }
+
+            return retryResponse;
           } catch (retryError) {
             console.error('CSRF token refresh failed:', retryError);
-            // Return the original response if retry fails
-            return response;
+            throw retryError;
           }
         }
       }
     }
-    
+
     return response;
-    
+
   } catch (fetchError) {
     console.error(`Request to ${url} failed:`, fetchError);
     throw fetchError;

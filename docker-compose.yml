@@ -76,6 +76,39 @@ services:
         limits:
           memory: 512M
 
+  # E2E Test Runner (only runs with --profile e2e)
+  e2e-tests:
+    image: mcr.microsoft.com/playwright:v1.49.0-jammy
+    working_dir: /app
+    depends_on:
+      album-finder:
+        condition: service_healthy
+    environment:
+      # Point tests at the running app container
+      BASE_URL: http://album-finder:3000
+      CI: ${CI:-false}
+    volumes:
+      # Mount source code for tests
+      - ./e2e:/app/e2e:ro
+      - ./playwright.config.js:/app/playwright.config.js:ro
+      - ./package.json:/app/package.json:ro
+      - ./package-lock.json:/app/package-lock.json:ro
+      # Mount output directories
+      - ./playwright-report:/app/playwright-report
+      - ./test-results:/app/test-results
+      - e2e_node_modules:/app/node_modules
+    networks:
+      - internal
+    profiles:
+      - e2e
+    command: >
+      sh -c "
+        echo '🔧 Installing test dependencies...' &&
+        npm ci --prefer-offline &&
+        echo '🧪 Running E2E tests...' &&
+        npx playwright test --reporter=html
+      "
+
   # Redis monitoring (optional) - exposed on port for Caddy to proxy
   redis-commander:
     image: rediscommander/redis-commander:latest
@@ -141,6 +174,8 @@ volumes:
   prometheus_data:
     driver: local
   grafana_data:
+    driver: local
+  e2e_node_modules:
     driver: local
 
 networks:
