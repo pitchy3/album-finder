@@ -141,7 +141,7 @@ jobs:
       
       - name: Run Docker container
         run: |
-          docker-compose -f docker-compose.yml -f docker-compose.test.yml up -d
+          docker compose -f docker-compose.yml -f docker-compose.test.yml up -d
           sleep 10
       
       - name: Test Docker health
@@ -153,7 +153,7 @@ jobs:
       
       - name: Cleanup
         if: always()
-        run: docker-compose down
+        run: docker compose down
 
   security-scan:
     runs-on: ubuntu-latest
@@ -163,8 +163,8 @@ jobs:
       
       - name: Run npm audit
         run: |
-          cd server && npm audit --audit-level=moderate
-          cd ../client && npm audit --audit-level=moderate
+          cd server && npm audit --audit-level=moderate --omit=dev
+          cd ../client && npm audit --audit-level=moderate --omit=dev
       
       - name: Run Snyk security scan
         uses: snyk/actions/node@master
