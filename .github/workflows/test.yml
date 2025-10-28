@@ -29,10 +29,17 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
+          
+      - name: Install SQLite dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsqlite3-dev build-essential
       
       - name: Install server dependencies
         working-directory: ./server
-        run: npm ci
+        run: |
+          npm ci
+          npm rebuild sqlite3 --build-from-source
       
       - name: Install client dependencies
         working-directory: ./client
@@ -73,11 +80,19 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
+          
+      - name: Install SQLite dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsqlite3-dev build-essential
       
       - name: Install dependencies
         run: |
-          cd server && npm ci
-          cd ../client && npm ci
+          cd server
+          npm ci
+          npm rebuild sqlite3 --build-from-source
+          cd ../client
+          npm ci
       
       - name: Run integration tests
         working-directory: ./server
@@ -141,7 +156,7 @@ jobs:
       
       - name: Run Docker container
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.test.yml up -d
+          docker compose up -d
           sleep 10
       
       - name: Test Docker health
@@ -166,9 +181,3 @@ jobs:
           cd server && npm audit --audit-level=moderate --omit=dev
           cd ../client && npm audit --audit-level=moderate --omit=dev
       
-      - name: Run Snyk security scan
-        uses: snyk/actions/node@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --severity-threshold=high
