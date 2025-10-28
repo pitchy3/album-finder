@@ -9,6 +9,7 @@ RUN apk add --no-cache \
     make \
     g++ \
     && rm -rf /var/cache/apk/*
+
 # Create app user for security with explicit group membership
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S albumfinder -u 1001 -G nodejs
@@ -52,15 +53,15 @@ WORKDIR /app/server
 # Create logs directory for potential logging
 RUN mkdir -p logs && chown albumfinder:nodejs logs
 
-# Create data directory for config and state with explicit permissions
-# Note: This will be overridden by the volume mount, but ensures the structure exists
-RUN mkdir -p /app/server/data && chmod 777 /app/server/data
+# Create data directory as mount point
+# NOTE: Actual permissions will be set by the init container in docker-compose
+RUN mkdir -p /app/server/data && chown albumfinder:nodejs /app/server/data
 
 # Health check - using the correct port environment variable
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:${PORT:-3000}/healthz || exit 1
 
-# Security: Run as non-root user
+# ✅ SECURITY: Always run as non-root user (no entrypoint needed!)
 USER albumfinder
 
 # Expose port

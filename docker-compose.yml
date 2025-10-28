@@ -1,4 +1,3 @@
-
 services:
   # Redis for session storage and caching
   redis:
@@ -21,44 +20,61 @@ services:
         reservations:
           memory: 64M
 
+  # ✅ NEW: Init container to fix permissions (runs once, then exits)
+  album-finder-init:
+    image: alpine:latest
+    user: "0:0"  # Runs as root (only container that does)
+    volumes:
+      - albumfinder-data:/data
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+    command: >
+      sh -c "
+        echo '🔧 Init: Fixing volume permissions for PUID=$${PUID} PGID=$${PGID}' &&
+        mkdir -p /data &&
+        chown -R $${PUID}:$${PGID} /data &&
+        chmod -R 755 /data &&
+        echo '✅ Init: Permissions fixed successfully' &&
+        echo '📁 Init: Volume contents:' &&
+        ls -la /data || echo '   (empty)'
+      "
+    networks:
+      - internal
+
   # Main application - exposed on port for Caddy to proxy
   album-finder:
     build:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
-    user: "1000:1000"
+    user: "${PUID:-1000}:${PGID:-1000}"  # ✅ UPDATED: Use env vars for flexibility
     depends_on:
       redis:
         condition: service_healthy
+      album-finder-init:
+        condition: service_completed_successfully  # ✅ NEW: Waits for init to finish
     ports:
-      - "${APP_PORT:-3001}:3000"  # Expose on configurable port for Caddy
+      - "${APP_PORT:-3001}:3000"
     volumes:
       - albumfinder-data:/app/server/data
     environment:
-      PUID: ${PUID:-1000}
-      PGID: ${PGID:-1000}
+      # ✅ REMOVED: PUID/PGID not needed in app container anymore
       # Server configuration
       PORT: 3000
       NODE_ENV: production
-      
       # Redis configuration
       REDIS_URL: redis://redis:6379
-      
       # Session configuration
       SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
-      
       LIDARR_WEBHOOK_KEY: ${LIDARR_WEBHOOK_KEY}
-      
       # Timezone
       TZ: ${TZ:-UTC}
-      
       # Cache configuration
       CACHE_TTL: ${CACHE_TTL:-3600}
       MAX_CACHE_SIZE: ${MAX_CACHE_SIZE:-1000}
       MAX_CACHE_MEMORY: ${MAX_CACHE_MEMORY:-100}
-      
       # Rate limiting configuration
       MUSICBRAINZ_DELAY: ${MUSICBRAINZ_DELAY:-1000}
       MAX_CONCURRENT_REQUESTS: ${MAX_CONCURRENT_REQUESTS:-10}
