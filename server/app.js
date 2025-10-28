@@ -159,7 +159,7 @@ async function main() {
   
   if (enableCSRF) {
     try {
-      const csrf = require('csurf');
+      const csrf = require('@dr.pogodin/csurf');
       
       // CSRF protection with proper configuration
       const csrfProtection = csrf({
@@ -234,7 +234,7 @@ async function main() {
       
     } catch (error) {
       console.error("❌ Failed to initialize CSRF protection:", error);
-      console.warn("⚠️ Continuing without CSRF protection - install 'csurf' package");
+      console.warn("⚠️ Continuing without CSRF protection - install '@dr.pogodin/csurf' package");
     }
   } else {
     console.log("ℹ️ CSRF protection disabled (development mode)");
