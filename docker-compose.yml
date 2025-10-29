@@ -48,18 +48,17 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
-    user: "${PUID:-1000}:${PGID:-1000}"  # ✅ UPDATED: Use env vars for flexibility
+    user: "${PUID:-1000}:${PGID:-1000}"
     depends_on:
       redis:
         condition: service_healthy
       album-finder-init:
-        condition: service_completed_successfully  # ✅ NEW: Waits for init to finish
+        condition: service_completed_successfully
     ports:
       - "${APP_PORT:-3001}:3000"
     volumes:
       - albumfinder-data:/app/server/data
     environment:
-      # ✅ REMOVED: PUID/PGID not needed in app container anymore
       # Server configuration
       PORT: 3000
       NODE_ENV: production
