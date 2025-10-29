@@ -5,3 +5,5 @@ server/node_modules/
 albumfinder-data
 
 .env
+
+test-results/

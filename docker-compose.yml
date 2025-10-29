@@ -41,6 +41,8 @@ services:
       "
     networks:
       - internal
+    restart: "no"
+    depends_on: []
 
   # Main application - exposed on port for Caddy to proxy
   album-finder:
@@ -102,7 +104,7 @@ services:
         condition: service_started
     environment:
       # Point tests at the running app container
-      BASE_URL: http://album-finder:3000
+      BASE_URL: http://album-finder:3001
       CI: ${CI:-false}
     volumes:
       # Mount source code for tests
