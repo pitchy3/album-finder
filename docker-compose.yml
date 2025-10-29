@@ -99,6 +99,8 @@ services:
     depends_on:
       album-finder:
         condition: service_healthy
+      redis:
+        condition: service_started
     environment:
       # Point tests at the running app container
       BASE_URL: http://album-finder:3000
@@ -124,6 +126,10 @@ services:
         echo '🧪 Running E2E tests...' &&
         npx playwright test --reporter=html
       "
+    restart: "no"
+    depends_on: []
+    networks:
+      - internal
 
   # Redis monitoring (optional) - exposed on port for Caddy to proxy
   redis-commander:

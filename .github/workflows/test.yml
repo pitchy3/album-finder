@@ -130,8 +130,14 @@ jobs:
           cd client && npm run build
           cd ../server && npm ci
       
+      - name: Initialize Docker volumes
+        run: |
+          echo "🔧 Initializing Docker volumes..."
+          docker compose run --rm album-finder-init || true
+          echo "✅ Volume initialization complete"
+      
       - name: Run E2E tests
-        run: npm run test:e2e
+        run: docker compose --profile e2e up --build --abort-on-container-exit --exit-code-from e2e-tests
         env:
           NODE_ENV: test
           REDIS_URL: redis://localhost:6379
@@ -143,6 +149,18 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 30
+      
+      - name: Show E2E logs on failure
+        if: failure()
+        run: |
+          echo "=== E2E Test Logs ==="
+          docker compose --profile e2e logs e2e-tests
+          echo "=== App Logs ==="
+          docker compose --profile e2e logs album-finder
+      
+      - name: Cleanup
+        if: always()
+        run: docker compose --profile e2e down -v
 
   docker-test:
     runs-on: ubuntu-latest
