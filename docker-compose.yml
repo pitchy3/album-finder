@@ -126,9 +126,6 @@ services:
         npx playwright test --reporter=html
       "
     restart: "no"
-    depends_on: []
-    networks:
-      - internal
 
   # Redis monitoring (optional) - exposed on port for Caddy to proxy
   redis-commander:
