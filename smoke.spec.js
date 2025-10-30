@@ -24,10 +24,12 @@ test.describe('Smoke Tests - Critical Functionality', () => {
   test('API root endpoint responds', async ({ request }) => {
     const response = await request.get('/api');
     expect(response.ok()).toBeTruthy();
-    
+  
     const data = await response.json();
-    expect(data).toHaveProperty('name');
-    expect(data.name).toContain('AlbumFinder');
+    expect(data).toHaveProperty('openapi');
+    expect(data).toHaveProperty('info');
+    expect(data.info).toHaveProperty('title');
+    expect(data.info.title).toContain('Music Library');
   });
 
   test('authentication status endpoint works', async ({ request }) => {

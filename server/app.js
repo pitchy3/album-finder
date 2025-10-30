@@ -247,8 +247,8 @@ async function main() {
 
   // Routes
   app.use("/auth", authRoutes(authClients.client));
-  app.use("/api", apiRoutes);
   app.use("/api/admin", adminRoutes);
+  app.use("/api", apiRoutes);
   app.use("/webhook", webhookRoutes);
 
   // Health check
@@ -257,6 +257,10 @@ async function main() {
   // Serve static files
   const publicDir = path.join(__dirname, "public");
   app.use(express.static(publicDir));
+  
+  app.use('/api', (req, res) => {
+    res.status(404).json({ error: 'Not found' });
+  });
 
   // SPA fallback
   app.get("*", (req, res) => {
