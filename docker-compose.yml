@@ -104,7 +104,7 @@ services:
         condition: service_started
     environment:
       # Point tests at the running app container
-      BASE_URL: http://album-finder:3001
+      BASE_URL: http://album-finder:3000
       CI: ${CI:-false}
     volumes:
       # Mount source code for tests
