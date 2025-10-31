@@ -95,7 +95,7 @@ services:
 
   # E2E Test Runner (only runs with --profile e2e)
   e2e-tests:
-    image: mcr.microsoft.com/playwright:v1.49.0-jammy
+    image: mcr.microsoft.com/playwright:v1.56.1-jammy
     working_dir: /app
     depends_on:
       album-finder:
