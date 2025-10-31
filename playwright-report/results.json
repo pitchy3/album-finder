@@ -1,0 +1,668 @@
+{
+  "config": {
+    "configFile": "/home/superdingo101/usb/gitprojects/album-finder/playwright.config.js",
+    "rootDir": "/home/superdingo101/usb/gitprojects/album-finder",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 2
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "playwright-report"
+        }
+      ],
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "playwright-report/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/home/superdingo101/usb/gitprojects/album-finder/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/home/superdingo101/usb/gitprojects/album-finder",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.spec.js"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.56.1",
+    "workers": 2,
+    "webServer": {
+      "command": "cd server && npm start",
+      "url": "http://localhost:3001/healthz",
+      "reuseExistingServer": true,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "smoke.spec.js",
+      "file": "smoke.spec.js",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Smoke Tests - Critical Functionality",
+          "file": "smoke.spec.js",
+          "line": 4,
+          "column": 6,
+          "specs": [
+            {
+              "title": "health check endpoint responds",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 188,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-29T11:51:39.541Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2c14808d47b386fba9eb-157af04ec12393529c0c",
+              "file": "smoke.spec.js",
+              "line": 5,
+              "column": 7
+            },
+            {
+              "title": "home page loads successfully",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 44,
+                      "error": {
+                        "message": "Error: browserType.launch: Executable doesn't exist at /home/superdingo101/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     npx playwright install                                              ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝",
+                        "stack": "Error: browserType.launch: Executable doesn't exist at /home/superdingo101/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     npx playwright install                                              ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: browserType.launch: Executable doesn't exist at /home/superdingo101/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     npx playwright install                                              ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-29T11:51:39.602Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "2c14808d47b386fba9eb-6b505bfdba3acd49270c",
+              "file": "smoke.spec.js",
+              "line": 14,
+              "column": 7
+            },
+            {
+              "title": "API root endpoint responds",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 145,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoHaveProperty\u001b[2m(\u001b[22m\u001b[32mpath\u001b[39m\u001b[2m)\u001b[22m\n\nExpected path: \u001b[32m\"name\"\u001b[39m\nReceived path: \u001b[31m[]\u001b[39m\n\nReceived value: \u001b[31m{\"components\": {\"schemas\": {\"AuthConfig\": {\"properties\": {\"authEnabled\": [Object], \"callbackUrl\": [Object], \"clientId\": [Object], \"clientSecret\": [Object], \"domain\": [Object], \"issuerUrl\": [Object]}, \"type\": \"object\"}, \"Error\": {\"properties\": {\"error\": [Object]}, \"required\": [\"error\"], \"type\": \"object\"}, \"LidarrAlbum\": {\"properties\": {\"artist\": [Object], \"foreignAlbumId\": [Object], \"fullyAvailable\": [Object], \"grabbed\": [Object], \"id\": [Object], \"inLibrary\": [Object], \"monitored\": [Object], \"percentComplete\": [Object], \"statistics\": [Object], \"title\": [Object]}, \"type\": \"object\"}, \"LidarrConfig\": {\"properties\": {\"apiKey\": [Object], \"qualityProfileId\": [Object], \"rootFolder\": [Object], \"url\": [Object]}, \"type\": \"object\"}}, \"securitySchemes\": {\"sessionAuth\": {\"description\": \"Session-based authentication using OIDC\", \"in\": \"cookie\", \"name\": \"connect.sid\", \"type\": \"apiKey\"}}}, \"info\": {\"contact\": {\"name\": \"Music Library API Support\"}, \"description\": \"API for managing music library integration with MusicBrainz, Lidarr, and OIDC authentication\", \"title\": \"Music Library Management API\", \"version\": \"1.0.0\"}, \"openapi\": \"3.1.1\", \"paths\": {\"/admin/cache/flush\": {\"delete\": {\"description\": \"Clear all cached data\", \"responses\": {\"200\": [Object]}, \"summary\": \"Flush cache\", \"tags\": [\"Admin\"]}}, \"/admin/cache/stats\": {\"get\": {\"description\": \"Get cache performance and usage statistics\", \"responses\": {\"200\": [Object]}, \"summary\": \"Get cache statistics\", \"tags\": [\"Admin\"]}}, \"/admin/queue/stats\": {\"get\": {\"description\": \"Get request queue performance and usage statistics\", \"responses\": {\"200\": [Object]}, \"summary\": \"Get queue statistics\", \"tags\": [\"Admin\"]}}, \"/api\": {\"get\": {\"description\": \"Returns the full OpenAPI specification as raw JSON. Useful for clients or tools that need to auto-generate code or documentation.\", \"operationId\": \"getOpenApiSpec\", \"responses\": {\"200\": [Object]}, \"summary\": \"Get OpenAPI Specification\", \"tags\": [\"System\"]}}, \"/api/auth/user\": {\"get\": {\"description\": \"Public endpoint returning login status\", \"responses\": {\"200\": [Object]}, \"security\": [], \"summary\": \"Get user authentication status\", \"tags\": [\"System\"]}}, \"/api/config/auth\": {\"get\": {\"description\": \"Get current OIDC authentication settings (client secret masked)\", \"responses\": {\"200\": [Object]}, \"summary\": \"Get OIDC configuration\", \"tags\": [\"Configuration\"]}, \"post\": {\"description\": \"Update OIDC authentication settings\", \"requestBody\": {\"content\": [Object], \"required\": true}, \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Update OIDC configuration\", \"tags\": [\"Configuration\"]}}, \"/api/config/auth/test\": {\"post\": {\"description\": \"Test OIDC connection and configuration (no authentication required)\", \"requestBody\": {\"content\": [Object], \"required\": true}, \"responses\": {\"200\": [Object], \"400\": [Object]}, \"security\": [], \"summary\": \"Test OIDC configuration\", \"tags\": [\"Configuration\"]}}, \"/api/config/lidarr\": {\"get\": {\"description\": \"Get current Lidarr settings (API key masked)\", \"responses\": {\"200\": [Object]}, \"summary\": \"Get Lidarr configuration\", \"tags\": [\"Configuration\"]}, \"post\": {\"description\": \"Update Lidarr connection settings\", \"requestBody\": {\"content\": [Object], \"required\": true}, \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Update Lidarr configuration\", \"tags\": [\"Configuration\"]}}, \"/api/config/lidarr/rootfolders\": {\"post\": {\"description\": \"Retrieve available root folders from Lidarr\", \"requestBody\": {\"content\": [Object], \"required\": true}, \"responses\": {\"200\": [Object]}, \"summary\": \"Get Lidarr root folders\", \"tags\": [\"Configuration\"]}}, \"/api/config/lidarr/test\": {\"post\": {\"description\": \"Test connection to Lidarr and retrieve quality profiles\", \"requestBody\": {\"content\": [Object], \"required\": true}, \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Test Lidarr connection\", \"tags\": [\"Configuration\"]}}, \"/api/coverart/{mbid}\": {\"get\": {\"description\": \"Get cover art information for a release group\", \"parameters\": [[Object]], \"responses\": {\"200\": [Object], \"404\": [Object]}, \"summary\": \"Get cover art\", \"tags\": [\"Cover Art\"]}}, \"/api/debug\": {\"get\": {\"description\": \"Comprehensive system status and metrics\", \"responses\": {\"200\": [Object]}, \"security\": [], \"summary\": \"System debug information\", \"tags\": [\"System\"]}}, \"/api/lidarr/add\": {\"post\": {\"description\": \"Add artist to Lidarr and monitor specific album\", \"requestBody\": {\"content\": [Object], \"required\": true}, \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Add artist and monitor album\", \"tags\": [\"Lidarr\"]}}, \"/api/lidarr/lookup\": {\"get\": {\"description\": \"Check if an album exists in the Lidarr library\", \"parameters\": [[Object], [Object], [Object]], \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Lookup album in Lidarr\", \"tags\": [\"Lidarr\"]}}, \"/api/lidarr/lookup-search\": {\"get\": {\"description\": \"Alternative method for checking album in Lidarr using direct search\", \"parameters\": [[Object], [Object], [Object]], \"responses\": {\"200\": [Object]}, \"summary\": \"Alternative album lookup\", \"tags\": [\"Lidarr\"]}}, \"/api/me\": {\"get\": {\"description\": \"Returns current authenticated user information\", \"responses\": {\"200\": [Object]}, \"summary\": \"Get current user info\", \"tags\": [\"System\"]}}, \"/api/musicbrainz/recording\": {\"get\": {\"description\": \"Search MusicBrainz recordings database\", \"parameters\": [[Object], [Object]], \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Search recordings\", \"tags\": [\"MusicBrainz\"]}}, \"/api/musicbrainz/release\": {\"get\": {\"description\": \"Get all releases for a specific release group\", \"parameters\": [[Object], [Object]], \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Get releases by release group\", \"tags\": [\"MusicBrainz\"]}}, \"/api/musicbrainz/release-group\": {\"get\": {\"description\": \"Search MusicBrainz release groups (albums)\", \"parameters\": [[Object], [Object]], \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Search release groups\", \"tags\": [\"MusicBrainz\"]}}, \"/api/musicbrainz/release/{id}\": {\"get\": {\"description\": \"Get detailed information about a specific release\", \"parameters\": [[Object], [Object]], \"responses\": {\"200\": [Object]}, \"summary\": \"Get release details\", \"tags\": [\"MusicBrainz\"]}}, \"/api/stats\": {\"get\": {\"description\": \"Detailed system statistics for authenticated users\", \"responses\": {\"200\": [Object]}, \"summary\": \"System statistics\", \"tags\": [\"System\"]}}, \"/auth/callback\": {\"get\": {\"description\": \"Processes the OIDC callback and validates tokens\", \"parameters\": [[Object], [Object]], \"responses\": {\"302\": [Object], \"400\": [Object], \"500\": [Object]}, \"security\": [], \"summary\": \"Handle OIDC callback\", \"tags\": [\"Authentication\"]}}, \"/auth/debug\": {\"get\": {\"description\": \"Returns authentication configuration and status\", \"responses\": {\"200\": [Object]}, \"security\": [], \"summary\": \"Authentication debug info\", \"tags\": [\"Authentication\"]}}, \"/auth/login\": {\"get\": {\"description\": \"Starts the OpenID Connect login flow with PKCE\", \"responses\": {\"302\": [Object], \"400\": [Object], \"500\": [Object]}, \"security\": [], \"summary\": \"Initiate OIDC login\", \"tags\": [\"Authentication\"]}}, \"/auth/logout\": {\"post\": {\"description\": \"Destroys session and redirects to OIDC logout\", \"responses\": {\"302\": [Object]}, \"summary\": \"Logout user\", \"tags\": [\"Authentication\"]}}, \"/docs\": {\"get\": {\"description\": \"Interactive API documentation served via Swagger UI.\", \"operationId\": \"getSwaggerUI\", \"responses\": {\"200\": [Object]}, \"summary\": \"Swagger UI\", \"tags\": [\"System\"]}}}, \"security\": [{\"sessionAuth\": []}], \"servers\": [{\"description\": \"Production server\", \"url\": \"https://api.example.com\"}], \"tags\": [{\"description\": \"OIDC authentication endpoints\", \"name\": \"Authentication\"}, {\"description\": \"System information and user management\", \"name\": \"System\"}, {\"description\": \"MusicBrainz database integration\", \"name\": \"MusicBrainz\"}, {\"description\": \"Cover Art Archive integration\", \"name\": \"Cover Art\"}, {\"description\": \"Lidarr music library management\", \"name\": \"Lidarr\"}, {\"description\": \"Application configuration management\", \"name\": \"Configuration\"}, {\"description\": \"Administrative functions\", \"name\": \"Admin\"}]}\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoHaveProperty\u001b[2m(\u001b[22m\u001b[32mpath\u001b[39m\u001b[2m)\u001b[22m\n\nExpected path: \u001b[32m\"name\"\u001b[39m\nReceived path: \u001b[31m[]\u001b[39m\n\nReceived value: \u001b[31m{\"components\": {\"schemas\": {\"AuthConfig\": {\"properties\": {\"authEnabled\": [Object], \"callbackUrl\": [Object], \"clientId\": [Object], \"clientSecret\": [Object], \"domain\": [Object], \"issuerUrl\": [Object]}, \"type\": \"object\"}, \"Error\": {\"properties\": {\"error\": [Object]}, \"required\": [\"error\"], \"type\": \"object\"}, \"LidarrAlbum\": {\"properties\": {\"artist\": [Object], \"foreignAlbumId\": [Object], \"fullyAvailable\": [Object], \"grabbed\": [Object], \"id\": [Object], \"inLibrary\": [Object], \"monitored\": [Object], \"percentComplete\": [Object], \"statistics\": [Object], \"title\": [Object]}, \"type\": \"object\"}, \"LidarrConfig\": {\"properties\": {\"apiKey\": [Object], \"qualityProfileId\": [Object], \"rootFolder\": [Object], \"url\": [Object]}, \"type\": \"object\"}}, \"securitySchemes\": {\"sessionAuth\": {\"description\": \"Session-based authentication using OIDC\", \"in\": \"cookie\", \"name\": \"connect.sid\", \"type\": \"apiKey\"}}}, \"info\": {\"contact\": {\"name\": \"Music Library API Support\"}, \"description\": \"API for managing music library integration with MusicBrainz, Lidarr, and OIDC authentication\", \"title\": \"Music Library Management API\", \"version\": \"1.0.0\"}, \"openapi\": \"3.1.1\", \"paths\": {\"/admin/cache/flush\": {\"delete\": {\"description\": \"Clear all cached data\", \"responses\": {\"200\": [Object]}, \"summary\": \"Flush cache\", \"tags\": [\"Admin\"]}}, \"/admin/cache/stats\": {\"get\": {\"description\": \"Get cache performance and usage statistics\", \"responses\": {\"200\": [Object]}, \"summary\": \"Get cache statistics\", \"tags\": [\"Admin\"]}}, \"/admin/queue/stats\": {\"get\": {\"description\": \"Get request queue performance and usage statistics\", \"responses\": {\"200\": [Object]}, \"summary\": \"Get queue statistics\", \"tags\": [\"Admin\"]}}, \"/api\": {\"get\": {\"description\": \"Returns the full OpenAPI specification as raw JSON. Useful for clients or tools that need to auto-generate code or documentation.\", \"operationId\": \"getOpenApiSpec\", \"responses\": {\"200\": [Object]}, \"summary\": \"Get OpenAPI Specification\", \"tags\": [\"System\"]}}, \"/api/auth/user\": {\"get\": {\"description\": \"Public endpoint returning login status\", \"responses\": {\"200\": [Object]}, \"security\": [], \"summary\": \"Get user authentication status\", \"tags\": [\"System\"]}}, \"/api/config/auth\": {\"get\": {\"description\": \"Get current OIDC authentication settings (client secret masked)\", \"responses\": {\"200\": [Object]}, \"summary\": \"Get OIDC configuration\", \"tags\": [\"Configuration\"]}, \"post\": {\"description\": \"Update OIDC authentication settings\", \"requestBody\": {\"content\": [Object], \"required\": true}, \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Update OIDC configuration\", \"tags\": [\"Configuration\"]}}, \"/api/config/auth/test\": {\"post\": {\"description\": \"Test OIDC connection and configuration (no authentication required)\", \"requestBody\": {\"content\": [Object], \"required\": true}, \"responses\": {\"200\": [Object], \"400\": [Object]}, \"security\": [], \"summary\": \"Test OIDC configuration\", \"tags\": [\"Configuration\"]}}, \"/api/config/lidarr\": {\"get\": {\"description\": \"Get current Lidarr settings (API key masked)\", \"responses\": {\"200\": [Object]}, \"summary\": \"Get Lidarr configuration\", \"tags\": [\"Configuration\"]}, \"post\": {\"description\": \"Update Lidarr connection settings\", \"requestBody\": {\"content\": [Object], \"required\": true}, \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Update Lidarr configuration\", \"tags\": [\"Configuration\"]}}, \"/api/config/lidarr/rootfolders\": {\"post\": {\"description\": \"Retrieve available root folders from Lidarr\", \"requestBody\": {\"content\": [Object], \"required\": true}, \"responses\": {\"200\": [Object]}, \"summary\": \"Get Lidarr root folders\", \"tags\": [\"Configuration\"]}}, \"/api/config/lidarr/test\": {\"post\": {\"description\": \"Test connection to Lidarr and retrieve quality profiles\", \"requestBody\": {\"content\": [Object], \"required\": true}, \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Test Lidarr connection\", \"tags\": [\"Configuration\"]}}, \"/api/coverart/{mbid}\": {\"get\": {\"description\": \"Get cover art information for a release group\", \"parameters\": [[Object]], \"responses\": {\"200\": [Object], \"404\": [Object]}, \"summary\": \"Get cover art\", \"tags\": [\"Cover Art\"]}}, \"/api/debug\": {\"get\": {\"description\": \"Comprehensive system status and metrics\", \"responses\": {\"200\": [Object]}, \"security\": [], \"summary\": \"System debug information\", \"tags\": [\"System\"]}}, \"/api/lidarr/add\": {\"post\": {\"description\": \"Add artist to Lidarr and monitor specific album\", \"requestBody\": {\"content\": [Object], \"required\": true}, \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Add artist and monitor album\", \"tags\": [\"Lidarr\"]}}, \"/api/lidarr/lookup\": {\"get\": {\"description\": \"Check if an album exists in the Lidarr library\", \"parameters\": [[Object], [Object], [Object]], \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Lookup album in Lidarr\", \"tags\": [\"Lidarr\"]}}, \"/api/lidarr/lookup-search\": {\"get\": {\"description\": \"Alternative method for checking album in Lidarr using direct search\", \"parameters\": [[Object], [Object], [Object]], \"responses\": {\"200\": [Object]}, \"summary\": \"Alternative album lookup\", \"tags\": [\"Lidarr\"]}}, \"/api/me\": {\"get\": {\"description\": \"Returns current authenticated user information\", \"responses\": {\"200\": [Object]}, \"summary\": \"Get current user info\", \"tags\": [\"System\"]}}, \"/api/musicbrainz/recording\": {\"get\": {\"description\": \"Search MusicBrainz recordings database\", \"parameters\": [[Object], [Object]], \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Search recordings\", \"tags\": [\"MusicBrainz\"]}}, \"/api/musicbrainz/release\": {\"get\": {\"description\": \"Get all releases for a specific release group\", \"parameters\": [[Object], [Object]], \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Get releases by release group\", \"tags\": [\"MusicBrainz\"]}}, \"/api/musicbrainz/release-group\": {\"get\": {\"description\": \"Search MusicBrainz release groups (albums)\", \"parameters\": [[Object], [Object]], \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Search release groups\", \"tags\": [\"MusicBrainz\"]}}, \"/api/musicbrainz/release/{id}\": {\"get\": {\"description\": \"Get detailed information about a specific release\", \"parameters\": [[Object], [Object]], \"responses\": {\"200\": [Object]}, \"summary\": \"Get release details\", \"tags\": [\"MusicBrainz\"]}}, \"/api/stats\": {\"get\": {\"description\": \"Detailed system statistics for authenticated users\", \"responses\": {\"200\": [Object]}, \"summary\": \"System statistics\", \"tags\": [\"System\"]}}, \"/auth/callback\": {\"get\": {\"description\": \"Processes the OIDC callback and validates tokens\", \"parameters\": [[Object], [Object]], \"responses\": {\"302\": [Object], \"400\": [Object], \"500\": [Object]}, \"security\": [], \"summary\": \"Handle OIDC callback\", \"tags\": [\"Authentication\"]}}, \"/auth/debug\": {\"get\": {\"description\": \"Returns authentication configuration and status\", \"responses\": {\"200\": [Object]}, \"security\": [], \"summary\": \"Authentication debug info\", \"tags\": [\"Authentication\"]}}, \"/auth/login\": {\"get\": {\"description\": \"Starts the OpenID Connect login flow with PKCE\", \"responses\": {\"302\": [Object], \"400\": [Object], \"500\": [Object]}, \"security\": [], \"summary\": \"Initiate OIDC login\", \"tags\": [\"Authentication\"]}}, \"/auth/logout\": {\"post\": {\"description\": \"Destroys session and redirects to OIDC logout\", \"responses\": {\"302\": [Object]}, \"summary\": \"Logout user\", \"tags\": [\"Authentication\"]}}, \"/docs\": {\"get\": {\"description\": \"Interactive API documentation served via Swagger UI.\", \"operationId\": \"getSwaggerUI\", \"responses\": {\"200\": [Object]}, \"summary\": \"Swagger UI\", \"tags\": [\"System\"]}}}, \"security\": [{\"sessionAuth\": []}], \"servers\": [{\"description\": \"Production server\", \"url\": \"https://api.example.com\"}], \"tags\": [{\"description\": \"OIDC authentication endpoints\", \"name\": \"Authentication\"}, {\"description\": \"System information and user management\", \"name\": \"System\"}, {\"description\": \"MusicBrainz database integration\", \"name\": \"MusicBrainz\"}, {\"description\": \"Cover Art Archive integration\", \"name\": \"Cover Art\"}, {\"description\": \"Lidarr music library management\", \"name\": \"Lidarr\"}, {\"description\": \"Application configuration management\", \"name\": \"Configuration\"}, {\"description\": \"Administrative functions\", \"name\": \"Admin\"}]}\u001b[39m\n    at /home/superdingo101/usb/gitprojects/album-finder/smoke.spec.js:29:18",
+                        "location": {
+                          "file": "/home/superdingo101/usb/gitprojects/album-finder/smoke.spec.js",
+                          "column": 18,
+                          "line": 29
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 27 |\u001b[39m     \n \u001b[90m 28 |\u001b[39m     \u001b[36mconst\u001b[39m data \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m response\u001b[33m.\u001b[39mjson()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 29 |\u001b[39m     expect(data)\u001b[33m.\u001b[39mtoHaveProperty(\u001b[32m'name'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                  \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 30 |\u001b[39m     expect(data\u001b[33m.\u001b[39mname)\u001b[33m.\u001b[39mtoContain(\u001b[32m'AlbumFinder'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 31 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 32 |\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/superdingo101/usb/gitprojects/album-finder/smoke.spec.js",
+                            "column": 18,
+                            "line": 29
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoHaveProperty\u001b[2m(\u001b[22m\u001b[32mpath\u001b[39m\u001b[2m)\u001b[22m\n\nExpected path: \u001b[32m\"name\"\u001b[39m\nReceived path: \u001b[31m[]\u001b[39m\n\nReceived value: \u001b[31m{\"components\": {\"schemas\": {\"AuthConfig\": {\"properties\": {\"authEnabled\": [Object], \"callbackUrl\": [Object], \"clientId\": [Object], \"clientSecret\": [Object], \"domain\": [Object], \"issuerUrl\": [Object]}, \"type\": \"object\"}, \"Error\": {\"properties\": {\"error\": [Object]}, \"required\": [\"error\"], \"type\": \"object\"}, \"LidarrAlbum\": {\"properties\": {\"artist\": [Object], \"foreignAlbumId\": [Object], \"fullyAvailable\": [Object], \"grabbed\": [Object], \"id\": [Object], \"inLibrary\": [Object], \"monitored\": [Object], \"percentComplete\": [Object], \"statistics\": [Object], \"title\": [Object]}, \"type\": \"object\"}, \"LidarrConfig\": {\"properties\": {\"apiKey\": [Object], \"qualityProfileId\": [Object], \"rootFolder\": [Object], \"url\": [Object]}, \"type\": \"object\"}}, \"securitySchemes\": {\"sessionAuth\": {\"description\": \"Session-based authentication using OIDC\", \"in\": \"cookie\", \"name\": \"connect.sid\", \"type\": \"apiKey\"}}}, \"info\": {\"contact\": {\"name\": \"Music Library API Support\"}, \"description\": \"API for managing music library integration with MusicBrainz, Lidarr, and OIDC authentication\", \"title\": \"Music Library Management API\", \"version\": \"1.0.0\"}, \"openapi\": \"3.1.1\", \"paths\": {\"/admin/cache/flush\": {\"delete\": {\"description\": \"Clear all cached data\", \"responses\": {\"200\": [Object]}, \"summary\": \"Flush cache\", \"tags\": [\"Admin\"]}}, \"/admin/cache/stats\": {\"get\": {\"description\": \"Get cache performance and usage statistics\", \"responses\": {\"200\": [Object]}, \"summary\": \"Get cache statistics\", \"tags\": [\"Admin\"]}}, \"/admin/queue/stats\": {\"get\": {\"description\": \"Get request queue performance and usage statistics\", \"responses\": {\"200\": [Object]}, \"summary\": \"Get queue statistics\", \"tags\": [\"Admin\"]}}, \"/api\": {\"get\": {\"description\": \"Returns the full OpenAPI specification as raw JSON. Useful for clients or tools that need to auto-generate code or documentation.\", \"operationId\": \"getOpenApiSpec\", \"responses\": {\"200\": [Object]}, \"summary\": \"Get OpenAPI Specification\", \"tags\": [\"System\"]}}, \"/api/auth/user\": {\"get\": {\"description\": \"Public endpoint returning login status\", \"responses\": {\"200\": [Object]}, \"security\": [], \"summary\": \"Get user authentication status\", \"tags\": [\"System\"]}}, \"/api/config/auth\": {\"get\": {\"description\": \"Get current OIDC authentication settings (client secret masked)\", \"responses\": {\"200\": [Object]}, \"summary\": \"Get OIDC configuration\", \"tags\": [\"Configuration\"]}, \"post\": {\"description\": \"Update OIDC authentication settings\", \"requestBody\": {\"content\": [Object], \"required\": true}, \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Update OIDC configuration\", \"tags\": [\"Configuration\"]}}, \"/api/config/auth/test\": {\"post\": {\"description\": \"Test OIDC connection and configuration (no authentication required)\", \"requestBody\": {\"content\": [Object], \"required\": true}, \"responses\": {\"200\": [Object], \"400\": [Object]}, \"security\": [], \"summary\": \"Test OIDC configuration\", \"tags\": [\"Configuration\"]}}, \"/api/config/lidarr\": {\"get\": {\"description\": \"Get current Lidarr settings (API key masked)\", \"responses\": {\"200\": [Object]}, \"summary\": \"Get Lidarr configuration\", \"tags\": [\"Configuration\"]}, \"post\": {\"description\": \"Update Lidarr connection settings\", \"requestBody\": {\"content\": [Object], \"required\": true}, \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Update Lidarr configuration\", \"tags\": [\"Configuration\"]}}, \"/api/config/lidarr/rootfolders\": {\"post\": {\"description\": \"Retrieve available root folders from Lidarr\", \"requestBody\": {\"content\": [Object], \"required\": true}, \"responses\": {\"200\": [Object]}, \"summary\": \"Get Lidarr root folders\", \"tags\": [\"Configuration\"]}}, \"/api/config/lidarr/test\": {\"post\": {\"description\": \"Test connection to Lidarr and retrieve quality profiles\", \"requestBody\": {\"content\": [Object], \"required\": true}, \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Test Lidarr connection\", \"tags\": [\"Configuration\"]}}, \"/api/coverart/{mbid}\": {\"get\": {\"description\": \"Get cover art information for a release group\", \"parameters\": [[Object]], \"responses\": {\"200\": [Object], \"404\": [Object]}, \"summary\": \"Get cover art\", \"tags\": [\"Cover Art\"]}}, \"/api/debug\": {\"get\": {\"description\": \"Comprehensive system status and metrics\", \"responses\": {\"200\": [Object]}, \"security\": [], \"summary\": \"System debug information\", \"tags\": [\"System\"]}}, \"/api/lidarr/add\": {\"post\": {\"description\": \"Add artist to Lidarr and monitor specific album\", \"requestBody\": {\"content\": [Object], \"required\": true}, \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Add artist and monitor album\", \"tags\": [\"Lidarr\"]}}, \"/api/lidarr/lookup\": {\"get\": {\"description\": \"Check if an album exists in the Lidarr library\", \"parameters\": [[Object], [Object], [Object]], \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Lookup album in Lidarr\", \"tags\": [\"Lidarr\"]}}, \"/api/lidarr/lookup-search\": {\"get\": {\"description\": \"Alternative method for checking album in Lidarr using direct search\", \"parameters\": [[Object], [Object], [Object]], \"responses\": {\"200\": [Object]}, \"summary\": \"Alternative album lookup\", \"tags\": [\"Lidarr\"]}}, \"/api/me\": {\"get\": {\"description\": \"Returns current authenticated user information\", \"responses\": {\"200\": [Object]}, \"summary\": \"Get current user info\", \"tags\": [\"System\"]}}, \"/api/musicbrainz/recording\": {\"get\": {\"description\": \"Search MusicBrainz recordings database\", \"parameters\": [[Object], [Object]], \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Search recordings\", \"tags\": [\"MusicBrainz\"]}}, \"/api/musicbrainz/release\": {\"get\": {\"description\": \"Get all releases for a specific release group\", \"parameters\": [[Object], [Object]], \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Get releases by release group\", \"tags\": [\"MusicBrainz\"]}}, \"/api/musicbrainz/release-group\": {\"get\": {\"description\": \"Search MusicBrainz release groups (albums)\", \"parameters\": [[Object], [Object]], \"responses\": {\"200\": [Object], \"400\": [Object]}, \"summary\": \"Search release groups\", \"tags\": [\"MusicBrainz\"]}}, \"/api/musicbrainz/release/{id}\": {\"get\": {\"description\": \"Get detailed information about a specific release\", \"parameters\": [[Object], [Object]], \"responses\": {\"200\": [Object]}, \"summary\": \"Get release details\", \"tags\": [\"MusicBrainz\"]}}, \"/api/stats\": {\"get\": {\"description\": \"Detailed system statistics for authenticated users\", \"responses\": {\"200\": [Object]}, \"summary\": \"System statistics\", \"tags\": [\"System\"]}}, \"/auth/callback\": {\"get\": {\"description\": \"Processes the OIDC callback and validates tokens\", \"parameters\": [[Object], [Object]], \"responses\": {\"302\": [Object], \"400\": [Object], \"500\": [Object]}, \"security\": [], \"summary\": \"Handle OIDC callback\", \"tags\": [\"Authentication\"]}}, \"/auth/debug\": {\"get\": {\"description\": \"Returns authentication configuration and status\", \"responses\": {\"200\": [Object]}, \"security\": [], \"summary\": \"Authentication debug info\", \"tags\": [\"Authentication\"]}}, \"/auth/login\": {\"get\": {\"description\": \"Starts the OpenID Connect login flow with PKCE\", \"responses\": {\"302\": [Object], \"400\": [Object], \"500\": [Object]}, \"security\": [], \"summary\": \"Initiate OIDC login\", \"tags\": [\"Authentication\"]}}, \"/auth/logout\": {\"post\": {\"description\": \"Destroys session and redirects to OIDC logout\", \"responses\": {\"302\": [Object]}, \"summary\": \"Logout user\", \"tags\": [\"Authentication\"]}}, \"/docs\": {\"get\": {\"description\": \"Interactive API documentation served via Swagger UI.\", \"operationId\": \"getSwaggerUI\", \"responses\": {\"200\": [Object]}, \"summary\": \"Swagger UI\", \"tags\": [\"System\"]}}}, \"security\": [{\"sessionAuth\": []}], \"servers\": [{\"description\": \"Production server\", \"url\": \"https://api.example.com\"}], \"tags\": [{\"description\": \"OIDC authentication endpoints\", \"name\": \"Authentication\"}, {\"description\": \"System information and user management\", \"name\": \"System\"}, {\"description\": \"MusicBrainz database integration\", \"name\": \"MusicBrainz\"}, {\"description\": \"Cover Art Archive integration\", \"name\": \"Cover Art\"}, {\"description\": \"Lidarr music library management\", \"name\": \"Lidarr\"}, {\"description\": \"Application configuration management\", \"name\": \"Configuration\"}, {\"description\": \"Administrative functions\", \"name\": \"Admin\"}]}\u001b[39m\n\n\u001b[0m \u001b[90m 27 |\u001b[39m     \n \u001b[90m 28 |\u001b[39m     \u001b[36mconst\u001b[39m data \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m response\u001b[33m.\u001b[39mjson()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 29 |\u001b[39m     expect(data)\u001b[33m.\u001b[39mtoHaveProperty(\u001b[32m'name'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                  \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 30 |\u001b[39m     expect(data\u001b[33m.\u001b[39mname)\u001b[33m.\u001b[39mtoContain(\u001b[32m'AlbumFinder'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 31 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 32 |\u001b[39m\u001b[0m\n\u001b[2m    at /home/superdingo101/usb/gitprojects/album-finder/smoke.spec.js:29:18\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-29T11:51:39.930Z",
+                      "annotations": [],
+                      "attachments": [],
+                      "errorLocation": {
+                        "file": "/home/superdingo101/usb/gitprojects/album-finder/smoke.spec.js",
+                        "column": 18,
+                        "line": 29
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "2c14808d47b386fba9eb-5c31cbd1baa12e3275ea",
+              "file": "smoke.spec.js",
+              "line": 24,
+              "column": 7
+            },
+            {
+              "title": "authentication status endpoint works",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 200,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-29T11:51:42.645Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2c14808d47b386fba9eb-7780d80265e4a2e80bbd",
+              "file": "smoke.spec.js",
+              "line": 33,
+              "column": 7
+            },
+            {
+              "title": "timezone info endpoint responds",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 201,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-29T11:51:43.001Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2c14808d47b386fba9eb-5edd3bc4e77045a426af",
+              "file": "smoke.spec.js",
+              "line": 44,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Smoke Tests - Docker Container Health",
+          "file": "smoke.spec.js",
+          "line": 55,
+          "column": 6,
+          "specs": [
+            {
+              "title": "server debug endpoint accessible",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 831,
+                      "error": {
+                        "message": "SyntaxError: Unexpected token < in JSON at position 4",
+                        "stack": "SyntaxError: Unexpected token < in JSON at position 4\n    at /home/superdingo101/usb/gitprojects/album-finder/smoke.spec.js:63:20",
+                        "location": {
+                          "file": "/home/superdingo101/usb/gitprojects/album-finder/smoke.spec.js",
+                          "column": 20,
+                          "line": 63
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 61 |\u001b[39m     \n \u001b[90m 62 |\u001b[39m     \u001b[36mif\u001b[39m (response\u001b[33m.\u001b[39mstatus() \u001b[33m===\u001b[39m \u001b[35m200\u001b[39m) {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 63 |\u001b[39m       \u001b[36mconst\u001b[39m data \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m response\u001b[33m.\u001b[39mjson()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                    \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 64 |\u001b[39m       expect(data)\u001b[33m.\u001b[39mtoHaveProperty(\u001b[32m'status'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 65 |\u001b[39m       expect(data\u001b[33m.\u001b[39mstatus)\u001b[33m.\u001b[39mtoBe(\u001b[32m'Server is running'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       expect(data)\u001b[33m.\u001b[39mtoHaveProperty(\u001b[32m'redis'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/superdingo101/usb/gitprojects/album-finder/smoke.spec.js",
+                            "column": 20,
+                            "line": 63
+                          },
+                          "message": "SyntaxError: Unexpected token < in JSON at position 4\n\n\u001b[0m \u001b[90m 61 |\u001b[39m     \n \u001b[90m 62 |\u001b[39m     \u001b[36mif\u001b[39m (response\u001b[33m.\u001b[39mstatus() \u001b[33m===\u001b[39m \u001b[35m200\u001b[39m) {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 63 |\u001b[39m       \u001b[36mconst\u001b[39m data \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m response\u001b[33m.\u001b[39mjson()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                    \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 64 |\u001b[39m       expect(data)\u001b[33m.\u001b[39mtoHaveProperty(\u001b[32m'status'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 65 |\u001b[39m       expect(data\u001b[33m.\u001b[39mstatus)\u001b[33m.\u001b[39mtoBe(\u001b[32m'Server is running'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       expect(data)\u001b[33m.\u001b[39mtoHaveProperty(\u001b[32m'redis'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /home/superdingo101/usb/gitprojects/album-finder/smoke.spec.js:63:20\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-29T11:51:43.038Z",
+                      "annotations": [],
+                      "attachments": [],
+                      "errorLocation": {
+                        "file": "/home/superdingo101/usb/gitprojects/album-finder/smoke.spec.js",
+                        "column": 20,
+                        "line": 63
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "2c14808d47b386fba9eb-60240cbccec8c365cbd0",
+              "file": "smoke.spec.js",
+              "line": 56,
+              "column": 7
+            },
+            {
+              "title": "static assets are served",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 15,
+                      "error": {
+                        "message": "Error: browserType.launch: Executable doesn't exist at /home/superdingo101/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     npx playwright install                                              ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝",
+                        "stack": "Error: browserType.launch: Executable doesn't exist at /home/superdingo101/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     npx playwright install                                              ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: browserType.launch: Executable doesn't exist at /home/superdingo101/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     npx playwright install                                              ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-29T11:51:43.364Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "2c14808d47b386fba9eb-4de0f423f3fcf3d5652b",
+              "file": "smoke.spec.js",
+              "line": 72,
+              "column": 7
+            },
+            {
+              "title": "API handles 404 gracefully",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 187,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m\n    at /home/superdingo101/usb/gitprojects/album-finder/smoke.spec.js:92:31",
+                        "location": {
+                          "file": "/home/superdingo101/usb/gitprojects/album-finder/smoke.spec.js",
+                          "column": 31,
+                          "line": 92
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 90 |\u001b[39m   test(\u001b[32m'API handles 404 gracefully'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ request }) \u001b[33m=>\u001b[39m {\n \u001b[90m 91 |\u001b[39m     \u001b[36mconst\u001b[39m response \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m request\u001b[33m.\u001b[39m\u001b[36mget\u001b[39m(\u001b[32m'/api/nonexistent-endpoint-12345'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 92 |\u001b[39m     expect(response\u001b[33m.\u001b[39mstatus())\u001b[33m.\u001b[39mtoBe(\u001b[35m404\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                               \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 93 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 94 |\u001b[39m\n \u001b[90m 95 |\u001b[39m   test(\u001b[32m'SPA routing works'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/superdingo101/usb/gitprojects/album-finder/smoke.spec.js",
+                            "column": 31,
+                            "line": 92
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m\n\n\u001b[0m \u001b[90m 90 |\u001b[39m   test(\u001b[32m'API handles 404 gracefully'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ request }) \u001b[33m=>\u001b[39m {\n \u001b[90m 91 |\u001b[39m     \u001b[36mconst\u001b[39m response \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m request\u001b[33m.\u001b[39m\u001b[36mget\u001b[39m(\u001b[32m'/api/nonexistent-endpoint-12345'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 92 |\u001b[39m     expect(response\u001b[33m.\u001b[39mstatus())\u001b[33m.\u001b[39mtoBe(\u001b[35m404\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                               \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 93 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 94 |\u001b[39m\n \u001b[90m 95 |\u001b[39m   test(\u001b[32m'SPA routing works'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m\n\u001b[2m    at /home/superdingo101/usb/gitprojects/album-finder/smoke.spec.js:92:31\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-29T11:51:46.109Z",
+                      "annotations": [],
+                      "attachments": [],
+                      "errorLocation": {
+                        "file": "/home/superdingo101/usb/gitprojects/album-finder/smoke.spec.js",
+                        "column": 31,
+                        "line": 92
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "2c14808d47b386fba9eb-95ab9e4a8f93b4d1baf6",
+              "file": "smoke.spec.js",
+              "line": 90,
+              "column": 7
+            },
+            {
+              "title": "SPA routing works",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 31,
+                      "error": {
+                        "message": "Error: browserType.launch: Executable doesn't exist at /home/superdingo101/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     npx playwright install                                              ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝",
+                        "stack": "Error: browserType.launch: Executable doesn't exist at /home/superdingo101/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     npx playwright install                                              ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: browserType.launch: Executable doesn't exist at /home/superdingo101/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     npx playwright install                                              ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-29T11:51:46.728Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "2c14808d47b386fba9eb-871965a1f890ec81ee8b",
+              "file": "smoke.spec.js",
+              "line": 95,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Smoke Tests - Configuration",
+          "file": "smoke.spec.js",
+          "line": 112,
+          "column": 6,
+          "specs": [
+            {
+              "title": "server responds with proper headers",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 165,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-29T11:51:49.138Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2c14808d47b386fba9eb-71b00d7bfceef62b35dd",
+              "file": "smoke.spec.js",
+              "line": 113,
+              "column": 7
+            },
+            {
+              "title": "API endpoints return JSON",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 162,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-29T11:51:49.710Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2c14808d47b386fba9eb-8c8c0d5ec057495e3428",
+              "file": "smoke.spec.js",
+              "line": 121,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Smoke Tests - Performance",
+          "file": "smoke.spec.js",
+          "line": 129,
+          "column": 6,
+          "specs": [
+            {
+              "title": "home page loads within reasonable time",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 17,
+                      "error": {
+                        "message": "Error: browserType.launch: Executable doesn't exist at /home/superdingo101/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     npx playwright install                                              ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝",
+                        "stack": "Error: browserType.launch: Executable doesn't exist at /home/superdingo101/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     npx playwright install                                              ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: browserType.launch: Executable doesn't exist at /home/superdingo101/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     npx playwright install                                              ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-29T11:51:49.470Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "2c14808d47b386fba9eb-270a548b8c638259fbd6",
+              "file": "smoke.spec.js",
+              "line": 130,
+              "column": 7
+            },
+            {
+              "title": "health check responds quickly",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 166,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-10-29T11:51:52.088Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2c14808d47b386fba9eb-e0881cfdf026e9bc180e",
+              "file": "smoke.spec.js",
+              "line": 142,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-10-29T11:51:36.397Z",
+    "duration": 16037.195,
+    "expected": 6,
+    "skipped": 0,
+    "unexpected": 7,
+    "flaky": 0
+  }
+}

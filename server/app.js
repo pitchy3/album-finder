@@ -159,7 +159,7 @@ async function main() {
   
   if (enableCSRF) {
     try {
-      const csrf = require('csurf');
+      const csrf = require('@dr.pogodin/csurf');
       
       // CSRF protection with proper configuration
       const csrfProtection = csrf({
@@ -234,7 +234,7 @@ async function main() {
       
     } catch (error) {
       console.error("❌ Failed to initialize CSRF protection:", error);
-      console.warn("⚠️ Continuing without CSRF protection - install 'csurf' package");
+      console.warn("⚠️ Continuing without CSRF protection - install '@dr.pogodin/csurf' package");
     }
   } else {
     console.log("ℹ️ CSRF protection disabled (development mode)");
@@ -247,8 +247,8 @@ async function main() {
 
   // Routes
   app.use("/auth", authRoutes(authClients.client));
-  app.use("/api", apiRoutes);
   app.use("/api/admin", adminRoutes);
+  app.use("/api", apiRoutes);
   app.use("/webhook", webhookRoutes);
 
   // Health check
@@ -257,6 +257,10 @@ async function main() {
   // Serve static files
   const publicDir = path.join(__dirname, "public");
   app.use(express.static(publicDir));
+  
+  app.use('/api', (req, res) => {
+    res.status(404).json({ error: 'Not found' });
+  });
 
   // SPA fallback
   app.get("*", (req, res) => {

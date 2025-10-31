@@ -1,0 +1,4 @@
+
+> album-finder-server@2.0.0 test
+> jest
+

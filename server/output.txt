@@ -1,0 +1,3115 @@
+npm WARN deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm WARN deprecated @npmcli/move-file@1.1.2: This functionality has been moved to @npmcli/fs
+npm WARN deprecated csurf@1.11.0: This package is archived and no longer maintained. For support, visit https://github.com/expressjs/express/discussions
+npm WARN deprecated npmlog@6.0.2: This package is no longer supported.
+npm WARN deprecated supertest@6.3.4: Please upgrade to supertest v7.1.3+, see release notes at https://github.com/forwardemail/supertest/releases/tag/v7.1.3 - maintenance is supported by Forward Email @ https://forwardemail.net
+npm WARN deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+npm WARN deprecated are-we-there-yet@3.0.1: This package is no longer supported.
+npm WARN deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm WARN deprecated gauge@4.0.4: This package is no longer supported.
+npm WARN deprecated superagent@8.1.2: Please upgrade to superagent v10.2.2+, see release notes at https://github.com/forwardemail/superagent/releases/tag/v10.2.2 - maintenance is supported by Forward Email @ https://forwardemail.net
+
+added 519 packages, and audited 520 packages in 5m
+
+64 packages are looking for funding
+  run `npm fund` for details
+
+2 low severity vulnerabilities
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+> album-finder-server@2.0.0 test
+> jest
+
+FAIL routes/api/__tests__/config.test.js
+  ● Console
+
+    console.warn
+      ⚠️  Authentication disabled - missing OIDC or domain configuration
+
+      171 | // Log authentication status
+      172 | if (!config.auth.enabled) {
+    > 173 |   console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+          |           ^
+      174 |   console.warn("   App will run without authentication protection");
+      175 |   console.warn("   Configure OIDC and domain settings via the Settings page");
+      176 | }
+
+      at Object.warn (config/index.js:173:11)
+      at Object.require (routes/api/config.js:5:16)
+      at Object.require (routes/api/__tests__/config.test.js:6:22)
+
+    console.warn
+         App will run without authentication protection
+
+      172 | if (!config.auth.enabled) {
+      173 |   console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+    > 174 |   console.warn("   App will run without authentication protection");
+          |           ^
+      175 |   console.warn("   Configure OIDC and domain settings via the Settings page");
+      176 | }
+      177 |
+
+      at Object.warn (config/index.js:174:11)
+      at Object.require (routes/api/config.js:5:16)
+      at Object.require (routes/api/__tests__/config.test.js:6:22)
+
+    console.warn
+         Configure OIDC and domain settings via the Settings page
+
+      173 |   console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+      174 |   console.warn("   App will run without authentication protection");
+    > 175 |   console.warn("   Configure OIDC and domain settings via the Settings page");
+          |           ^
+      176 | }
+      177 |
+      178 | // Log configuration status
+
+      at Object.warn (config/index.js:175:11)
+      at Object.require (routes/api/config.js:5:16)
+      at Object.require (routes/api/__tests__/config.test.js:6:22)
+
+    console.log
+      📋 Lidarr configuration must be set via the Settings page
+
+      at Object.log (config/index.js:179:9)
+
+    console.log
+      🔐 OIDC and domain configuration must be set via the Settings page
+
+      at Object.log (config/index.js:180:9)
+
+    console.log
+      🚫 Environment variables for Lidarr, OIDC, and domain are no longer supported
+
+      at Object.log (config/index.js:181:9)
+
+    console.log
+      ✅  Lidarr configuration updated: {
+        url: 'http://lidarr:8686',
+        apiKey: '***2345',
+        rootFolder: '/music',
+        qualityProfileId: 1
+      }
+
+      at log (routes/api/config.js:298:13)
+
+    console.log
+      🧪 Testing Lidarr connection: http://lidarr:8686
+
+      at log (routes/api/config.js:348:13)
+
+    console.log
+      📡 Testing status endpoint: http://lidarr:8686/api/v1/system/status
+
+      at log (routes/api/config.js:352:13)
+
+    console.error
+      ❌  Lidarr connection test failed: TypeError: fetch failed
+          at Object.fetch (node:internal/deps/undici/undici:11576:11)
+          at processTicksAndRejections (node:internal/process/task_queues:95:5)
+          at /home/superdingo101/Documents/gitprojects/album-finder/server/routes/api/config.js:354:28 {
+        cause: Error: getaddrinfo ENOTFOUND lidarr
+            at GetAddrInfoReqWrap.onlookup [as oncomplete] (node:dns:108:26) {
+          errno: -3008,
+          code: 'ENOTFOUND',
+          syscall: 'getaddrinfo',
+          hostname: 'lidarr'
+        }
+      }
+
+      406 |     });
+      407 |   } catch (error) {
+    > 408 |     console.error("❌  Lidarr connection test failed:", error);
+          |             ^
+      409 |     if (error.code === 'ECONNREFUSED') {
+      410 |       return res.status(400).json({ error: "Connection refused. Check if Lidarr is running and accessible" });
+      411 |     } else if (error.code === 'ENOTFOUND') {
+
+      at error (routes/api/config.js:408:13)
+
+    console.log
+      🧪 Testing Lidarr connection: http://lidarr:8686
+
+      at log (routes/api/config.js:348:13)
+
+    console.log
+      📡 Testing status endpoint: http://lidarr:8686/api/v1/system/status
+
+      at log (routes/api/config.js:352:13)
+
+    console.error
+      ❌  Lidarr connection test failed: TypeError: fetch failed
+          at Object.fetch (node:internal/deps/undici/undici:11576:11)
+          at processTicksAndRejections (node:internal/process/task_queues:95:5)
+          at /home/superdingo101/Documents/gitprojects/album-finder/server/routes/api/config.js:354:28 {
+        cause: Error: getaddrinfo ENOTFOUND lidarr
+            at GetAddrInfoReqWrap.onlookup [as oncomplete] (node:dns:108:26) {
+          errno: -3008,
+          code: 'ENOTFOUND',
+          syscall: 'getaddrinfo',
+          hostname: 'lidarr'
+        }
+      }
+
+      406 |     });
+      407 |   } catch (error) {
+    > 408 |     console.error("❌  Lidarr connection test failed:", error);
+          |             ^
+      409 |     if (error.code === 'ECONNREFUSED') {
+      410 |       return res.status(400).json({ error: "Connection refused. Check if Lidarr is running and accessible" });
+      411 |     } else if (error.code === 'ENOTFOUND') {
+
+      at error (routes/api/config.js:408:13)
+
+  ● Config API Routes › POST /api/config/lidarr/test › should test Lidarr connection
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 500
+
+      93 |         });
+      94 |
+    > 95 |       expect(response.status).toBe(200);
+         |                               ^
+      96 |       expect(response.body.success).toBe(true);
+      97 |       expect(response.body.profiles).toHaveLength(1);
+      98 |       expect(response.body.profiles[0].name).toBe('Standard');
+
+      at Object.toBe (routes/api/__tests__/config.test.js:95:31)
+
+  ● Config API Routes › POST /api/config/lidarr/test › should handle connection errors
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 400
+    Received: 500
+
+      113 |         });
+      114 |
+    > 115 |       expect(response.status).toBe(400);
+          |                               ^
+      116 |       expect(response.body.error).toContain('Invalid API key');
+      117 |     });
+      118 |   });
+
+      at Object.toBe (routes/api/__tests__/config.test.js:115:31)
+
+FAIL routes/api/__tests__/lidarr.test.js
+  ● Console
+
+    console.warn
+      ⚠️  Authentication disabled - missing OIDC or domain configuration
+
+      171 | // Log authentication status
+      172 | if (!config.auth.enabled) {
+    > 173 |   console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+          |           ^
+      174 |   console.warn("   App will run without authentication protection");
+      175 |   console.warn("   Configure OIDC and domain settings via the Settings page");
+      176 | }
+
+      at Object.warn (config/index.js:173:11)
+      at Object.require (routes/api/config.js:5:16)
+      at Object.require (routes/api/__tests__/lidarr.test.js:5:22)
+
+    console.warn
+         App will run without authentication protection
+
+      172 | if (!config.auth.enabled) {
+      173 |   console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+    > 174 |   console.warn("   App will run without authentication protection");
+          |           ^
+      175 |   console.warn("   Configure OIDC and domain settings via the Settings page");
+      176 | }
+      177 |
+
+      at Object.warn (config/index.js:174:11)
+      at Object.require (routes/api/config.js:5:16)
+      at Object.require (routes/api/__tests__/lidarr.test.js:5:22)
+
+    console.warn
+         Configure OIDC and domain settings via the Settings page
+
+      173 |   console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+      174 |   console.warn("   App will run without authentication protection");
+    > 175 |   console.warn("   Configure OIDC and domain settings via the Settings page");
+          |           ^
+      176 | }
+      177 |
+      178 | // Log configuration status
+
+      at Object.warn (config/index.js:175:11)
+      at Object.require (routes/api/config.js:5:16)
+      at Object.require (routes/api/__tests__/lidarr.test.js:5:22)
+
+    console.log
+      📋 Lidarr configuration must be set via the Settings page
+
+      at Object.log (config/index.js:179:9)
+
+    console.log
+      🔐 OIDC and domain configuration must be set via the Settings page
+
+      at Object.log (config/index.js:180:9)
+
+    console.log
+      🚫 Environment variables for Lidarr, OIDC, and domain are no longer supported
+
+      at Object.log (config/index.js:181:9)
+
+    console.log
+      ✅  Lidarr configuration updated: {
+        url: 'http://lidarr:8686',
+        apiKey: '***2345',
+        rootFolder: '/music',
+        qualityProfileId: 1
+      }
+
+      at log (routes/api/config.js:298:13)
+
+  ● Config API Routes › GET /api/config/lidarr › should return Lidarr configuration with masked API key
+
+    ReferenceError: nock is not defined
+
+      35 |     
+      36 |     // Clean up all nock mocks
+    > 37 |     nock.cleanAll();
+         |     ^
+      38 |   });
+      39 |
+      40 |   describe('GET /api/config/lidarr', () => {
+
+      at Object.nock (routes/api/__tests__/lidarr.test.js:37:5)
+
+  ● Config API Routes › POST /api/config/lidarr › should update Lidarr configuration
+
+    ReferenceError: nock is not defined
+
+      35 |     
+      36 |     // Clean up all nock mocks
+    > 37 |     nock.cleanAll();
+         |     ^
+      38 |   });
+      39 |
+      40 |   describe('GET /api/config/lidarr', () => {
+
+      at Object.nock (routes/api/__tests__/lidarr.test.js:37:5)
+
+  ● Config API Routes › POST /api/config/lidarr › should validate required fields
+
+    ReferenceError: nock is not defined
+
+      35 |     
+      36 |     // Clean up all nock mocks
+    > 37 |     nock.cleanAll();
+         |     ^
+      38 |   });
+      39 |
+      40 |   describe('GET /api/config/lidarr', () => {
+
+      at Object.nock (routes/api/__tests__/lidarr.test.js:37:5)
+
+  ● Config API Routes › POST /api/config/lidarr/test › should test Lidarr connection
+
+    ReferenceError: nock is not defined
+
+      79 |     it('should test Lidarr connection', async () => {
+      80 |       // Mock the Lidarr API responses
+    > 81 |       nock('http://lidarr:8686')
+         |       ^
+      82 |         .get('/api/v1/system/status')
+      83 |         .query({ apikey: 'test-key' })
+      84 |         .reply(200, { version: '1.0.0' })
+
+      at Object.nock (routes/api/__tests__/lidarr.test.js:81:7)
+
+  ● Config API Routes › POST /api/config/lidarr/test › should test Lidarr connection
+
+    ReferenceError: nock is not defined
+
+      35 |     
+      36 |     // Clean up all nock mocks
+    > 37 |     nock.cleanAll();
+         |     ^
+      38 |   });
+      39 |
+      40 |   describe('GET /api/config/lidarr', () => {
+
+      at Object.nock (routes/api/__tests__/lidarr.test.js:37:5)
+
+  ● Config API Routes › POST /api/config/lidarr/test › should handle connection errors
+
+    ReferenceError: nock is not defined
+
+      104 |     it('should handle connection errors', async () => {
+      105 |       // Mock a failed connection
+    > 106 |       nock('http://lidarr:8686')
+          |       ^
+      107 |         .get('/api/v1/system/status')
+      108 |         .query({ apikey: 'bad-key' })
+      109 |         .reply(401, { error: 'Unauthorized' });
+
+      at Object.nock (routes/api/__tests__/lidarr.test.js:106:7)
+
+  ● Config API Routes › POST /api/config/lidarr/test › should handle connection errors
+
+    ReferenceError: nock is not defined
+
+      35 |     
+      36 |     // Clean up all nock mocks
+    > 37 |     nock.cleanAll();
+         |     ^
+      38 |   });
+      39 |
+      40 |   describe('GET /api/config/lidarr', () => {
+
+      at Object.nock (routes/api/__tests__/lidarr.test.js:37:5)
+
+FAIL routes/api/__tests__/musicbrainz.test.js (6.771 s)
+  ● Console
+
+    console.warn
+      ⚠️  Authentication disabled - missing OIDC or domain configuration
+
+      171 | // Log authentication status
+      172 | if (!config.auth.enabled) {
+    > 173 |   console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+          |           ^
+      174 |   console.warn("   App will run without authentication protection");
+      175 |   console.warn("   Configure OIDC and domain settings via the Settings page");
+      176 | }
+
+      at Object.warn (config/index.js:173:11)
+      at Object.require (services/queue.js:2:16)
+      at Object.require (routes/api/musicbrainz.js:4:27)
+      at Object.require (routes/api/__tests__/musicbrainz.test.js:4:27)
+
+    console.warn
+         App will run without authentication protection
+
+      172 | if (!config.auth.enabled) {
+      173 |   console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+    > 174 |   console.warn("   App will run without authentication protection");
+          |           ^
+      175 |   console.warn("   Configure OIDC and domain settings via the Settings page");
+      176 | }
+      177 |
+
+      at Object.warn (config/index.js:174:11)
+      at Object.require (services/queue.js:2:16)
+      at Object.require (routes/api/musicbrainz.js:4:27)
+      at Object.require (routes/api/__tests__/musicbrainz.test.js:4:27)
+
+    console.warn
+         Configure OIDC and domain settings via the Settings page
+
+      173 |   console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+      174 |   console.warn("   App will run without authentication protection");
+    > 175 |   console.warn("   Configure OIDC and domain settings via the Settings page");
+          |           ^
+      176 | }
+      177 |
+      178 | // Log configuration status
+
+      at Object.warn (config/index.js:175:11)
+      at Object.require (services/queue.js:2:16)
+      at Object.require (routes/api/musicbrainz.js:4:27)
+      at Object.require (routes/api/__tests__/musicbrainz.test.js:4:27)
+
+    console.log
+      📋 Lidarr configuration must be set via the Settings page
+
+      at Object.log (config/index.js:179:9)
+
+    console.log
+      🔐 OIDC and domain configuration must be set via the Settings page
+
+      at Object.log (config/index.js:180:9)
+
+    console.log
+      🚫 Environment variables for Lidarr, OIDC, and domain are no longer supported
+
+      at Object.log (config/index.js:181:9)
+
+    console.log
+      🌍 Timezone configured: UTC
+
+      at Object.log (utils/timezone.js:216:9)
+
+    console.log
+      📍 Timezone source: default (UTC)
+
+      at Object.log (utils/timezone.js:217:9)
+
+    console.log
+      🕐 Current time: 10/22/2025, 07:19:02 PM UTC
+
+      at Object.log (utils/timezone.js:218:9)
+
+    console.log
+      🎵 MusicBrainz recording search: https://musicbrainz.org/ws/2/recording?query=test%20song&fmt=json&limit=10&inc=releases+release-groups+artist-credits
+
+      at log (routes/api/musicbrainz.js:113:15)
+
+    console.error
+      API call failed for user test-user: Error: Missing 'query' parameter
+          at /home/superdingo101/Documents/gitprojects/album-finder/server/routes/api/musicbrainz.js:108:13
+          at Object.apiFunction [as requestFn] (/home/superdingo101/Documents/gitprojects/album-finder/server/services/queue.js:167:57)
+          at RequestQueue.requestFn [as processRequest] (/home/superdingo101/Documents/gitprojects/album-finder/server/services/queue.js:82:36)
+          at RequestQueue.processRequest [as process] (/home/superdingo101/Documents/gitprojects/album-finder/server/services/queue.js:74:12)
+          at process (/home/superdingo101/Documents/gitprojects/album-finder/server/services/queue.js:28:12)
+          at new Promise (<anonymous>)
+          at RequestQueue.add (/home/superdingo101/Documents/gitprojects/album-finder/server/services/queue.js:14:12)
+          at add (/home/superdingo101/Documents/gitprojects/album-finder/server/services/queue.js:167:39)
+          at queuedApiCall (/home/superdingo101/Documents/gitprojects/album-finder/server/routes/api/musicbrainz.js:104:9)
+          at Layer.handle [as handle_request] (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/layer.js:95:5)
+          at next (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/route.js:149:13)
+          at next (/home/superdingo101/Documents/gitprojects/album-finder/server/routes/api/__tests__/musicbrainz.test.js:11:5)
+          at Layer.handle [as handle_request] (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/layer.js:95:5)
+          at next (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/route.js:149:13)
+          at Route.dispatch (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/route.js:119:3)
+          at Layer.handle [as handle_request] (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/layer.js:95:5)
+          at /home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:284:15
+          at Function.process_params (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:346:12)
+          at next (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:280:10)
+          at Function.handle (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:175:3)
+          at router (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:47:12)
+          at Layer.handle [as handle_request] (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/layer.js:95:5)
+          at trim_prefix (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:328:13)
+          at /home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:286:9
+          at Function.process_params (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:346:12)
+          at next (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:280:10)
+          at jsonParser (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/body-parser/lib/types/json.js:113:7)
+          at Layer.handle [as handle_request] (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/layer.js:95:5)
+          at trim_prefix (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:328:13)
+          at /home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:286:9
+          at Function.process_params (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:346:12)
+          at next (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:280:10)
+          at expressInit (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/middleware/init.js:40:5)
+          at Layer.handle [as handle_request] (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/layer.js:95:5)
+          at trim_prefix (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:328:13)
+          at /home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:286:9
+          at Function.process_params (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:346:12)
+          at next (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:280:10)
+          at query (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/middleware/query.js:45:5)
+          at Layer.handle [as handle_request] (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/layer.js:95:5)
+          at trim_prefix (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:328:13)
+          at /home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:286:9
+          at Function.process_params (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:346:12)
+          at next (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:280:10)
+          at Function.handle (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/router/index.js:175:3)
+          at Function.handle (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/application.js:181:10)
+          at Server.app (/home/superdingo101/Documents/gitprojects/album-finder/server/node_modules/express/lib/express.js:39:9)
+          at Server.emit (node:events:514:28)
+          at parserOnIncoming (node:_http_server:1107:12)
+          at HTTPParser.parserOnHeadersComplete (node:_http_common:119:17)
+
+      185 |       });
+      186 |     } else {
+    > 187 |       console.error(`API call failed for user ${userId}:`, error);
+          |               ^
+      188 |       res.status(500).json({ 
+      189 |         error: "API request failed", 
+      190 |         details: error.message,
+
+      at error (services/queue.js:187:15)
+      at routes/api/musicbrainz.js:104:3
+
+    console.log
+      ⏱️ Dynamic timeout: 50 limit requires 2 batches, setting 30s timeout
+
+      at log (services/queue.js:145:15)
+
+    console.log
+      🎤 Using precise search with minimal fuzzy matching
+
+      at log (routes/api/musicbrainz.js:157:17)
+
+    console.log
+      🎯 Search preferences: { limit: 50, categories: undefined }
+
+      at log (routes/api/musicbrainz.js:180:15)
+
+    console.log
+      🔍 Search query used: artist:"Test Artist" OR artistname:"Test Artist"
+
+      at log (routes/api/musicbrainz.js:181:15)
+
+    console.log
+      🎼 MusicBrainz release-group search (batch 1): https://musicbrainz.org/ws/2/release-group/?query=artist%3A%22Test%20Artist%22%20OR%20artistname%3A%22Test%20Artist%22&fmt=json&limit=25&offset=0
+
+      at log (routes/api/musicbrainz.js:188:17)
+
+    console.log
+      📄 Fetching results 1-25 (total collected: 0)
+
+      at log (routes/api/musicbrainz.js:189:17)
+
+    console.log
+      📊 Batch 1 results: 5 release groups found
+
+      at log (routes/api/musicbrainz.js:201:17)
+
+    console.log
+      🏁 Received fewer results than requested - end of available data
+
+      at log (routes/api/musicbrainz.js:214:19)
+
+    console.log
+      📊 Total MusicBrainz results collected: 5 release groups
+
+      at log (routes/api/musicbrainz.js:235:15)
+
+    console.log
+      🎯 No category filtering applied (showing all types)
+
+      at log (routes/api/musicbrainz.js:280:17)
+
+    console.log
+      🎯 Final results: 5 releases returned
+
+      at log (routes/api/musicbrainz.js:291:15)
+
+    console.log
+      📝 First few results:
+
+      at log (routes/api/musicbrainz.js:293:17)
+
+    console.log
+        1. Nagios Check Release (Other) by MusicBrainz Test Artist
+
+      at log (routes/api/musicbrainz.js:295:19)
+          at Array.forEach (<anonymous>)
+
+    console.log
+        2. License Placeholder (Other) by MusicBrainz Test Artist
+
+      at log (routes/api/musicbrainz.js:295:19)
+          at Array.forEach (<anonymous>)
+
+    console.log
+        3. You are using the Cover Art Archive without supporting us (Other) by MusicBrainz Test Artist
+
+      at log (routes/api/musicbrainz.js:295:19)
+          at Array.forEach (<anonymous>)
+
+    console.log
+      ⏱️ Dynamic timeout: 50 limit requires 2 batches, setting 30s timeout
+
+      at log (services/queue.js:145:15)
+
+    console.log
+      🎤 Using precise search with minimal fuzzy matching
+
+      at log (routes/api/musicbrainz.js:157:17)
+
+    console.log
+      🎯 Search preferences: { limit: 50, categories: 'album' }
+
+      at log (routes/api/musicbrainz.js:180:15)
+
+    console.log
+      🔍 Search query used: artist:"Test Artist" OR artistname:"Test Artist"
+
+      at log (routes/api/musicbrainz.js:181:15)
+
+    console.log
+      🎼 MusicBrainz release-group search (batch 1): https://musicbrainz.org/ws/2/release-group/?query=artist%3A%22Test%20Artist%22%20OR%20artistname%3A%22Test%20Artist%22&fmt=json&limit=25&offset=0
+
+      at log (routes/api/musicbrainz.js:188:17)
+
+    console.log
+      📄 Fetching results 1-25 (total collected: 0)
+
+      at log (routes/api/musicbrainz.js:189:17)
+
+    console.log
+      ⏱️ Rate limiting: waiting 702ms before next MusicBrainz request
+
+      at log (services/rateLimit.js:13:13)
+
+    console.log
+      📊 Batch 1 results: 5 release groups found
+
+      at log (routes/api/musicbrainz.js:201:17)
+
+    console.log
+      🏁 Received fewer results than requested - end of available data
+
+      at log (routes/api/musicbrainz.js:214:19)
+
+    console.log
+      📊 Total MusicBrainz results collected: 5 release groups
+
+      at log (routes/api/musicbrainz.js:235:15)
+
+    console.log
+      🔍 Filtering by categories: [ 'album' ]
+
+      at log (routes/api/musicbrainz.js:240:17)
+
+    console.log
+      🚫 Filtering out Nagios Check Release (other -> other)
+
+      at log (routes/api/musicbrainz.js:272:23)
+          at Array.filter (<anonymous>)
+
+    console.log
+      🚫 Filtering out License Placeholder (other -> other)
+
+      at log (routes/api/musicbrainz.js:272:23)
+          at Array.filter (<anonymous>)
+
+    console.log
+      🚫 Filtering out You are using the Cover Art Archive without supporting us (other -> other)
+
+      at log (routes/api/musicbrainz.js:272:23)
+          at Array.filter (<anonymous>)
+
+    console.log
+      🚫 Filtering out CAA-137 Test (unknown -> other)
+
+      at log (routes/api/musicbrainz.js:272:23)
+          at Array.filter (<anonymous>)
+
+    console.log
+      ✅ Category filtering: 5 -> 1 releases
+
+      at log (routes/api/musicbrainz.js:277:19)
+
+    console.log
+      🎯 Final results: 1 releases returned
+
+      at log (routes/api/musicbrainz.js:291:15)
+
+    console.log
+      📝 First few results:
+
+      at log (routes/api/musicbrainz.js:293:17)
+
+    console.log
+        1. Emoji: The MusicBrainz Test Album (Album) by MusicBrainz Test Artist
+
+      at log (routes/api/musicbrainz.js:295:19)
+          at Array.forEach (<anonymous>)
+
+  ● MusicBrainz API Routes › GET /api/musicbrainz/recording › should search for recordings
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 1
+    Received length: 10
+    Received array:  [{"artist-credit": [Array], "artist-credit-id": "aaa88b10-f921-3bb3-932a-000491b70347", "first-release-date": "2006", "id": "471f47e8-b47c-49c8-93fd-2ce246cbcdfd", "length": 130413, "releases": [Array], "score": 100, "title": "Test Song", "video": null}, {"artist-credit": [Array], "artist-credit-id": "fc697c60-00a7-337a-a48f-a2dec59b31e2", "first-release-date": "2005", "id": "a1f7d3e0-a8b3-413d-9daa-0e39b563b267", "length": 265773, "releases": [Array], "score": 100, "title": "Test Song", "video": null}, {"artist-credit": [Array], "artist-credit-id": "c06f4f05-af38-308d-b0fd-d2d12a7cbbb9", "first-release-date": "2005-11", "id": "8c21c54b-a030-4ae3-a51a-8223f945eefe", "length": 36920, "releases": [Array], "score": 100, "title": "Test Song", "video": null}, {"artist-credit": [Array], "artist-credit-id": "2f245d92-c3dc-414e-9671-6350c3300764", "first-release-date": "2022-11-05", "id": "c0edc674-9b38-4ee0-80db-92bfed5fedc6", "length": 204000, "releases": [Array], "score": 100, "title": "Test Song", "video": null}, {"artist-credit": [Array], "artist-credit-id": "cfadaf54-ad8b-37ee-9f9e-b450df8ef8a5", "first-release-date": "2018-12-15", "id": "9ab6e526-e118-469c-b71c-e6601713c3f2", "length": 45685, "releases": [Array], "score": 100, "title": "test song", "video": null}, {"artist-credit": [Array], "artist-credit-id": "54310f3c-dfdd-3c6c-8727-d6aaba722905", "first-release-date": "2008-02-01", "id": "d296b0c4-a550-43f0-a1e1-5b63f077a3ba", "length": 495000, "releases": [Array], "score": 87, "tags": [Array], "title": "Another Test Song", "video": null}, {"artist-credit": [Array], "artist-credit-id": "71e0df54-b410-32ed-9a04-85652aa54f3c", "first-release-date": "1961", "id": "a8eba6d4-6012-4b67-85ea-2c2dc7cade71", "length": 92000, "releases": [Array], "score": 78, "title": "The Literacy Test Song", "video": null}, {"artist-credit": [Array], "artist-credit-id": "3e947c59-6741-381e-b9fd-2300c2519e37", "first-release-date": "2012-10-27", "id": "1e029ba3-2969-4a45-88a3-a88854e04563", "length": 208000, "releases": [Array], "score": 78, "title": "Test Song Please Ignore", "video": null}, {"artist-credit": [Array], "artist-credit-id": "2d790439-44ce-3158-a115-08dc7de3fc34", "first-release-date": "2017-02-02", "id": "bd6544a5-d031-4d99-acbf-a07ea1b780e2", "length": 66000, "releases": [Array], "score": 78, "tags": [Array], "title": "Fitnessgram Pacer Test Song", "video": null}, {"artist-credit": [Array], "artist-credit-id": "fba06c89-2fb4-40cc-aabb-e757d2ea87e2", "first-release-date": "2024-05-16", "id": "7118ca9d-490b-4bd9-b7b0-c248b87d2ab8", "length": 448330, "releases": [Array], "score": 78, "title": "test song plz ignore", "video": null}]
+
+      46 |
+      47 |       expect(response.status).toBe(200);
+    > 48 |       expect(response.body.recordings).toHaveLength(1);
+         |                                        ^
+      49 |       expect(response.body.recordings[0].title).toBe('Test Song');
+      50 |     });
+      51 |
+
+      at Object.toHaveLength (routes/api/__tests__/musicbrainz.test.js:48:40)
+
+  ● MusicBrainz API Routes › GET /api/musicbrainz/recording › should return 400 for missing query parameter
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 400
+    Received: 500
+
+      54 |         .get('/api/musicbrainz/recording');
+      55 |
+    > 56 |       expect(response.status).toBe(400);
+         |                               ^
+      57 |     });
+      58 |   });
+      59 |
+
+      at Object.toBe (routes/api/__tests__/musicbrainz.test.js:56:31)
+
+  ● MusicBrainz API Routes › GET /api/musicbrainz/release-group › should search for release groups
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 1
+    Received length: 5
+    Received array:  [{"artist-credit": [{"artist": {"aliases": [Array], "disambiguation": "Special Purpose Artist", "id": "7e84f845-ac16-41fe-9ff8-df12eb32af55", "name": "MusicBrainz Test Artist", "sort-name": "MusicBrainz Test Artist"}, "name": "MusicBrainz Test Artist"}], "artist-credit-id": "7beea623-a3ed-38cd-93a7-f2cadd98a3f5", "count": 1, "first-release-date": "1920", "id": "e916d4bf-8e8f-3107-ab4a-4c3774e23990", "primary-type": "Other", "primary-type-id": "4fc3be2b-de1e-396b-a933-beb8f1607a22", "releases": [{"id": "1735e086-462e-42c3-b615-eebbd5e9f352", "status": "Pseudo-Release", "status-id": "41121bb9-3413-3818-8a9a-9742318349aa", "title": "Nagios Check Release"}], "score": 100, "title": "Nagios Check Release", "type-id": "4fc3be2b-de1e-396b-a933-beb8f1607a22"}, {"artist-credit": [{"artist": {"aliases": [Array], "disambiguation": "Special Purpose Artist", "id": "7e84f845-ac16-41fe-9ff8-df12eb32af55", "name": "MusicBrainz Test Artist", "sort-name": "MusicBrainz Test Artist"}, "name": "MusicBrainz Test Artist"}], "artist-credit-id": "7beea623-a3ed-38cd-93a7-f2cadd98a3f5", "count": 1, "first-release-date": "2011-12-09", "id": "7f1c3043-e164-464a-9131-10ac49011fab", "primary-type": "Other", "primary-type-id": "4fc3be2b-de1e-396b-a933-beb8f1607a22", "releases": [{"id": "a9d8b538-c20a-4025-aea1-5530d616a20a", "status": "Official", "status-id": "4e304316-386d-3409-af2e-78857eec5cfe", "title": "License Placeholder"}], "score": 100, "tags": [{"count": 1, "name": "bogus entity"}], "title": "License Placeholder", "type-id": "4fc3be2b-de1e-396b-a933-beb8f1607a22"}, {"artist-credit": [{"artist": {"aliases": [Array], "disambiguation": "Special Purpose Artist", "id": "7e84f845-ac16-41fe-9ff8-df12eb32af55", "name": "MusicBrainz Test Artist", "sort-name": "MusicBrainz Test Artist"}, "name": "MusicBrainz Test Artist"}], "artist-credit-id": "7beea623-a3ed-38cd-93a7-f2cadd98a3f5", "count": 1, "first-release-date": "2021-11-04", "id": "e9a8fd6f-00f0-410b-a34d-da2c79d979d0", "primary-type": "Other", "primary-type-id": "4fc3be2b-de1e-396b-a933-beb8f1607a22", "releases": [{"id": "7f2efee7-00be-4a38-955e-23e4c26f36bd", "status": "Bootleg", "status-id": "1156806e-d06a-38bd-83f0-cf2284a808b9", "title": "You are using the Cover Art Archive without supporting us"}], "score": 100, "secondary-type-ids": ["0eb547c2-8783-43e4-8f81-751c680e7b04"], "secondary-types": ["Audio drama"], "title": "You are using the Cover Art Archive without supporting us", "type-id": "4fc3be2b-de1e-396b-a933-beb8f1607a22"}, {"artist-credit": [{"artist": {"aliases": [Array], "disambiguation": "Special Purpose Artist", "id": "7e84f845-ac16-41fe-9ff8-df12eb32af55", "name": "MusicBrainz Test Artist", "sort-name": "MusicBrainz Test Artist"}, "name": "MusicBrainz Test Artist"}], "artist-credit-id": "7beea623-a3ed-38cd-93a7-f2cadd98a3f5", "count": 1, "id": "8546e284-26b6-4dd5-81ec-e0a5aaa9b557", "releases": [{"id": "1b401e8e-2d9b-4836-ac63-2628500aa381", "title": "CAA-137 Test"}], "score": 100, "tags": [{"count": 1, "name": "bogus entity"}], "title": "CAA-137 Test"}, {"artist-credit": [{"artist": {"aliases": [Array], "disambiguation": "Special Purpose Artist", "id": "7e84f845-ac16-41fe-9ff8-df12eb32af55", "name": "MusicBrainz Test Artist", "sort-name": "MusicBrainz Test Artist"}, "name": "MusicBrainz Test Artist"}], "artist-credit-id": "7beea623-a3ed-38cd-93a7-f2cadd98a3f5", "count": 1, "first-release-date": "2020-03-05", "id": "5b35fbbc-3f45-45a8-95a9-2545dbf44e7c", "primary-type": "Album", "primary-type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc", "releases": [{"id": "43bcfb95-f26c-4f8d-84f8-7b2ac5b8ab72", "status": "Official", "status-id": "4e304316-386d-3409-af2e-78857eec5cfe", "title": "Emoji: The MusicBrainz Test Album"}], "score": 100, "secondary-type-ids": ["dd2a21e1-0c00-3729-a7a0-de60b84eb5d1", "22a628ad-c082-3c4f-b1b6-d41665107b88"], "secondary-types": ["Compilation", "Soundtrack"], "tags": [{"count": -1, "name": "test"}, {"count": 1, "name": "bogus entity"}], "title": "Emoji: The MusicBrainz Test Album", "type-id": "dd2a21e1-0c00-3729-a7a0-de60b84eb5d1"}]
+
+      78 |
+      79 |       expect(response.status).toBe(200);
+    > 80 |       expect(response.body['release-groups']).toHaveLength(1);
+         |                                               ^
+      81 |     });
+      82 |
+      83 |     it('should apply category filters', async () => {
+
+      at Object.toHaveLength (routes/api/__tests__/musicbrainz.test.js:80:47)
+
+FAIL services/__tests__/database.test.js
+  ● Console
+
+    console.log
+      🌍 Timezone configured: UTC
+
+      at Object.log (utils/timezone.js:216:9)
+
+    console.log
+      📍 Timezone source: default (UTC)
+
+      at Object.log (utils/timezone.js:217:9)
+
+    console.log
+      🕐 Current time: 10/22/2025, 07:19:06 PM UTC
+
+      at Object.log (utils/timezone.js:218:9)
+
+  ● Database Service › logQuery › should log API queries correctly
+
+    TypeError: Cannot read properties of null (reading 'all')
+
+      376 |   all(sql, params = []) {
+      377 |     return new Promise((resolve, reject) => {
+    > 378 |       this.db.all(sql, params, (err, rows) => {
+          |               ^
+      379 |         if (err) reject(err);
+      380 |         else resolve(rows);
+      381 |       });
+
+      at all (services/database.js:378:15)
+      at Database.all (services/database.js:377:12)
+      at Object.all (services/__tests__/database.test.js:14:35)
+
+  ● Database Service › logQuery › should handle optional fields
+
+    TypeError: Cannot read properties of null (reading 'all')
+
+      376 |   all(sql, params = []) {
+      377 |     return new Promise((resolve, reject) => {
+    > 378 |       this.db.all(sql, params, (err, rows) => {
+          |               ^
+      379 |         if (err) reject(err);
+      380 |         else resolve(rows);
+      381 |       });
+
+      at all (services/database.js:378:15)
+      at Database.all (services/database.js:377:12)
+      at Object.all (services/__tests__/database.test.js:28:35)
+
+  ● Database Service › logArtistAddition › should log artist additions
+
+    TypeError: Cannot read properties of null (reading 'all')
+
+      376 |   all(sql, params = []) {
+      377 |     return new Promise((resolve, reject) => {
+    > 378 |       this.db.all(sql, params, (err, rows) => {
+          |               ^
+      379 |         if (err) reject(err);
+      380 |         else resolve(rows);
+      381 |       });
+
+      at all (services/database.js:378:15)
+      at Database.all (services/database.js:377:12)
+      at Object.all (services/__tests__/database.test.js:44:35)
+
+  ● Database Service › logAlbumAddition › should log album additions
+
+    TypeError: Cannot read properties of null (reading 'all')
+
+      376 |   all(sql, params = []) {
+      377 |     return new Promise((resolve, reject) => {
+    > 378 |       this.db.all(sql, params, (err, rows) => {
+          |               ^
+      379 |         if (err) reject(err);
+      380 |         else resolve(rows);
+      381 |       });
+
+      at all (services/database.js:378:15)
+      at Database.all (services/database.js:377:12)
+      at Object.all (services/__tests__/database.test.js:60:35)
+
+  ● Database Service › getStats › should return accurate statistics
+
+    TypeError: Cannot read properties of null (reading 'totalQueries')
+
+      79 |
+      80 |       const stats = await database.getStats();
+    > 81 |       expect(stats.totalQueries).toBe(1);
+         |                    ^
+      82 |       expect(stats.totalArtists).toBe(1);
+      83 |     });
+      84 |   });
+
+      at Object.totalQueries (services/__tests__/database.test.js:81:20)
+
+FAIL services/__tests__/cache.test.js
+  ● Console
+
+    console.warn
+      ⚠️  Authentication disabled - missing OIDC or domain configuration
+
+      171 | // Log authentication status
+      172 | if (!config.auth.enabled) {
+    > 173 |   console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+          |           ^
+      174 |   console.warn("   App will run without authentication protection");
+      175 |   console.warn("   Configure OIDC and domain settings via the Settings page");
+      176 | }
+
+      at Object.warn (config/index.js:173:11)
+      at Object.require (services/cache.js:3:16)
+      at Object.require (services/__tests__/cache.test.js:1:45)
+
+    console.warn
+         App will run without authentication protection
+
+      172 | if (!config.auth.enabled) {
+      173 |   console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+    > 174 |   console.warn("   App will run without authentication protection");
+          |           ^
+      175 |   console.warn("   Configure OIDC and domain settings via the Settings page");
+      176 | }
+      177 |
+
+      at Object.warn (config/index.js:174:11)
+      at Object.require (services/cache.js:3:16)
+      at Object.require (services/__tests__/cache.test.js:1:45)
+
+    console.warn
+         Configure OIDC and domain settings via the Settings page
+
+      173 |   console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+      174 |   console.warn("   App will run without authentication protection");
+    > 175 |   console.warn("   Configure OIDC and domain settings via the Settings page");
+          |           ^
+      176 | }
+      177 |
+      178 | // Log configuration status
+
+      at Object.warn (config/index.js:175:11)
+      at Object.require (services/cache.js:3:16)
+      at Object.require (services/__tests__/cache.test.js:1:45)
+
+    console.log
+      📋 Lidarr configuration must be set via the Settings page
+
+      at Object.log (config/index.js:179:9)
+
+    console.log
+      🔐 OIDC and domain configuration must be set via the Settings page
+
+      at Object.log (config/index.js:180:9)
+
+    console.log
+      🚫 Environment variables for Lidarr, OIDC, and domain are no longer supported
+
+      at Object.log (config/index.js:181:9)
+
+  ● Cache Service › cache operations › should track hit/miss statistics
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 2
+
+      38 |       
+      39 |       const stats = cache.getStats();
+    > 40 |       expect(stats.hits).toBe(1);
+         |                          ^
+      41 |       expect(stats.misses).toBe(1);
+      42 |     });
+      43 |   });
+
+      at Object.toBe (services/__tests__/cache.test.js:40:26)
+
+FAIL routes/__tests__/auth.test.js
+  ● Console
+
+    console.warn
+      ⚠️  Authentication disabled - missing OIDC or domain configuration
+
+      171 | // Log authentication status
+      172 | if (!config.auth.enabled) {
+    > 173 |   console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+          |           ^
+      174 |   console.warn("   App will run without authentication protection");
+      175 |   console.warn("   Configure OIDC and domain settings via the Settings page");
+      176 | }
+
+      at Object.warn (config/index.js:173:11)
+      at Object.require (routes/auth.js:4:16)
+      at Object.require (routes/__tests__/auth.test.js:4:20)
+
+    console.warn
+         App will run without authentication protection
+
+      172 | if (!config.auth.enabled) {
+      173 |   console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+    > 174 |   console.warn("   App will run without authentication protection");
+          |           ^
+      175 |   console.warn("   Configure OIDC and domain settings via the Settings page");
+      176 | }
+      177 |
+
+      at Object.warn (config/index.js:174:11)
+      at Object.require (routes/auth.js:4:16)
+      at Object.require (routes/__tests__/auth.test.js:4:20)
+
+    console.warn
+         Configure OIDC and domain settings via the Settings page
+
+      173 |   console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+      174 |   console.warn("   App will run without authentication protection");
+    > 175 |   console.warn("   Configure OIDC and domain settings via the Settings page");
+          |           ^
+      176 | }
+      177 |
+      178 | // Log configuration status
+
+      at Object.warn (config/index.js:175:11)
+      at Object.require (routes/auth.js:4:16)
+      at Object.require (routes/__tests__/auth.test.js:4:20)
+
+    console.log
+      📋 Lidarr configuration must be set via the Settings page
+
+      at Object.log (config/index.js:179:9)
+
+    console.log
+      🔐 OIDC and domain configuration must be set via the Settings page
+
+      at Object.log (config/index.js:180:9)
+
+    console.log
+      🚫 Environment variables for Lidarr, OIDC, and domain are no longer supported
+
+      at Object.log (config/index.js:181:9)
+
+    console.log
+      🌍 Timezone configured: UTC
+
+      at Object.log (utils/timezone.js:216:9)
+
+    console.log
+      📍 Timezone source: default (UTC)
+
+      at Object.log (utils/timezone.js:217:9)
+
+    console.log
+      🕐 Current time: 10/22/2025, 07:19:07 PM UTC
+
+      at Object.log (utils/timezone.js:218:9)
+
+    console.log
+      🔧 Creating auth routes - auth enabled: true
+
+      at log (routes/auth.js:11:11)
+
+    console.log
+      🔧 Client parameter provided: false
+
+      at log (routes/auth.js:12:11)
+
+    console.log
+      🔧 Auth routes created successfully
+
+      at log (routes/auth.js:383:11)
+
+    console.log
+      🔐 /auth/login accessed
+
+      at log (routes/auth.js:15:13)
+
+    console.log
+      🔐 Auth enabled: true
+
+      at log (routes/auth.js:16:13)
+
+    console.log
+      🔐 Session exists: true
+
+      at log (routes/auth.js:17:13)
+
+    console.log
+      🔐 OIDC client available: false
+
+      at log (routes/auth.js:26:13)
+
+    console.error
+      ❌ No OIDC client available
+
+      27 |     
+      28 |     if (!client) {
+    > 29 |       console.error("❌ No OIDC client available");
+         |               ^
+      30 |       return res.status(500).send(`
+      31 |         <html>
+      32 |           <body>
+
+      at error (routes/auth.js:29:15)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at Function.handle (node_modules/express/lib/router/index.js:175:3)
+      at router (node_modules/express/lib/router/index.js:47:12)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at session (node_modules/express-session/index.js:487:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at jsonParser (node_modules/body-parser/lib/types/json.js:113:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at expressInit (node_modules/express/lib/middleware/init.js:40:5)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at query (node_modules/express/lib/middleware/query.js:45:5)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at Function.handle (node_modules/express/lib/router/index.js:175:3)
+      at Function.handle (node_modules/express/lib/application.js:181:10)
+      at Server.app (node_modules/express/lib/express.js:39:9)
+
+    console.log
+      🔧 Creating auth routes - auth enabled: true
+
+      at log (routes/auth.js:11:11)
+
+    console.log
+      🔧 Client parameter provided: false
+
+      at log (routes/auth.js:12:11)
+
+    console.log
+      🔧 Auth routes created successfully
+
+      at log (routes/auth.js:383:11)
+
+    console.log
+      🔐 /auth/login accessed
+
+      at log (routes/auth.js:15:13)
+
+    console.log
+      🔐 Auth enabled: true
+
+      at log (routes/auth.js:16:13)
+
+    console.log
+      🔐 Session exists: true
+
+      at log (routes/auth.js:17:13)
+
+    console.log
+      🔐 OIDC client available: false
+
+      at log (routes/auth.js:26:13)
+
+    console.error
+      ❌ No OIDC client available
+
+      27 |     
+      28 |     if (!client) {
+    > 29 |       console.error("❌ No OIDC client available");
+         |               ^
+      30 |       return res.status(500).send(`
+      31 |         <html>
+      32 |           <body>
+
+      at error (routes/auth.js:29:15)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at Function.handle (node_modules/express/lib/router/index.js:175:3)
+      at router (node_modules/express/lib/router/index.js:47:12)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at session (node_modules/express-session/index.js:487:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at jsonParser (node_modules/body-parser/lib/types/json.js:113:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at expressInit (node_modules/express/lib/middleware/init.js:40:5)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at query (node_modules/express/lib/middleware/query.js:45:5)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at Function.handle (node_modules/express/lib/router/index.js:175:3)
+      at Function.handle (node_modules/express/lib/application.js:181:10)
+      at Server.app (node_modules/express/lib/express.js:39:9)
+
+    console.log
+      🔧 Creating auth routes - auth enabled: true
+
+      at log (routes/auth.js:11:11)
+
+    console.log
+      🔧 Client parameter provided: false
+
+      at log (routes/auth.js:12:11)
+
+    console.log
+      🔧 Auth routes created successfully
+
+      at log (routes/auth.js:383:11)
+
+    console.log
+      🔐 /auth/login accessed
+
+      at log (routes/auth.js:15:13)
+
+    console.log
+      🔐 Auth enabled: true
+
+      at log (routes/auth.js:16:13)
+
+    console.log
+      🔐 Session exists: true
+
+      at log (routes/auth.js:17:13)
+
+    console.log
+      🔐 OIDC client available: false
+
+      at log (routes/auth.js:26:13)
+
+    console.error
+      ❌ No OIDC client available
+
+      27 |     
+      28 |     if (!client) {
+    > 29 |       console.error("❌ No OIDC client available");
+         |               ^
+      30 |       return res.status(500).send(`
+      31 |         <html>
+      32 |           <body>
+
+      at error (routes/auth.js:29:15)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at Function.handle (node_modules/express/lib/router/index.js:175:3)
+      at router (node_modules/express/lib/router/index.js:47:12)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at session (node_modules/express-session/index.js:487:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at jsonParser (node_modules/body-parser/lib/types/json.js:113:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at expressInit (node_modules/express/lib/middleware/init.js:40:5)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at query (node_modules/express/lib/middleware/query.js:45:5)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at Function.handle (node_modules/express/lib/router/index.js:175:3)
+      at Function.handle (node_modules/express/lib/application.js:181:10)
+      at Server.app (node_modules/express/lib/express.js:39:9)
+
+    console.log
+      🔄 /auth/callback accessed
+
+      at log (routes/auth.js:100:13)
+
+    console.log
+      🔄 Query params: { code: 'mock-auth-code', state: 'mock-state' }
+
+      at log (routes/auth.js:101:13)
+
+    console.error
+      ❌ No OIDC client available in callback
+
+      113 |     const client = getClient();
+      114 |     if (!client) {
+    > 115 |       console.error("❌ No OIDC client available in callback");
+          |               ^
+      116 |       return res.status(500).send("Authentication not properly configured - client missing");
+      117 |     }
+      118 |     
+
+      at error (routes/auth.js:115:15)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at Function.handle (node_modules/express/lib/router/index.js:175:3)
+      at router (node_modules/express/lib/router/index.js:47:12)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at session (node_modules/express-session/index.js:487:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at jsonParser (node_modules/body-parser/lib/types/json.js:113:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at expressInit (node_modules/express/lib/middleware/init.js:40:5)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at query (node_modules/express/lib/middleware/query.js:45:5)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at Function.handle (node_modules/express/lib/router/index.js:175:3)
+      at Function.handle (node_modules/express/lib/application.js:181:10)
+      at Server.app (node_modules/express/lib/express.js:39:9)
+
+    console.log
+      🔧 Creating auth routes - auth enabled: true
+
+      at log (routes/auth.js:11:11)
+
+    console.log
+      🔧 Client parameter provided: false
+
+      at log (routes/auth.js:12:11)
+
+    console.log
+      🔧 Auth routes created successfully
+
+      at log (routes/auth.js:383:11)
+
+    console.log
+      🔄 /auth/callback accessed
+
+      at log (routes/auth.js:100:13)
+
+    console.log
+      🔄 Query params: { error: 'access_denied', error_description: 'User denied access' }
+
+      at log (routes/auth.js:101:13)
+
+    console.error
+      ❌ No OIDC client available in callback
+
+      113 |     const client = getClient();
+      114 |     if (!client) {
+    > 115 |       console.error("❌ No OIDC client available in callback");
+          |               ^
+      116 |       return res.status(500).send("Authentication not properly configured - client missing");
+      117 |     }
+      118 |     
+
+      at error (routes/auth.js:115:15)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at Function.handle (node_modules/express/lib/router/index.js:175:3)
+      at router (node_modules/express/lib/router/index.js:47:12)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at session (node_modules/express-session/index.js:487:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at jsonParser (node_modules/body-parser/lib/types/json.js:113:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at expressInit (node_modules/express/lib/middleware/init.js:40:5)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at query (node_modules/express/lib/middleware/query.js:45:5)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at Function.handle (node_modules/express/lib/router/index.js:175:3)
+      at Function.handle (node_modules/express/lib/application.js:181:10)
+      at Server.app (node_modules/express/lib/express.js:39:9)
+
+    console.log
+      🔧 Creating auth routes - auth enabled: true
+
+      at log (routes/auth.js:11:11)
+
+    console.log
+      🔧 Client parameter provided: false
+
+      at log (routes/auth.js:12:11)
+
+    console.log
+      🔧 Auth routes created successfully
+
+      at log (routes/auth.js:383:11)
+
+    console.log
+      🔐 /auth/login accessed
+
+      at log (routes/auth.js:15:13)
+
+    console.log
+      🔐 Auth enabled: true
+
+      at log (routes/auth.js:16:13)
+
+    console.log
+      🔐 Session exists: true
+
+      at log (routes/auth.js:17:13)
+
+    console.log
+      🔐 OIDC client available: false
+
+      at log (routes/auth.js:26:13)
+
+    console.error
+      ❌ No OIDC client available
+
+      27 |     
+      28 |     if (!client) {
+    > 29 |       console.error("❌ No OIDC client available");
+         |               ^
+      30 |       return res.status(500).send(`
+      31 |         <html>
+      32 |           <body>
+
+      at error (routes/auth.js:29:15)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at Route.dispatch (node_modules/express/lib/router/route.js:119:3)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at node_modules/express/lib/router/index.js:284:15
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at Function.handle (node_modules/express/lib/router/index.js:175:3)
+      at router (node_modules/express/lib/router/index.js:47:12)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at session (node_modules/express-session/index.js:487:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at jsonParser (node_modules/body-parser/lib/types/json.js:113:7)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at expressInit (node_modules/express/lib/middleware/init.js:40:5)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at query (node_modules/express/lib/middleware/query.js:45:5)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:328:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at Function.handle (node_modules/express/lib/router/index.js:175:3)
+      at Function.handle (node_modules/express/lib/application.js:181:10)
+      at Server.app (node_modules/express/lib/express.js:39:9)
+
+    console.log
+      🚪 Logout requested
+
+      at log (routes/auth.js:316:13)
+
+  ● Authentication Routes › GET /auth/login › should redirect to OIDC provider
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 302
+    Received: 500
+
+      32 |         .get('/auth/login');
+      33 |
+    > 34 |       expect(response.status).toBe(302);
+         |                               ^
+      35 |       expect(response.headers.location).toContain('auth.example.com');
+      36 |     });
+      37 |
+
+      at Object.toBe (routes/__tests__/auth.test.js:34:31)
+
+  ● Authentication Routes › GET /auth/callback › should handle successful authentication
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 302
+    Received: 500
+
+      60 |         });
+      61 |
+    > 62 |       expect(response.status).toBe(302);
+         |                               ^
+      63 |       expect(response.headers.location).toBe('/');
+      64 |     });
+      65 |
+
+      at Object.toBe (routes/__tests__/auth.test.js:62:31)
+
+  ● Authentication Routes › GET /auth/callback › should handle authentication errors
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 400
+    Received: 500
+
+      72 |         });
+      73 |
+    > 74 |       expect(response.status).toBe(400);
+         |                               ^
+      75 |       expect(response.text).toContain('access_denied');
+      76 |     });
+      77 |   });
+
+      at Object.toBe (routes/__tests__/auth.test.js:74:31)
+
+PASS services/__tests__/queue.test.js
+  ● Console
+
+    console.warn
+      ⚠️  Authentication disabled - missing OIDC or domain configuration
+
+      171 | // Log authentication status
+      172 | if (!config.auth.enabled) {
+    > 173 |   console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+          |           ^
+      174 |   console.warn("   App will run without authentication protection");
+      175 |   console.warn("   Configure OIDC and domain settings via the Settings page");
+      176 | }
+
+      at Object.warn (config/index.js:173:11)
+      at Object.require (services/queue.js:2:16)
+      at Object.require (services/__tests__/queue.test.js:1:37)
+
+    console.warn
+         App will run without authentication protection
+
+      172 | if (!config.auth.enabled) {
+      173 |   console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+    > 174 |   console.warn("   App will run without authentication protection");
+          |           ^
+      175 |   console.warn("   Configure OIDC and domain settings via the Settings page");
+      176 | }
+      177 |
+
+      at Object.warn (config/index.js:174:11)
+      at Object.require (services/queue.js:2:16)
+      at Object.require (services/__tests__/queue.test.js:1:37)
+
+    console.warn
+         Configure OIDC and domain settings via the Settings page
+
+      173 |   console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+      174 |   console.warn("   App will run without authentication protection");
+    > 175 |   console.warn("   Configure OIDC and domain settings via the Settings page");
+          |           ^
+      176 | }
+      177 |
+      178 | // Log configuration status
+
+      at Object.warn (config/index.js:175:11)
+      at Object.require (services/queue.js:2:16)
+      at Object.require (services/__tests__/queue.test.js:1:37)
+
+    console.log
+      📋 Lidarr configuration must be set via the Settings page
+
+      at Object.log (config/index.js:179:9)
+
+    console.log
+      🔐 OIDC and domain configuration must be set via the Settings page
+
+      at Object.log (config/index.js:180:9)
+
+    console.log
+      🚫 Environment variables for Lidarr, OIDC, and domain are no longer supported
+
+      at Object.log (config/index.js:181:9)
+
+PASS __tests__/performance/database-performance.test.js
+  ● Console
+
+    console.log
+      🌍 Timezone configured: UTC
+
+      at Object.log (utils/timezone.js:216:9)
+
+    console.log
+      📍 Timezone source: default (UTC)
+
+      at Object.log (utils/timezone.js:217:9)
+
+    console.log
+      🕐 Current time: 10/22/2025, 07:19:08 PM UTC
+
+      at Object.log (utils/timezone.js:218:9)
+
+FAIL __tests__/fixtures/helpers/seed.js
+  ● Test suite failed to run
+
+    Cannot find module '../../services/database' from '__tests__/fixtures/helpers/seed.js'
+
+    > 1 | const { database } = require('../../services/database');
+        |                      ^
+      2 |
+      3 | async function seedTestData() {
+      4 |   // Seed queries
+
+      at Resolver._throwModNotFoundError (node_modules/jest-resolve/build/resolver.js:427:11)
+      at Object.require (__tests__/fixtures/helpers/seed.js:1:22)
+
+FAIL __tests__/fixtures/musicbrainz.js
+  ● Test suite failed to run
+
+    Your test suite must contain at least one test.
+
+      at onResult (node_modules/@jest/core/build/TestScheduler.js:133:18)
+      at node_modules/@jest/core/build/TestScheduler.js:254:19
+      at node_modules/emittery/index.js:363:13
+          at Array.map (<anonymous>)
+      at Emittery.emit (node_modules/emittery/index.js:361:23)
+
+FAIL __tests__/fixtures/lidarr.js
+  ● Test suite failed to run
+
+    Your test suite must contain at least one test.
+
+      at onResult (node_modules/@jest/core/build/TestScheduler.js:133:18)
+      at node_modules/@jest/core/build/TestScheduler.js:254:19
+      at node_modules/emittery/index.js:363:13
+          at Array.map (<anonymous>)
+      at Emittery.emit (node_modules/emittery/index.js:361:23)
+
+FAIL __tests__/setup.js
+  ● Test suite failed to run
+
+    ReferenceError: /home/superdingo101/Documents/gitprojects/album-finder/server/__tests__/setup.js: The module factory of `jest.mock()` is not allowed to reference any out-of-scope variables.
+    Invalid variable access: redis
+    Allowed objects: AbortController, AbortSignal, AggregateError, Array, ArrayBuffer, Atomics, BigInt, BigInt64Array, BigUint64Array, Blob, Boolean, BroadcastChannel, Buffer, ByteLengthQueuingStrategy, CompressionStream, CountQueuingStrategy, DOMException, DataView, Date, DecompressionStream, Error, EvalError, Event, EventTarget, FinalizationRegistry, Float32Array, Float64Array, FormData, Function, Generator, GeneratorFunction, Headers, Infinity, Int16Array, Int32Array, Int8Array, InternalError, Intl, JSON, Map, Math, MessageChannel, MessageEvent, MessagePort, NaN, Number, Object, Performance, Promise, Proxy, RangeError, ReadableByteStreamController, ReadableStream, ReadableStreamBYOBReader, ReadableStreamBYOBRequest, ReadableStreamDefaultController, ReadableStreamDefaultReader, ReferenceError, Reflect, RegExp, Request, Response, Set, SharedArrayBuffer, String, Symbol, SyntaxError, TextDecoder, TextDecoderStream, TextEncoder, TextEncoderStream, TransformStream, TransformStreamDefaultController, TypeError, URIError, URL, URLSearchParams, Uint16Array, Uint32Array, Uint8Array, Uint8ClampedArray, WeakMap, WeakRef, WeakSet, WebAssembly, WritableStream, WritableStreamDefaultController, WritableStreamDefaultWriter, __dirname, __filename, arguments, atob, btoa, clearImmediate, clearInterval, clearTimeout, console, decodeURI, decodeURIComponent, encodeURI, encodeURIComponent, escape, eval, expect, exports, fetch, global, globalThis, isFinite, isNaN, jest, module, parseFloat, parseInt, performance, process, queueMicrotask, require, setImmediate, setInterval, setTimeout, structuredClone, undefined, unescape.
+    Note: This is a precaution to guard against uninitialized mock variables. If it is ensured that the mock is required lazily, variable names prefixed with `mock` (case insensitive) are permitted.
+
+       5 | jest.mock('../services/redis', () => ({
+       6 |   initializeRedis: jest.fn().mockResolvedValue(true),
+    >  7 |   getClient: jest.fn(() => redis.createClient()),
+         |                            ^^^^^
+       8 |   isConnected: jest.fn(() => true),
+       9 |   closeRedis: jest.fn().mockResolvedValue(undefined)
+      10 | }));
+
+      at File.buildCodeFrameError (node_modules/@babel/core/src/transformation/file/file.ts:257:12)
+      at NodePath.buildError [as buildCodeFrameError] (node_modules/@babel/traverse/src/path/index.ts:157:21)
+      at call (node_modules/@babel/traverse/src/visitors.ts:303:14)
+      at NodePath.call [as _call] (node_modules/@babel/traverse/src/path/context.ts:36:20)
+      at NodePath.call (node_modules/@babel/traverse/src/path/context.ts:21:18)
+      at NodePath.call [as visit] (node_modules/@babel/traverse/src/path/context.ts:97:31)
+      at TraversalContext.visit [as visitQueue] (node_modules/@babel/traverse/src/context.ts:148:16)
+      at TraversalContext.visitQueue [as visitMultiple] (node_modules/@babel/traverse/src/context.ts:99:17)
+      at TraversalContext.visitMultiple [as visit] (node_modules/@babel/traverse/src/context.ts:178:19)
+      at visit (node_modules/@babel/traverse/src/traverse-node.ts:208:17)
+      at NodePath.visit (node_modules/@babel/traverse/src/path/context.ts:104:33)
+      at TraversalContext.visit [as visitQueue] (node_modules/@babel/traverse/src/context.ts:148:16)
+      at TraversalContext.visitQueue [as visitSingle] (node_modules/@babel/traverse/src/context.ts:109:19)
+      at TraversalContext.visitSingle [as visit] (node_modules/@babel/traverse/src/context.ts:180:19)
+      at visit (node_modules/@babel/traverse/src/traverse-node.ts:208:17)
+      at traverse (node_modules/@babel/traverse/src/index.ts:84:15)
+      at transformFile (node_modules/@babel/core/src/transformation/index.ts:119:15)
+          at transformFile.next (<anonymous>)
+      at transformFile (node_modules/@babel/core/src/transformation/index.ts:49:12)
+          at run.next (<anonymous>)
+      at transform (node_modules/@babel/core/src/transform.ts:29:20)
+          at transform.next (<anonymous>)
+      at evaluateSync (node_modules/gensync/index.js:251:28)
+      at sync (node_modules/gensync/index.js:89:14)
+      at fn (node_modules/@babel/core/src/errors/rewrite-stack-trace.ts:99:14)
+      at transformSync (node_modules/@babel/core/src/transform.ts:66:52)
+      at ScriptTransformer.transformSource (node_modules/@jest/transform/build/ScriptTransformer.js:545:31)
+      at ScriptTransformer._transformAndBuildScript (node_modules/@jest/transform/build/ScriptTransformer.js:674:40)
+      at ScriptTransformer.transform (node_modules/@jest/transform/build/ScriptTransformer.js:726:19)
+
+PASS __tests__/performance/api-performance.test.js (11.836 s)
+  ● Console
+
+    console.warn
+      ⚠️  Authentication disabled - missing OIDC or domain configuration
+
+      171 | // Log authentication status
+      172 | if (!config.auth.enabled) {
+    > 173 |   console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+          |           ^
+      174 |   console.warn("   App will run without authentication protection");
+      175 |   console.warn("   Configure OIDC and domain settings via the Settings page");
+      176 | }
+
+      at Object.warn (config/index.js:173:11)
+      at Object.require (routes/api.js:3:16)
+      at Object.require (__tests__/performance/api-performance.test.js:3:19)
+
+    console.warn
+         App will run without authentication protection
+
+      172 | if (!config.auth.enabled) {
+      173 |   console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+    > 174 |   console.warn("   App will run without authentication protection");
+          |           ^
+      175 |   console.warn("   Configure OIDC and domain settings via the Settings page");
+      176 | }
+      177 |
+
+      at Object.warn (config/index.js:174:11)
+      at Object.require (routes/api.js:3:16)
+      at Object.require (__tests__/performance/api-performance.test.js:3:19)
+
+    console.warn
+         Configure OIDC and domain settings via the Settings page
+
+      173 |   console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+      174 |   console.warn("   App will run without authentication protection");
+    > 175 |   console.warn("   Configure OIDC and domain settings via the Settings page");
+          |           ^
+      176 | }
+      177 |
+      178 | // Log configuration status
+
+      at Object.warn (config/index.js:175:11)
+      at Object.require (routes/api.js:3:16)
+      at Object.require (__tests__/performance/api-performance.test.js:3:19)
+
+    console.log
+      📋 Lidarr configuration must be set via the Settings page
+
+      at Object.log (config/index.js:179:9)
+
+    console.log
+      🔐 OIDC and domain configuration must be set via the Settings page
+
+      at Object.log (config/index.js:180:9)
+
+    console.log
+      🚫 Environment variables for Lidarr, OIDC, and domain are no longer supported
+
+      at Object.log (config/index.js:181:9)
+
+    console.log
+      🌍 Timezone configured: UTC
+
+      at Object.log (utils/timezone.js:216:9)
+
+    console.log
+      📍 Timezone source: default (UTC)
+
+      at Object.log (utils/timezone.js:217:9)
+
+    console.log
+      🕐 Current time: 10/22/2025, 07:19:04 PM UTC
+
+      at Object.log (utils/timezone.js:218:9)
+
+    console.log
+      ✅ Swagger UI enabled at /api/docs
+
+      at Object.log (routes/api.js:49:11)
+
+    console.log
+      🔧 Mounting API routes...
+
+      at Object.log (routes/api.js:208:9)
+
+    console.log
+      ✅ MusicBrainz routes mounted
+
+      at Object.log (routes/api.js:212:11)
+
+    console.log
+      ✅ Lidarr routes mounted
+
+      at Object.log (routes/api.js:219:11)
+
+    console.log
+      ✅ Config routes mounted
+
+      at Object.log (routes/api.js:226:11)
+
+    console.log
+      ✅ Cover art routes mounted
+
+      at Object.log (routes/api.js:233:11)
+
+    console.log
+      ✅ Logs routes mounted
+
+      at Object.log (routes/api.js:240:11)
+
+    console.log
+      🔧 API routes setup complete
+
+      at Object.log (routes/api.js:245:9)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      🎵 MusicBrainz recording search: https://musicbrainz.org/ws/2/recording?query=test&fmt=json&limit=10&inc=releases+release-groups+artist-credits
+
+      at log (routes/api/musicbrainz.js:113:15)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+    console.log
+      Auth check skipped - authentication disabled
+
+      at log (middleware/auth.js:8:13)
+
+A worker process has failed to exit gracefully and has been force exited. This is likely caused by tests leaking due to improper teardown. Try running with --detectOpenHandles to find leaks. Active timers can also cause this, ensure that .unref() was called on them.
+
+Test Suites: 10 failed, 3 passed, 13 total
+Tests:       19 failed, 22 passed, 41 total
+Snapshots:   0 total
+Time:        14.137 s
+Ran all test suites.

@@ -10,10 +10,10 @@ class Database {
     this.isInitialized = false;
   }
 
-  async initialize() {
+  async initialize(dbPathOverride) {
     try {
       const dataDir = path.join(__dirname, '../data');
-      const dbPath = path.join(dataDir, 'albumfinder.db');
+      const dbPath = dbPathOverride || path.join(dataDir, 'albumfinder.db');
   
       console.log('📊 Initializing SQLite database...');
       console.log('📁 Database path:', dbPath);

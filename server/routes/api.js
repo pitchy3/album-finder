@@ -50,23 +50,23 @@ try {
 } catch (error) {
   console.warn("⚠️ OpenAPI/Swagger setup failed:", error.message);
   
-  // Provide a basic API info endpoint instead
-  router.get("/", (req, res) => {
-    res.json({
-      name: "AlbumFinder API",
-      version: "1.0.0",
-      description: "API for searching and managing music albums",
-      endpoints: {
-        auth: "/api/auth/user",
-        search: "/api/log-search",
-        logs: "/api/logs/*",
-        config: "/api/config/*",
-        musicbrainz: "/api/musicbrainz/*",
-        lidarr: "/api/lidarr/*",
-        coverart: "/api/coverart/*"
-      }
-    });
-  });
+  //// Provide a basic API info endpoint instead
+  //router.get("/", (req, res) => {
+  //  res.json({
+  //    name: "AlbumFinder API",
+  //    version: "1.0.0",
+  //    description: "API for searching and managing music albums",
+  //    endpoints: {
+  //      auth: "/api/auth/user",
+  //      search: "/api/log-search",
+  //      logs: "/api/logs/*",
+  //      config: "/api/config/*",
+  //      musicbrainz: "/api/musicbrainz/*",
+  //      lidarr: "/api/lidarr/*",
+  //      coverart: "/api/coverart/*"
+  //    }
+  //  });
+  //});
 }
 
 // Public auth status endpoint

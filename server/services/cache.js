@@ -37,16 +37,16 @@ class ScalableCache {
   }
 
   updateMemoryUsage() {
-    // Estimate memory usage (rough calculation)
-    const keys = this.cache.keys();
-    this.memoryUsage = keys.reduce((total, key) => {
-      const value = this.cache.get(key);
+    const data = this.cache.data;
+    this.memoryUsage = Object.keys(data).reduce((total, key) => {
+      const value = data[key] ? data[key].v : null; // read raw cache value
       if (value) {
-        return total + JSON.stringify(value).length * 2; // Rough bytes estimate
+        return total + JSON.stringify(value).length * 2;
       }
       return total;
     }, 0);
   }
+
 
   cleanup() {
     // If memory usage is too high, remove oldest entries
@@ -106,6 +106,8 @@ class ScalableCache {
   flushAll() {
     this.cache.flushAll();
     this.memoryUsage = 0;
+    this.hitCount = 0;
+    this.missCount = 0;
   }
 }
 

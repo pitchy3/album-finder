@@ -1,0 +1,47 @@
+config:
+  target: "http://localhost:3001"
+  phases:
+    - duration: 60
+      arrivalRate: 5
+      name: "Warm up"
+    - duration: 120
+      arrivalRate: 10
+      name: "Sustained load"
+    - duration: 60
+      arrivalRate: 20
+      name: "High load"
+  processor: "./processor.js"
+
+scenarios:
+  - name: "Search for albums"
+    weight: 50
+    flow:
+      - get:
+          url: "/api/musicbrainz/recording"
+          qs:
+            query: "{{ $randomString() }}"
+            limit: 10
+          expect:
+            - statusCode: 200
+      
+  - name: "Browse artist"
+    weight: 30
+    flow:
+      - get:
+          url: "/api/musicbrainz/release-group"
+          qs:
+            artist: "{{ $randomString() }}"
+            limit: 50
+          expect:
+            - statusCode: 200
+      
+  - name: "View logs"
+    weight: 20
+    flow:
+      - get:
+          url: "/api/logs/queries"
+          qs:
+            page: 1
+            limit: 20
+          expect:
+            - statusCode: 200

@@ -1,17 +1,13 @@
 # Multi-stage build for client/server architecture
-FROM node:18-alpine AS base
+FROM node:18-slim AS base
 # Install system dependencies including build tools for native modules
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y \
     curl \
     dumb-init \
-    python3 \
-    py3-setuptools \
-    make \
-    g++ \
-    && rm -rf /var/cache/apk/*
+    && rm -rf /var/lib/apt/lists/*
 # Create app user for security with explicit group membership
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S albumfinder -u 1001 -G nodejs
+RUN groupadd -g 1001 nodejs && \
+    useradd -m -u 1001 -g nodejs albumfinder
 
 # Build client stage
 FROM base AS client-builder
@@ -25,6 +21,12 @@ RUN npm run build
 
 # Build server dependencies stage
 FROM base AS server-deps
+# Install build tools needed for native modules
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/server
 # Copy server package files
 COPY server/package*.json ./
@@ -52,15 +54,15 @@ WORKDIR /app/server
 # Create logs directory for potential logging
 RUN mkdir -p logs && chown albumfinder:nodejs logs
 
-# Create data directory for config and state with explicit permissions
-# Note: This will be overridden by the volume mount, but ensures the structure exists
-RUN mkdir -p /app/server/data && chmod 777 /app/server/data
+# Create data directory as mount point
+# NOTE: Actual permissions will be set by the init container in docker-compose
+RUN mkdir -p /app/server/data && chown albumfinder:nodejs /app/server/data
 
 # Health check - using the correct port environment variable
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:${PORT:-3000}/healthz || exit 1
 
-# Security: Run as non-root user
+# ✅ SECURITY: Always run as non-root user (no entrypoint needed!)
 USER albumfinder
 
 # Expose port

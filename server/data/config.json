@@ -1,0 +1,14 @@
+{
+  "lidarr": {
+    "url": "http://lidarr:8686",
+    "apiKey": "test-api-key-12345",
+    "rootFolder": "/music",
+    "qualityProfileId": 1
+  },
+  "oidc": {
+    "issuerUrl": "",
+    "clientId": "",
+    "clientSecret": "",
+    "domain": ""
+  }
+}
