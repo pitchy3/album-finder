@@ -1,3 +1,5 @@
+[![Test Suite](https://github.com/pitchy3/album-finder/actions/workflows/test.yml/badge.svg)](https://github.com/pitchy3/album-finder/actions/workflows/test.yml) [![Build and Publish Docker Image](https://github.com/pitchy3/album-finder/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/pitchy3/album-finder/actions/workflows/docker-publish.yml)
+
 # Album Finder
 
 A modern, scalable web application for discovering and managing music albums with seamless MusicBrainz and Lidarr integration.
@@ -74,7 +76,7 @@ LIDARR_WEBHOOK_KEY=your-webhook-key-here
 
 3. **Start the application**
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 4. **Access the application**
@@ -327,12 +329,12 @@ docker-compose exec redis redis-cli ping
 
 **View application logs**:
 ```bash
-docker-compose logs -f album-finder
+docker compose logs -f album-finder
 ```
 
 **View all service logs**:
 ```bash
-docker-compose logs -f
+docker compose logs -f
 ```
 
 ## Contributing
@@ -365,9 +367,9 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/album-finder/issues)
-- **Documentation**: [Wiki](https://github.com/yourusername/album-finder/wiki)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/album-finder/discussions)
+- **Issues**: [GitHub Issues](https://github.com/pitchy3/album-finder/issues)
+- **Documentation**: [Wiki](https://github.com/pitchy3/album-finder/wiki)
+- **Discussions**: [GitHub Discussions](https://github.com/pitchy3/album-finder/discussions)
 
 ---
 
