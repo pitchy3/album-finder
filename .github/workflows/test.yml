@@ -147,7 +147,7 @@ jobs:
       - name: Run E2E tests
         run: |
           docker compose run --rm album-finder-init
-          docker compose up redis album-finder e2e-tests --build --exit-code-from e2e-tests
+          docker compose up --build redis album-finder e2e-tests --exit-code-from e2e-tests
         env:
           NODE_ENV: test
           REDIS_URL: redis://localhost:6379
