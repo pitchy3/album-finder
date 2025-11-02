@@ -1,6 +1,9 @@
 node_modules/
 client/node_modules/
 server/node_modules/
+server/coverage/
+playwright-report/
+test-results/
 
 albumfinder-data
 

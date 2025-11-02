@@ -40,7 +40,7 @@
     "scalable",
     "multi-user"
   ],
-  "author": "Your Name",
+  "author": "pitchy3",
   "license": "MIT",
   "dependencies": {
     "@babel/parser": "^7.28.4",
@@ -64,10 +64,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/album-finder"
+    "url": "https://github.com/pitchy3/album-finder"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/album-finder/issues"
+    "url": "https://github.com/pitchy3/album-finder/issues"
   },
-  "homepage": "https://github.com/yourusername/album-finder#readme"
+  "homepage": "https://github.com/pitchy3/album-finder#readme"
 }
