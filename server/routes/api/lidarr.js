@@ -1133,6 +1133,11 @@ async function addNewArtistAndAlbum(artistInfo, mbid, title, artist, userName, r
     });
 
     // Find and add the specific album
+    lidarrHelpers.log(title, "Refreshing artist after adding to Lidarr");
+	
+	const refreshSuccess = await lidarrHelpers.triggerArtistRefresh(addedArtist.id, title);
+	
+    // Find and add the specific album
     lidarrHelpers.log(title, "Finding and adding specific album");
     
     const artistAlbums = await lidarrHelpers.getArtistAlbums(addedArtist.id);
