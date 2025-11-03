@@ -1,29 +1,107 @@
-// server/routes/auth.js - Fixed authentication routes with proper client handling
+// server/routes/auth.js - Authentication routes supporting both OIDC and BasicAuth
 const express = require("express");
 const { generators } = require("openid-client");
 const config = require("../config");
-const { getClient } = require("../services/auth");
+const { getClient, validateBasicAuthPassword } = require("../services/auth");
 const { database } = require("../services/database");
 
 function createAuthRoutes(clientParam) {
   const router = express.Router();
 
-  console.log("🔧 Creating auth routes - auth enabled:", config.auth.enabled);
-  console.log("🔧 Client parameter provided:", !!clientParam);
+  console.log("🔧 Creating auth routes - auth type:", config.auth.type || 'disabled');
 
-  router.get("/login", (req, res) => {
-    console.log("🔐 /auth/login accessed");
-    console.log("🔐 Auth enabled:", config.auth.enabled);
-    console.log("🔐 Session exists:", !!req.session);
+  // BasicAuth login route
+  router.post("/login/basicauth", async (req, res) => {
+    console.log("🔐 BasicAuth login attempt");
     
-    if (!config.auth.enabled) {
-      console.log("🔐 Auth not enabled, returning error");
-      return res.status(400).send("Authentication is not configured. Please configure OIDC settings first.");
+    if (config.auth.type !== 'basicauth') {
+      return res.status(400).json({ error: "BasicAuth is not enabled" });
     }
     
-    // Get the current client (IMPORTANT: use getClient() instead of parameter)
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ error: "Username and password are required" });
+    }
+    
+    try {
+      const isValid = await validateBasicAuthPassword(username, password);
+      
+      if (!isValid) {
+        console.log("❌ BasicAuth login failed: Invalid credentials");
+        
+        await database.logAuthEvent({
+          eventType: 'login_failure',
+          userId: username,
+          username: username,
+          email: null,
+          ipAddress: req.ip || req.connection.remoteAddress,
+          userAgent: req.get('User-Agent'),
+          errorMessage: 'Invalid username or password',
+          sessionId: req.sessionID
+        });
+        
+        return res.status(401).json({ error: "Invalid username or password" });
+      }
+      
+      // Create user session
+      req.session.user = {
+        claims: {
+          sub: username,
+          preferred_username: username,
+          name: username,
+          authType: 'basicauth'
+        }
+      };
+      
+      // Log successful login
+      await database.logAuthEvent({
+        eventType: 'login_success',
+        userId: username,
+        username: username,
+        email: null,
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        sessionId: req.sessionID
+      });
+      
+      console.log("✅ BasicAuth login successful:", username);
+      
+      req.session.save((err) => {
+        if (err) {
+          console.error("❌ Error saving session:", err);
+          return res.status(500).json({ error: "Failed to create session" });
+        }
+        
+        res.json({ 
+          success: true, 
+          user: {
+            username,
+            authType: 'basicauth'
+          }
+        });
+      });
+      
+    } catch (error) {
+      console.error("❌ BasicAuth login error:", error);
+      res.status(500).json({ error: "Authentication error" });
+    }
+  });
+
+  // OIDC login route
+  router.get("/login", (req, res) => {
+    console.log("🔐 /auth/login accessed");
+    
+    if (config.auth.type === 'basicauth') {
+      // Redirect to BasicAuth login page
+      return res.redirect('/?auth=basicauth');
+    }
+    
+    if (config.auth.type !== 'oidc') {
+      return res.status(400).send("Authentication is not configured. Please configure authentication in Settings.");
+    }
+    
     const client = getClient();
-    console.log("🔐 OIDC client available:", !!client);
     
     if (!client) {
       console.error("❌ No OIDC client available");
@@ -31,14 +109,8 @@ function createAuthRoutes(clientParam) {
         <html>
           <body>
             <h2>Authentication Configuration Error</h2>
-            <p>OIDC client is not properly configured. This usually happens when:</p>
-            <ul>
-              <li>OIDC settings were just saved and the client needs to be reinitialized</li>
-              <li>There's an error in the OIDC configuration</li>
-              <li>The OIDC provider is unreachable</li>
-            </ul>
+            <p>OIDC client is not properly configured.</p>
             <p><a href="/">Go back to home page</a> and try accessing Settings to reconfigure.</p>
-            <p>If the problem persists, check the server logs for more details.</p>
           </body>
         </html>
       `);
@@ -52,21 +124,15 @@ function createAuthRoutes(clientParam) {
     console.log("🔐 Starting OIDC login flow...");
     
     try {
-      // Generate PKCE parameters AND nonce
       const codeVerifier = generators.codeVerifier();
       const codeChallenge = generators.codeChallenge(codeVerifier);
       const state = generators.state();
       const nonce = generators.nonce();
       
-      // Store all parameters in session
       req.session.codeVerifier = codeVerifier;
       req.session.state = state;
       req.session.nonce = nonce;
       
-      console.log("🔐 Generated PKCE and nonce parameters");
-      console.log("🔐 Callback URL:", config.oidc.redirectUrl);
-      
-      // Save session before redirect
       req.session.save((err) => {
         if (err) {
           console.error("❌ Session save error:", err);
@@ -83,11 +149,11 @@ function createAuthRoutes(clientParam) {
             nonce: nonce
           });
           
-          console.log("🔐 Redirecting to OIDC provider:", authUrl);
+          console.log("🔐 Redirecting to OIDC provider");
           res.redirect(authUrl);
         } catch (urlError) {
           console.error("❌ Error generating authorization URL:", urlError);
-          res.status(500).send("Failed to generate login URL. Check OIDC configuration.");
+          res.status(500).send("Failed to generate login URL.");
         }
       });
     } catch (error) {
@@ -96,12 +162,12 @@ function createAuthRoutes(clientParam) {
     }
   });
 
+  // OIDC callback route
   router.get("/callback", async (req, res) => {
     console.log("🔄 /auth/callback accessed");
-    console.log("🔄 Query params:", req.query);
     
-    if (!config.auth.enabled) {
-      return res.status(400).send("Authentication is not configured");
+    if (config.auth.type !== 'oidc') {
+      return res.status(400).send("OIDC authentication is not configured");
     }
     
     if (!req.session) {
@@ -109,45 +175,30 @@ function createAuthRoutes(clientParam) {
       return res.status(500).send("Session not available");
     }
     
-    // Get current client (dynamic)
     const client = getClient();
     if (!client) {
       console.error("❌ No OIDC client available in callback");
-      return res.status(500).send("Authentication not properly configured - client missing");
+      return res.status(500).send("Authentication not properly configured");
     }
     
     try {
       const params = client.callbackParams(req);
-      console.log("🔄 Parsed callback params:", params);
       
-      // Check for error in callback
       if (params.error) {
-        console.error("❌ OIDC callback error:", params.error, params.error_description);
-        return res.status(400).send(`Authentication error: ${params.error} - ${params.error_description}`);
+        console.error("❌ OIDC callback error:", params.error);
+        return res.status(400).send(`Authentication error: ${params.error}`);
       }
       
-      // Validate session data exists
       if (!req.session.codeVerifier || !req.session.state || !req.session.nonce) {
-        console.error("❌ Missing session data:", {
-          hasCodeVerifier: !!req.session.codeVerifier,
-          hasState: !!req.session.state,
-          hasNonce: !!req.session.nonce
-        });
-        return res.status(400).send("Session expired or invalid. Please try logging in again.");
+        console.error("❌ Missing session data");
+        return res.status(400).send("Session expired. Please try logging in again.");
       }
       
-      // Validate state parameter
       if (params.state !== req.session.state) {
-        console.error("❌ State mismatch:", {
-          received: params.state,
-          expected: req.session.state
-        });
-        return res.status(400).send("Invalid state parameter - possible CSRF attack");
+        console.error("❌ State mismatch");
+        return res.status(400).send("Invalid state parameter");
       }
       
-      console.log("🔄 Performing token exchange...");
-      
-      // Perform callback with PKCE and nonce validation
       const tokenSet = await client.callback(
         config.oidc.redirectUrl, 
         params, 
@@ -158,88 +209,35 @@ function createAuthRoutes(clientParam) {
         }
       );
 
-      console.log("🔄 Token exchange successful, validating ID token...");
-
-      // Validate ID token claims
-      try {
-        // Comprehensive ID token validation
-        const idTokenClaims = tokenSet.claims();
-        
-        // Validate nonce
-        if (idTokenClaims.nonce !== req.session.nonce) {
-          throw new Error('ID token nonce mismatch');
-        }
-        
-        // Validate issuer
-        if (idTokenClaims.iss !== config.oidc.issuerUrl) {
-          throw new Error('ID token issuer mismatch');
-        }
-        
-        // Validate audience (client_id)
-        if (idTokenClaims.aud !== config.oidc.clientId) {
-          throw new Error('ID token audience mismatch');
-        }
-        
-        // Validate token expiration
-        if (Date.now() >= (idTokenClaims.exp * 1000)) {
-          throw new Error('ID token has expired');
-        }
-        
-        // Validate issued at time (not too old)
-        const maxAge = 300; // 5 minutes
-        if (Date.now() > (idTokenClaims.iat * 1000) + (maxAge * 1000)) {
-          throw new Error('ID token is too old');
-        }
-        
-        // Additional validation for sub claim
-        if (!idTokenClaims.sub || idTokenClaims.sub.length === 0) {
-          throw new Error('ID token missing subject claim');
-        }
-        
-        console.log("✅ ID token validation successful:", {
-          sub: idTokenClaims.sub,
-          iss: idTokenClaims.iss,
-          exp: new Date(idTokenClaims.exp * 1000).toISOString()
-        });
-        
-      } catch (validationError) {
-        console.error("❌ ID token validation failed:", validationError.message);
-        // Clear session data on validation failure
-        delete req.session.codeVerifier;
-        delete req.session.state;
-        delete req.session.nonce;
-        return res.status(400).send(`ID token validation failed: ${validationError.message}`);
+      // Validate ID token
+      const idTokenClaims = tokenSet.claims();
+      
+      if (idTokenClaims.nonce !== req.session.nonce) {
+        throw new Error('ID token nonce mismatch');
       }
 
-      console.log("🔄 Getting user info...");
-
-      // Get user info
       const userinfo = await client.userinfo(tokenSet.access_token);
-      console.log("🔄 User info received:", {
-        sub: userinfo.sub,
-        email: userinfo.email,
-        username: userinfo.preferred_username
-      });
-
-      // Clear PKCE data from session
+      
       delete req.session.codeVerifier;
       delete req.session.state;
       delete req.session.nonce;
-	  
-	  // Encrypt sensitive tokens before storing
+
+      // Encrypt tokens
       const crypto = require('crypto');
       
       function encryptToken(token, key) {
         const iv = crypto.randomBytes(16);
-        const cipher = crypto.createCipheriv('aes-256-cbc', crypto.scryptSync(key, 'salt', 32), iv); // ← Use createCipheriv
+        const cipher = crypto.createCipheriv('aes-256-cbc', crypto.scryptSync(key, 'salt', 32), iv);
         let encrypted = cipher.update(token, 'utf8', 'hex');
         encrypted += cipher.final('hex');
         return iv.toString('hex') + ':' + encrypted;
       }
 
-      // Store encrypted tokens
       req.session.user = {
-        claims: userinfo,
+        claims: {
+          ...userinfo,
+          authType: 'oidc'
+        },
         tokens: {
           access_token: encryptToken(tokenSet.access_token, config.session.secret),
           id_token: encryptToken(tokenSet.id_token, config.session.secret),
@@ -248,14 +246,6 @@ function createAuthRoutes(clientParam) {
         }
       };
 
-      // In the /callback route, after successful token validation and before session save
-      console.log("🔄 User info received:", {
-        sub: userinfo.sub,
-        email: userinfo.email,
-        username: userinfo.preferred_username
-      });
-
-      // ADD THIS LOGGING BLOCK
       await database.logAuthEvent({
         eventType: 'login_success',
         userId: userinfo.sub,
@@ -267,26 +257,21 @@ function createAuthRoutes(clientParam) {
         oidcSubject: userinfo.sub
       });
 
-      console.log("🔄 User stored in session, saving...");
-
-      // Save session before redirect
       req.session.save((saveErr) => {
         if (saveErr) {
           console.error("❌ Error saving user session:", saveErr);
           return res.status(500).send("Failed to save authentication session");
         }
 
-        // Redirect to original URL
         const redirectTo = req.session.returnTo || "/";
         delete req.session.returnTo;
         
-        console.log("✅ Authentication successful, redirecting to:", redirectTo);
+        console.log("✅ OIDC authentication successful");
         res.redirect(redirectTo);
       });
       
     } catch (err) {
       console.error("❌ Callback error:", err.message);
-      console.error("❌ Full error:", err);
 
       await database.logAuthEvent({
         eventType: 'login_failure',
@@ -296,32 +281,24 @@ function createAuthRoutes(clientParam) {
         ipAddress: req.ip || req.connection.remoteAddress,
         userAgent: req.get('User-Agent'),
         errorMessage: err.message,
-        sessionId: req.sessionID,
-        oidcSubject: null
+        sessionId: req.sessionID
       });
-      
-      // Clear session data on error
-      if (req.session) {
-        delete req.session.codeVerifier;
-        delete req.session.state;
-        delete req.session.nonce;
-        delete req.session.returnTo;
-      }
       
       res.status(500).send(`Authentication error: ${err.message}`);
     }
   });
 
+  // Unified logout route
   router.post("/logout", async (req, res) => {
     console.log("🚪 Logout requested");
     
-    const tokens = req.session?.user?.tokens;
-	const userInfo = req.session?.user?.claims;
-	
-	if (userInfo) {
+    const userInfo = req.session?.user?.claims;
+    const authType = userInfo?.authType || config.auth.type;
+    
+    if (userInfo) {
       await database.logAuthEvent({
         eventType: 'logout',
-        userId: userInfo.sub,
+        userId: userInfo.sub || userInfo.preferred_username,
         username: userInfo.preferred_username || userInfo.name,
         email: userInfo.email,
         ipAddress: req.ip || req.connection.remoteAddress,
@@ -331,13 +308,18 @@ function createAuthRoutes(clientParam) {
       });
     }
     
-    // Revoke tokens at provider if possible
-    if (tokens?.refresh_token && client.revoke) {
-      try {
-        await client.revoke(tokens.refresh_token);
-        console.log("✅ Refresh token revoked at provider");
-      } catch (err) {
-        console.warn("⚠️ Token revocation failed:", err.message);
+    // For OIDC, try to revoke tokens
+    if (authType === 'oidc') {
+      const tokens = req.session?.user?.tokens;
+      const client = getClient();
+      
+      if (tokens?.refresh_token && client?.revoke) {
+        try {
+          await client.revoke(tokens.refresh_token);
+          console.log("✅ Refresh token revoked at provider");
+        } catch (err) {
+          console.warn("⚠️ Token revocation failed:", err.message);
+        }
       }
     }
     
@@ -349,34 +331,31 @@ function createAuthRoutes(clientParam) {
       res.clearCookie("connect.sid");
       res.clearCookie("albumfinder.sid");
       
-      if (tokens?.id_token && config.auth.enabled) {
-        console.log("🚪 Redirecting to OIDC logout");
-        const logoutUrl = new URL(`${config.oidc.issuerUrl}/protocol/openid-connect/logout`);
-        logoutUrl.searchParams.set("id_token_hint", tokens.id_token);
-        logoutUrl.searchParams.set("post_logout_redirect_uri", `https://${config.domain}/`);
-        
-        return res.redirect(logoutUrl.toString());
+      // For OIDC, redirect to provider logout if available
+      if (authType === 'oidc' && config.auth.type === 'oidc') {
+        const tokens = req.session?.user?.tokens;
+        if (tokens?.id_token) {
+          const logoutUrl = new URL(`${config.oidc.issuerUrl}/protocol/openid-connect/logout`);
+          logoutUrl.searchParams.set("id_token_hint", tokens.id_token);
+          logoutUrl.searchParams.set("post_logout_redirect_uri", `https://${config.domain}/`);
+          return res.redirect(logoutUrl.toString());
+        }
       }
       
       res.redirect("/");
     });
   });
 
-  // Debug endpoint to check auth status
+  // Auth status debug endpoint
   router.get("/debug", (req, res) => {
     const client = getClient();
     res.json({
       authEnabled: config.auth.enabled,
+      authType: config.auth.type,
       clientAvailable: !!client,
       sessionExists: !!req.session,
       userLoggedIn: !!(req.session && req.session.user),
-      oidcConfig: {
-        issuerUrl: config.oidc.issuerUrl,
-        clientId: config.oidc.clientId,
-        redirectUrl: config.oidc.redirectUrl,
-        hasClientSecret: !!config.oidc.clientSecret,
-        domain: config.domain
-      }
+      userAuthType: req.session?.user?.claims?.authType
     });
   });
 

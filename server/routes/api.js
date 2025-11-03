@@ -1,4 +1,4 @@
-// server/routes/api.js - Main API routes with timezone support and user search logging (SAFE VERSION)
+// server/routes/api.js - Main API routes with timezone support and BasicAuth support
 const express = require("express");
 const config = require("../config");
 const { ensureAuthenticated } = require("../middleware/auth");
@@ -49,36 +49,22 @@ try {
   console.log("✅ Swagger UI enabled at /api/docs");
 } catch (error) {
   console.warn("⚠️ OpenAPI/Swagger setup failed:", error.message);
-  
-  //// Provide a basic API info endpoint instead
-  //router.get("/", (req, res) => {
-  //  res.json({
-  //    name: "AlbumFinder API",
-  //    version: "1.0.0",
-  //    description: "API for searching and managing music albums",
-  //    endpoints: {
-  //      auth: "/api/auth/user",
-  //      search: "/api/log-search",
-  //      logs: "/api/logs/*",
-  //      config: "/api/config/*",
-  //      musicbrainz: "/api/musicbrainz/*",
-  //      lidarr: "/api/lidarr/*",
-  //      coverart: "/api/coverart/*"
-  //    }
-  //  });
-  //});
 }
 
-// Public auth status endpoint
+// Public auth status endpoint with auth type information
 router.get("/auth/user", (req, res) => {
-  if (!config.auth.enabled) {
-    return res.json({ loggedIn: false, authEnabled: false });
+  const response = {
+    loggedIn: false,
+    authEnabled: config.auth.enabled,
+    authType: config.auth.type || null
+  };
+  
+  if (req.session?.user) {
+    response.loggedIn = true;
+    response.user = req.session.user.claims;
   }
-  if (req.session.user) {
-    return res.json({ loggedIn: true, authEnabled: true, user: req.session.user.claims });
-  } else {
-    return res.json({ loggedIn: false, authEnabled: true });
-  }
+  
+  res.json(response);
 });
 
 // Timezone info endpoint
@@ -100,36 +86,6 @@ router.get("/me", ensureAuthenticated, (req, res) => {
   });
 });
 
-//// Log user search action
-//router.post("/log-search", ensureAuthenticated, async (req, res) => {
-//  try {
-//    const { searchType, searchData } = req.body;
-//    
-//    if (!searchType || !searchData) {
-//      return res.status(400).json({ error: "searchType and searchData are required" });
-//    }
-//
-//    if (!['song', 'artist'].includes(searchType)) {
-//      return res.status(400).json({ error: "searchType must be 'song' or 'artist'" });
-//    }
-//
-//    const userId = getUserId(req);
-//    
-//    await database.logUserSearch({
-//      userId: userId,
-//      searchType: searchType,
-//      searchData: searchData,
-//      ipAddress: req.ip || req.connection.remoteAddress,
-//      userAgent: req.get('User-Agent')
-//    });
-//
-//    res.json({ success: true, message: "User search logged successfully" });
-//  } catch (error) {
-//    console.error("Error logging user search:", error);
-//    res.status(500).json({ error: "Failed to log user search" });
-//  }
-//});
-
 // Enhanced debug endpoint with scalability metrics and timezone info
 router.get("/debug", ensureAuthenticated, (req, res) => {
   const userId = getUserId(req);
@@ -143,6 +99,7 @@ router.get("/debug", ensureAuthenticated, (req, res) => {
     nodeVersion: process.version,
     environment: config.server.nodeEnv,
     authEnabled: config.auth.enabled,
+    authType: config.auth.type,
     authenticated: config.auth.enabled ? !!req.session.user : null,
     userId,
     redis: {
