@@ -9,4 +9,5 @@ albumfinder-data
 
 .env
 
-test-results/
+server/testlog.txt
+server/data/
