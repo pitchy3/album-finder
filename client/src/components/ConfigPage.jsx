@@ -4,7 +4,7 @@ import { usePreferences } from "../contexts/PreferencesContext.jsx";
 import { TabNavigation } from "./config/shared";
 import { PreferencesTab, LidarrTab, AuthTab } from "./config";
 
-export default function ConfigPage({ onBack }) {
+export default function ConfigPage({ onBack, onRequestReauth }) {
   const { preferences, updatePreference } = usePreferences();
   const [activeTab, setActiveTab] = useState('preferences');
 
@@ -59,7 +59,7 @@ export default function ConfigPage({ onBack }) {
           )}
 
           {activeTab === 'auth' && (
-            <AuthTab darkMode={preferences.darkMode} />
+            <AuthTab darkMode={preferences.darkMode} onRequestReauth={onRequestReauth} />
           )}
         </div>
 
@@ -101,11 +101,12 @@ export default function ConfigPage({ onBack }) {
             <ul className={`space-y-2 text-sm ${
               preferences.darkMode ? 'text-blue-300' : 'text-blue-700'
             }`}>
-              <li>• <strong>Domain:</strong> The domain where your application is hosted (e.g., album.example.com)</li>
-              <li>• <strong>OIDC Provider:</strong> Must support OpenID Connect standard (Authentik, Keycloak, Auth0, etc.)</li>
-              <li>• <strong>Callback URL:</strong> Configure this URL in your OIDC provider's application settings</li>
-              <li>• <strong>Scopes:</strong> Application requests "openid profile email" - ensure your provider supports these</li>
-              <li>• <strong>Security:</strong> Client secret is stored securely and never displayed in full</li>
+              <li>• <strong>Authentication Types:</strong> Choose between OIDC (enterprise SSO) or BasicAuth (simple username/password)</li>
+              <li>• <strong>OIDC:</strong> Supports providers like Authentik, Keycloak, Auth0, and other OpenID Connect providers</li>
+              <li>• <strong>BasicAuth:</strong> Single user account with strong password requirements (16+ chars, uppercase, number)</li>
+              <li>• <strong>Switching Types:</strong> Changing authentication type requires re-authentication for security</li>
+              <li>• <strong>Domain:</strong> Required for OIDC - the domain where your application is hosted (e.g., album.example.com)</li>
+              <li>• <strong>Security:</strong> All credentials are stored securely and never displayed in full</li>
             </ul>
           )}
 
@@ -119,7 +120,7 @@ export default function ConfigPage({ onBack }) {
                 ? "Note: Preferences are automatically saved as you change them and will persist between sessions."
                 : activeTab === 'lidarr'
                 ? "Note: Lidarr configuration is managed entirely through this settings page. Environment variables are no longer used for Lidarr settings."
-                : "Note: Authentication settings are managed entirely through this settings page. Environment variables for OIDC configuration are no longer supported."
+                : "Note: Authentication settings are managed entirely through this settings page. Changing auth type or disabling auth requires re-authentication for security."
               }
             </p>
           </div>

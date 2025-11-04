@@ -1,4 +1,4 @@
-// server/config/index.js - Enhanced configuration management with runtime-only updates
+// server/config/index.js - Enhanced configuration with BasicAuth support
 
 // Environment configuration
 const config = {
@@ -17,6 +17,9 @@ const config = {
     qualityProfileId: ""
   },
 
+  // Authentication type: 'oidc', 'basicauth', or null (disabled)
+  authType: null,
+
   // OIDC authentication configuration - ONLY configurable via settings page (no env vars)
   oidc: {
     issuerUrl: "",
@@ -24,6 +27,12 @@ const config = {
     clientSecret: "",
     redirectUrl: "", // Will be constructed as [domain]/auth/callback
     scopes: "openid profile email"
+  },
+
+  // BasicAuth configuration - ONLY configurable via settings page (no env vars)
+  basicAuth: {
+    username: "",
+    passwordHash: "" // bcrypt hash of password
   },
 
   // Domain configuration - ONLY configurable via settings page (no env vars)
@@ -60,8 +69,39 @@ const config = {
 
 // Check if authentication is configured
 config.auth = {
-  enabled: !!(config.oidc.issuerUrl && config.oidc.clientId && config.oidc.clientSecret && config.domain && config.session.secret)
+  enabled: false,
+  type: null
 };
+
+function updateAuthStatus() {
+  // OIDC is enabled if all required fields are present
+  const oidcEnabled = !!(
+    config.oidc.issuerUrl && 
+    config.oidc.clientId && 
+    config.oidc.clientSecret && 
+    config.domain && 
+    config.session.secret
+  );
+
+  // BasicAuth is enabled if username and passwordHash are present
+  const basicAuthEnabled = !!(
+    config.basicAuth.username && 
+    config.basicAuth.passwordHash
+  );
+
+  if (config.authType === 'oidc' && oidcEnabled) {
+    config.auth.enabled = true;
+    config.auth.type = 'oidc';
+  } else if (config.authType === 'basicauth' && basicAuthEnabled) {
+    config.auth.enabled = true;
+    config.auth.type = 'basicauth';
+  } else {
+    config.auth.enabled = false;
+    config.auth.type = null;
+  }
+}
+
+updateAuthStatus();
 
 // Helper function to update Lidarr config at runtime
 config.updateLidarrConfig = (updates) => {
@@ -89,8 +129,25 @@ config.updateOIDCConfig = (updates) => {
   }
   
   if (configChanged) {
-    // Update auth enabled status
-    config.auth.enabled = !!(config.oidc.issuerUrl && config.oidc.clientId && config.oidc.clientSecret && config.domain && config.session.secret);
+    updateAuthStatus();
+  }
+};
+
+// Helper function to update BasicAuth config at runtime
+config.updateBasicAuthConfig = (updates) => {
+  const allowedFields = ['username', 'passwordHash'];
+  let configChanged = false;
+  
+  for (const [key, value] of Object.entries(updates)) {
+    if (allowedFields.includes(key) && value !== undefined) {
+      config.basicAuth[key] = value;
+      configChanged = true;
+      console.log(`🔧 Updated BasicAuth config: ${key} = ${key === 'passwordHash' ? '[REDACTED]' : value}`);
+    }
+  }
+  
+  if (configChanged) {
+    updateAuthStatus();
   }
 };
 
@@ -103,9 +160,26 @@ config.updateDomainConfig = (domain) => {
     console.log(`🔧 Updated domain: ${domain}`);
     console.log(`🔧 Updated callback URL: ${config.oidc.redirectUrl}`);
     
-    // Update auth enabled status
-    config.auth.enabled = !!(config.oidc.issuerUrl && config.oidc.clientId && config.oidc.clientSecret && config.domain && config.session.secret);
+    updateAuthStatus();
   }
+};
+
+// Helper function to set auth type
+config.setAuthType = (type) => {
+  if (['oidc', 'basicauth', null].includes(type)) {
+    config.authType = type;
+    console.log(`🔧 Set auth type: ${type || 'disabled'}`);
+    updateAuthStatus();
+  } else {
+    throw new Error(`Invalid auth type: ${type}`);
+  }
+};
+
+// Helper function to disable authentication
+config.disableAuth = () => {
+  config.authType = null;
+  updateAuthStatus();
+  console.log(`🔧 Authentication disabled`);
 };
 
 // Helper function to validate Lidarr configuration
@@ -168,16 +242,36 @@ config.validateOIDCConfig = () => {
   return { valid: true };
 };
 
+// Helper function to validate BasicAuth configuration
+config.validateBasicAuthConfig = () => {
+  if (!config.basicAuth.username) {
+    return {
+      valid: false,
+      message: 'Username is required for BasicAuth'
+    };
+  }
+  
+  if (!config.basicAuth.passwordHash) {
+    return {
+      valid: false,
+      message: 'Password is required for BasicAuth'
+    };
+  }
+  
+  return { valid: true };
+};
+
 // Log authentication status
 if (!config.auth.enabled) {
-  console.warn("⚠️  Authentication disabled - missing OIDC or domain configuration");
+  console.warn("⚠️  Authentication disabled");
   console.warn("   App will run without authentication protection");
-  console.warn("   Configure OIDC and domain settings via the Settings page");
+  console.warn("   Configure authentication via the Settings page");
+} else {
+  console.log(`🔐 Authentication enabled: ${config.auth.type.toUpperCase()}`);
 }
 
 // Log configuration status
-console.log("📋 Lidarr configuration must be set via the Settings page");
-console.log("🔐 OIDC and domain configuration must be set via the Settings page");
-console.log("🚫 Environment variables for Lidarr, OIDC, and domain are no longer supported");
+console.log("📋 Configuration can be managed via the Settings page");
+console.log("🚫 Environment variables for app configuration are not supported");
 
 module.exports = config;

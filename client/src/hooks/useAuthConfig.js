@@ -1,23 +1,28 @@
-// client/src/hooks/useAuthConfig.js
+// client/src/hooks/useAuthConfig.js - Updated with BasicAuth support
 import { useState, useEffect } from 'react';
 
-/**
- * Hook for managing Authentication configuration
- * Handles loading, testing, and saving OIDC settings
- * 
- * Based on the original ConfigPage.jsx implementation - kept simple!
- */
 export function useAuthConfig() {
   const [config, setConfig] = useState({
-    domain: '',
-    issuerUrl: '',
-    clientId: '',
-    clientSecret: ''
+    authType: null,
+    oidc: {
+      domain: '',
+      issuerUrl: '',
+      clientId: '',
+      clientSecret: '',
+      callbackUrl: ''
+    },
+    basicAuth: {
+      username: '',
+      password: '',
+      currentPassword: '',
+      hasPassword: false
+    }
   });
 
-  const [originalClientSecret, setOriginalClientSecret] = useState('');
+  const [originalOIDCSecret, setOriginalOIDCSecret] = useState('');
   const [authEnabled, setAuthEnabled] = useState(false);
-  const [callbackUrl, setCallbackUrl] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUserAuthType, setCurrentUserAuthType] = useState(null);
   
   const [loading, setLoading] = useState({
     config: true,
@@ -25,37 +30,49 @@ export function useAuthConfig() {
     saving: false
   });
 
-  /**
-   * Update a single config field
-   */
-  const updateConfig = (key, value) => {
+  const updateConfig = (section, updates) => {
     setConfig(prev => ({
       ...prev,
-      [key]: value
+      [section]: { ...prev[section], ...updates }
     }));
   };
 
-  /**
-   * Load current Auth configuration
-   */
   const loadConfig = async () => {
     setLoading(prev => ({ ...prev, config: true }));
     try {
       const response = await fetch('/api/config/auth');
       if (response.ok) {
         const data = await response.json();
-        const isSecretObfuscated = data.clientSecret && data.clientSecret.startsWith('***');
+        
+        const isOIDCSecretObfuscated = data.oidc.clientSecret && data.oidc.clientSecret.startsWith('***');
         
         setConfig({
-          domain: data.domain || '',
-          issuerUrl: data.issuerUrl || '',
-          clientId: data.clientId || '',
-          clientSecret: isSecretObfuscated ? '' : (data.clientSecret || '')
+          authType: data.authType,
+          oidc: {
+            domain: data.oidc.domain || '',
+            issuerUrl: data.oidc.issuerUrl || '',
+            clientId: data.oidc.clientId || '',
+            clientSecret: isOIDCSecretObfuscated ? '' : (data.oidc.clientSecret || ''),
+            callbackUrl: data.oidc.callbackUrl || ''
+          },
+          basicAuth: {
+            username: data.basicAuth.username || '',
+            password: '',
+            currentPassword: '',
+            hasPassword: data.basicAuth.hasPassword || false
+          }
         });
 
-        setOriginalClientSecret(isSecretObfuscated ? 'OBFUSCATED_SECRET_EXISTS' : (data.clientSecret || ''));
+        setOriginalOIDCSecret(isOIDCSecretObfuscated ? 'OBFUSCATED_SECRET_EXISTS' : (data.oidc.clientSecret || ''));
         setAuthEnabled(data.authEnabled || false);
-        setCallbackUrl(data.callbackUrl || '');
+      }
+
+      // Check if user is logged in
+      const authResponse = await fetch('/api/auth/user', { credentials: 'include' });
+      if (authResponse.ok) {
+        const authData = await authResponse.json();
+        setIsLoggedIn(authData.loggedIn);
+        setCurrentUserAuthType(authData.user?.authType);
       }
     } catch (error) {
       console.error('Failed to load Auth config:', error);
@@ -64,12 +81,9 @@ export function useAuthConfig() {
     }
   };
 
-  /**
-   * Test OIDC connection
-   */
-  const testConnection = async () => {
-    const hasNewIssuerUrl = config.issuerUrl && config.issuerUrl.trim() !== '';
-    const hasSavedConfig = config.issuerUrl || originalClientSecret === 'OBFUSCATED_SECRET_EXISTS';
+  const testOIDCConnection = async () => {
+    const hasNewIssuerUrl = config.oidc.issuerUrl && config.oidc.issuerUrl.trim() !== '';
+    const hasSavedConfig = originalOIDCSecret === 'OBFUSCATED_SECRET_EXISTS';
     
     if (!hasNewIssuerUrl && !hasSavedConfig) {
       return { success: false, error: 'Issuer URL is required for testing' };
@@ -79,14 +93,14 @@ export function useAuthConfig() {
     
     try {
       const testPayload = {
-        issuerUrl: config.issuerUrl,
+        issuerUrl: config.oidc.issuerUrl,
         useSavedConfig: !hasNewIssuerUrl && hasSavedConfig
       };
 
       if (hasNewIssuerUrl) {
-        testPayload.clientId = config.clientId;
-        testPayload.clientSecret = config.clientSecret;
-        testPayload.domain = config.domain;
+        testPayload.clientId = config.oidc.clientId;
+        testPayload.clientSecret = config.oidc.clientSecret;
+        testPayload.domain = config.oidc.domain;
       }
 
       const response = await fetch('/api/config/auth/test', {
@@ -103,154 +117,216 @@ export function useAuthConfig() {
       if (response.ok && result.success) {
         let successMsg = 'OIDC connection successful!';
         
-        const issuerInfo = result.issuer || result.issuerUrl || config.issuerUrl;
+        const issuerInfo = result.issuer || result.issuerUrl || config.oidc.issuerUrl;
         if (issuerInfo) {
-          const displayIssuer = issuerInfo.replace(/\/$/, '');
-          successMsg += ` Issuer: ${displayIssuer}`;
+          successMsg += ` Issuer: ${issuerInfo.replace(/\/$/, '')}`;
         }
         
-        if (result.clientTest) {
-          if (result.clientTest.success) {
-            successMsg += ' | Client credentials valid';
-          } else if (result.clientTest.message && !result.clientTest.message.includes('not provided')) {
-            successMsg += ` | ${result.clientTest.message}`;
-          }
-        }
-        
-        if (result.discoveredEndpoints) {
-          const endpoints = result.discoveredEndpoints;
-          const endpointNames = [];
-          
-          if (endpoints.authorization) endpointNames.push('authorization');
-          if (endpoints.token) endpointNames.push('token');
-          if (endpoints.userinfo) endpointNames.push('userinfo');
-          if (endpoints.jwks) endpointNames.push('JWKS');
-          
-          if (endpointNames.length > 0) {
-            successMsg += ` | Discovered: ${endpointNames.join(', ')}`;
-          }
+        if (result.clientTest?.success) {
+          successMsg += ' | Client credentials valid';
         }
         
         return { success: true, message: successMsg };
-        
       } else {
-        const errorMsg = result.error || 'Connection test failed';
-        return { success: false, error: `OIDC test failed: ${errorMsg}` };
+        return { success: false, error: result.error || 'Connection test failed' };
       }
-      
     } catch (error) {
       setLoading(prev => ({ ...prev, testing: false }));
       return { success: false, error: `Failed to test OIDC connection: ${error.message}` };
     }
   };
 
-  /**
-   * Save Auth configuration
-   */
-  const saveConfig = async () => {
+  const saveOIDCConfig = async () => {
     setLoading(prev => ({ ...prev, saving: true }));
     
     try {
-      // Check required fields first
-      if (!config.domain || !config.issuerUrl || !config.clientId) {
+      if (!config.oidc.domain || !config.oidc.issuerUrl || !config.oidc.clientId) {
         setLoading(prev => ({ ...prev, saving: false }));
         return { success: false, error: 'Domain, Issuer URL, and Client ID are required' };
       }
 
-      // Determine which client secret to send
       let clientSecretToSend;
       
-      if (config.clientSecret && config.clientSecret.trim() !== '') {
-        // User entered a new secret
-        clientSecretToSend = config.clientSecret;
-      } else if (originalClientSecret === 'OBFUSCATED_SECRET_EXISTS') {
-        // Can't retrieve the saved secret from client side for security
+      if (config.oidc.clientSecret && config.oidc.clientSecret.trim() !== '') {
+        clientSecretToSend = config.oidc.clientSecret;
+      } else if (originalOIDCSecret === 'OBFUSCATED_SECRET_EXISTS') {
         setLoading(prev => ({ ...prev, saving: false }));
         return { 
           success: false, 
-          error: 'Cannot save without re-entering Client Secret. The saved secret cannot be retrieved for security reasons.' 
+          error: 'Cannot save without re-entering Client Secret' 
         };
       } else {
-        // No new secret and no saved secret
         setLoading(prev => ({ ...prev, saving: false }));
         return { success: false, error: 'Client Secret is required' };
       }
 
-      const response = await fetch('/api/config/auth', {
+      // First save OIDC config
+      const response = await fetch('/api/config/auth/oidc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          domain: config.domain,
-          issuerUrl: config.issuerUrl,
-          clientId: config.clientId,
+          domain: config.oidc.domain,
+          issuerUrl: config.oidc.issuerUrl,
+          clientId: config.oidc.clientId,
           clientSecret: clientSecretToSend
         })
       });
 
       const result = await response.json();
       
+      if (!response.ok || result.success === false) {
+        setLoading(prev => ({ ...prev, saving: false }));
+        return { success: false, error: result.error || 'Failed to save OIDC configuration' };
+      }
+
+      // Then set auth type to OIDC
+      const typeResponse = await fetch('/api/config/auth/set-type', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ authType: 'oidc' })
+      });
+
+      const typeResult = await typeResponse.json();
+      
       setLoading(prev => ({ ...prev, saving: false }));
       
-      if (response.ok && (result.success !== false)) {
-        let successMsg = result.message || 'Authentication configuration saved successfully!';
+      if (typeResponse.ok && typeResult.success) {
+        setOriginalOIDCSecret('OBFUSCATED_SECRET_EXISTS');
+        setAuthEnabled(true);
         
-        const issuerInfo = result.issuer || config.issuerUrl;
-        if (issuerInfo) {
-          const displayIssuer = issuerInfo.replace(/\/$/, '');
-          successMsg += ` | Issuer: ${displayIssuer}`;
-        }
-        
-        if (result.authEnabled) {
-          successMsg += ' | Authentication is now enabled';
-        }
-        
-        const newCallbackUrl = result.callbackUrl || `https://${config.domain}/auth/callback`;
-        successMsg += ` | Callback: ${newCallbackUrl}`;
-        
-        setOriginalClientSecret('OBFUSCATED_SECRET_EXISTS');
-        setAuthEnabled(result.authEnabled || true);
-        setCallbackUrl(result.callbackUrl || newCallbackUrl);
-        
-        return { success: true, message: successMsg };
-        
+        return { 
+          success: true, 
+          message: 'OIDC configuration saved successfully!' 
+        };
       } else {
-        const errorMsg = result.error || 'Failed to save configuration';
-        return { success: false, error: `Save failed: ${errorMsg}` };
+        return { success: false, error: typeResult.error || 'Failed to enable OIDC' };
       }
-      
     } catch (error) {
       setLoading(prev => ({ ...prev, saving: false }));
-      return { success: false, error: `Failed to save authentication configuration: ${error.message}` };
+      return { success: false, error: `Failed to save OIDC configuration: ${error.message}` };
     }
   };
 
-  // Load config on mount - SIMPLE, just like the original!
+  const saveBasicAuthConfig = async () => {
+    setLoading(prev => ({ ...prev, saving: true }));
+    
+    try {
+      if (!config.basicAuth.username || !config.basicAuth.password) {
+        setLoading(prev => ({ ...prev, saving: false }));
+        return { success: false, error: 'Username and password are required' };
+      }
+
+      const payload = {
+        username: config.basicAuth.username,
+        password: config.basicAuth.password
+      };
+
+      // If logged in with BasicAuth, include current password
+      if (isLoggedIn && currentUserAuthType === 'basicauth') {
+        if (!config.basicAuth.currentPassword) {
+          setLoading(prev => ({ ...prev, saving: false }));
+          return { success: false, error: 'Current password is required' };
+        }
+        payload.currentPassword = config.basicAuth.currentPassword;
+      }
+
+      // First save BasicAuth config
+      const response = await fetch('/api/config/auth/basicauth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok || result.success === false) {
+        setLoading(prev => ({ ...prev, saving: false }));
+        return { success: false, error: result.error || 'Failed to save BasicAuth configuration' };
+      }
+
+      // Then set auth type to basicauth
+      const typeResponse = await fetch('/api/config/auth/set-type', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ authType: 'basicauth' })
+      });
+
+      const typeResult = await typeResponse.json();
+      
+      setLoading(prev => ({ ...prev, saving: false }));
+      
+      if (typeResponse.ok && typeResult.success) {
+        setAuthEnabled(true);
+        
+        // Clear password fields
+        setConfig(prev => ({
+          ...prev,
+          basicAuth: {
+            ...prev.basicAuth,
+            password: '',
+            currentPassword: '',
+            hasPassword: true
+          }
+        }));
+        
+        return { 
+          success: true, 
+          message: 'BasicAuth configuration saved successfully!' 
+        };
+      } else {
+        return { success: false, error: typeResult.error || 'Failed to enable BasicAuth' };
+      }
+    } catch (error) {
+      setLoading(prev => ({ ...prev, saving: false }));
+      return { success: false, error: `Failed to save BasicAuth configuration: ${error.message}` };
+    }
+  };
+
+  const disableAuth = async () => {
+    try {
+      const response = await fetch('/api/config/auth/set-type', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ authType: null })
+      });
+
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        setAuthEnabled(false);
+        return { success: true, message: 'Authentication disabled' };
+      } else {
+        return { success: false, error: result.error || 'Failed to disable authentication' };
+      }
+    } catch (error) {
+      return { success: false, error: `Failed to disable authentication: ${error.message}` };
+    }
+  };
+
   useEffect(() => {
     loadConfig();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Update callback URL when domain changes
-  useEffect(() => {
-    if (config.domain && config.domain.trim() !== '') {
-      setCallbackUrl(`https://${config.domain}/auth/callback`);
-    } else {
-      // Clear callback URL if domain is empty (unless we have a saved one from the server)
-      if (!authEnabled) {
-        setCallbackUrl('');
-      }
-    }
-  }, [config.domain, authEnabled]);
+  const isLoggedInWithBasicAuth = isLoggedIn && currentUserAuthType === 'basicauth';
 
   return {
     config,
     updateConfig,
     setConfig,
     authEnabled,
-    callbackUrl,
+    isLoggedIn,
+    currentUserAuthType,
+    isLoggedInWithBasicAuth,
     loading,
-    testConnection,
-    saveConfig,
-    originalClientSecret
+    testOIDCConnection,
+    saveOIDCConfig,
+    saveBasicAuthConfig,
+    disableAuth,
+    originalOIDCSecret
   };
 }

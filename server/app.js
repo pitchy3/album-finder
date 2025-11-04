@@ -48,6 +48,11 @@ async function loadStoredConfiguration() {
       });
     }
     
+    if (storedConfig.authType) {
+      config.setAuthType(storedConfig.authType);
+      console.log("🔐 Loaded auth type:", storedConfig.authType);
+    }
+
     // Update OIDC configuration if present
     if (storedConfig.oidc) {
       const oidcConfig = storedConfig.oidc;
@@ -72,6 +77,23 @@ async function loadStoredConfiguration() {
         });
       } else {
         console.log("ℹ️ OIDC configuration found but incomplete - skipping");
+      }
+    }
+
+    // Update BasicAuth configuration if present
+    if (storedConfig.basicAuth) {
+     const basicAuthConfig = storedConfig.basicAuth;
+      if (basicAuthConfig.username && basicAuthConfig.passwordHash) {
+        config.updateBasicAuthConfig({
+          username: basicAuthConfig.username,
+          passwordHash: basicAuthConfig.passwordHash
+        });
+        
+        console.log("🔐 Loaded BasicAuth configuration:", {
+          username: basicAuthConfig.username
+        });
+      } else {
+        console.log("ℹ️ BasicAuth configuration found but incomplete - skipping");
       }
     }
     
@@ -273,15 +295,18 @@ async function main() {
     console.log(`📊 Cache: TTL=${config.cache.ttl}s, MaxSize=${config.cache.maxSize}, MaxMemory=${config.cache.maxMemory}MB`);
     console.log(`🔄 Queue: MaxConcurrent=${config.rateLimit.maxConcurrentRequests}, Timeout=${config.rateLimit.requestTimeout}ms`);
     console.log(`⚡ Redis: ${require('./services/redis').isConnected() ? 'Connected' : 'Disconnected'}`);
-    console.log(`🔐 Auth: ${config.auth.enabled ? 'Enabled' : 'Disabled'} (can be configured via Settings)`);
+    console.log(`🔐 Auth: ${config.auth.enabled ? `Enabled (${config.auth.type.toUpperCase()})` : 'Disabled'} (can be configured via Settings)`);
     console.log(`🛡️ CSRF: ${enableCSRF ? 'Enabled' : 'Disabled'}`);
     
     // Log configuration status
     const hasLidarrConfig = config.lidarr.url && config.lidarr.apiKey;
     const hasOIDCConfig = config.oidc.issuerUrl && config.oidc.clientId && config.oidc.clientSecret;
+    const hasBasicAuthConfig = config.basicAuth.username && config.basicAuth.passwordHash;
     console.log(`⚙️ Configuration Status:`);
     console.log(`   - Lidarr: ${hasLidarrConfig ? '✅ Configured' : '❌ Not configured'}`);
     console.log(`   - OIDC: ${hasOIDCConfig ? '✅ Configured' : '❌ Not configured'}`);
+    console.log(`   - BasicAuth: ${hasBasicAuthConfig ? '✅ Configured' : '❌ Not configured'}`);
+    console.log(`   - Active Auth Type: ${config.authType || 'None'}`);
     console.log(`   - Data Directory: ${path.dirname(CONFIG_FILE_PATH)}`);
   });
 

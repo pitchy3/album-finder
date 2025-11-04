@@ -1,8 +1,7 @@
-// client/src/App.jsx - Updated with consistent UserHeader navigation
+// client/src/App.jsx - Updated with BasicAuth support and re-authentication
 import { useState, useEffect } from "react";
 import { useAuth } from "./hooks/useAuth.js";
 import { useAlbumSearch } from "./hooks/useAlbumSearch.js";
-//import { useArtistSearch } from "./hooks/useArtistSearch.js";
 import { useArtistSearchStream } from "./hooks/useArtistSearchStream.js";
 import { addToLidarr } from "./services/lidarrService.js";
 import { usePreferences } from "./contexts/PreferencesContext.jsx";
@@ -20,6 +19,7 @@ import ResultsList from "./components/ResultsList.jsx";
 import ArtistResultsList from "./components/ArtistResultsList.jsx";
 import ConfigPage from "./components/ConfigPage.jsx";
 import LogsPage from './components/LogsPage.jsx';
+import AuthConfirmationPage from './components/AuthConfirmationPage.jsx';
 
 // Main app component that uses preferences
 function AppContent() {
@@ -31,12 +31,15 @@ function AppContent() {
   const [lidarrConfigured, setLidarrConfigured] = useState(null);
   const [showHooksDemo, setShowHooksDemo] = useState(false);
   
+  // Re-authentication state
+  const [reauthAction, setReauthAction] = useState(null); // 'disable', 'change'
+  const [reauthTargetType, setReauthTargetType] = useState(null); // 'oidc', 'basicauth'
+  
   // ✅ Use preferences context instead of local state
   const { preferences } = usePreferences();
   
   const authStatus = useAuth();
   const { loading: songLoading, results: songResults, error: songError, searchAlbums, updateAlbumLidarrStatus } = useAlbumSearch();
-  //const { loading: artistLoading, results: artistResults, error: artistError, searchArtistReleases, updateArtistAlbumLidarrStatus } = useArtistSearch();
   const { 
     loading: artistLoading, 
     results: artistResults, 
@@ -81,6 +84,41 @@ function AppContent() {
 
   const handleLogsClick = () => {
     setCurrentPage("logs");
+  };
+
+  // Handle re-authentication requests
+  const handleRequestReauth = (action, targetType) => {
+    setReauthAction(action);
+    setReauthTargetType(targetType);
+  };
+
+  const handleReauthCancel = () => {
+    setReauthAction(null);
+    setReauthTargetType(null);
+  };
+
+  const handleReauthConfirm = async () => {
+    // For OIDC users switching auth or disabling, force logout
+    if (authStatus.user?.authType === 'oidc') {
+      // Perform logout
+      try {
+        await fetch('/auth/logout', {
+          method: 'POST',
+          credentials: 'include'
+        });
+        // Redirect will happen automatically
+        window.location.href = '/';
+      } catch (error) {
+        console.error('Logout failed:', error);
+        window.location.href = '/';
+      }
+    } else {
+      // For BasicAuth, password was already verified, just proceed
+      setReauthAction(null);
+      setReauthTargetType(null);
+      // Refresh the page to apply changes
+      window.location.reload();
+    }
   };
 
   // Show loading spinner while checking auth
@@ -133,6 +171,18 @@ function AppContent() {
   const currentResults = searchMode === "song" ? songResults : artistResults;
   const currentError = searchMode === "song" ? songError : artistError;
 
+  // Show re-authentication page if needed
+  if (reauthAction) {
+    return (
+      <AuthConfirmationPage
+        action={reauthAction}
+        targetAuthType={reauthTargetType}
+        onCancel={handleReauthCancel}
+        onConfirm={handleReauthConfirm}
+      />
+    );
+  }
+
   return (
     <div className={`min-h-screen transition-colors ${preferences.darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-blue-50 to-indigo-100'}`}>
       {/* Universal Header - shown on all pages */}
@@ -148,7 +198,7 @@ function AppContent() {
   
       {/* Config page */}
       {currentPage === "config" && (
-        <ConfigPage onBack={handleBackToSearch} />
+        <ConfigPage onBack={handleBackToSearch} onRequestReauth={handleRequestReauth} />
       )}
   
       {/* Logs page */}

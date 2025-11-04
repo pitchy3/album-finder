@@ -1,9 +1,15 @@
-// server/routes/api/config.js - Configuration management API routes
+// server/routes/api/config.js - Enhanced configuration management with BasicAuth support
 const express = require("express");
 const fs = require("fs").promises;
 const path = require("path");
 const config = require("../../config");
 const { ensureAuthenticated } = require("../../middleware/auth");
+const { database } = require("../../services/database");
+const { 
+  validatePasswordRequirements, 
+  hashPassword, 
+  validateBasicAuthPassword 
+} = require("../../services/auth");
 const router = express.Router();
 
 // Path to the configuration file
@@ -29,6 +35,7 @@ async function loadConfig() {
     if (error.code === "ENOENT") {
       // File doesn't exist, return default config
       return {
+        authType: null,
         lidarr: {
           url: "",
           apiKey: "",
@@ -40,6 +47,10 @@ async function loadConfig() {
           clientId: "",
           clientSecret: "",
           domain: ""
+        },
+        basicAuth: {
+          username: "",
+          passwordHash: ""
         }
       };
     }
@@ -66,42 +77,31 @@ function getBaseUrl(fullUrl) {
     const u = new URL(fullUrl);
     return `${u.protocol}//${u.hostname}${u.port ? `:${u.port}` : ""}`;
   } catch {
-    // fallback if invalid
     return fullUrl;
   }
 }
-
-// Get current Lidarr configuration (sanitized)
-router.get("/lidarr", ensureAuthenticated, async (req, res) => {
-  try {
-    const configData = await loadConfig();
-    const lidarrConfig = configData.lidarr || {};
-    
-    res.json({
-      url: lidarrConfig.url ? getBaseUrl(lidarrConfig.url) : "",
-      apiKey: lidarrConfig.apiKey ? '***' + lidarrConfig.apiKey.slice(-4) : '', // Show only last 4 chars for security
-      rootFolder: lidarrConfig.rootFolder || "",
-      qualityProfileId: lidarrConfig.qualityProfileId || ""
-    });
-  } catch (error) {
-    console.error("Error getting Lidarr config:", error);
-    res.status(500).json({ error: "Failed to get configuration" });
-  }
-});
 
 // Get current authentication configuration (sanitized)
 router.get("/auth", async (req, res) => {
   try {
     const configData = await loadConfig();
     const oidcConfig = configData.oidc || {};
+    const basicAuthConfig = configData.basicAuth || {};
     
     res.json({
-      domain: oidcConfig.domain || "",
-      issuerUrl: oidcConfig.issuerUrl || "",
-      clientId: oidcConfig.clientId || "",
-      clientSecret: oidcConfig.clientSecret ? '***' + oidcConfig.clientSecret.slice(-4) : '',
-      callbackUrl: oidcConfig.domain ? `https://${oidcConfig.domain}/auth/callback` : "",
-      authEnabled: config.auth.enabled
+      authEnabled: config.auth.enabled,
+      authType: configData.authType || null,
+      oidc: {
+        domain: oidcConfig.domain || "",
+        issuerUrl: oidcConfig.issuerUrl || "",
+        clientId: oidcConfig.clientId || "",
+        clientSecret: oidcConfig.clientSecret ? '***' + oidcConfig.clientSecret.slice(-4) : '',
+        callbackUrl: oidcConfig.domain ? `https://${oidcConfig.domain}/auth/callback` : ""
+      },
+      basicAuth: {
+        username: basicAuthConfig.username || "",
+        hasPassword: !!basicAuthConfig.passwordHash
+      }
     });
   } catch (error) {
     console.error("Error getting auth config:", error);
@@ -109,8 +109,91 @@ router.get("/auth", async (req, res) => {
   }
 });
 
-// Update authentication configuration
-router.post("/auth", ensureAuthenticated, async (req, res) => {
+// Verify current password (for re-authentication)
+router.post("/auth/verify-password", ensureAuthenticated, async (req, res) => {
+  try {
+    const { password } = req.body;
+    const userInfo = req.session?.user?.claims;
+    
+    if (!password) {
+      return res.status(400).json({ error: "Password is required" });
+    }
+    
+    // Only works for BasicAuth users
+    if (userInfo?.authType !== 'basicauth') {
+      return res.status(400).json({ error: "Password verification only available for BasicAuth users" });
+    }
+    
+    const username = userInfo.preferred_username || userInfo.sub;
+    const isValid = await validateBasicAuthPassword(username, password);
+    
+    if (!isValid) {
+      return res.status(401).json({ 
+        success: false, 
+        error: "Invalid password" 
+      });
+    }
+    
+    res.json({ success: true });
+    
+  } catch (error) {
+    console.error("Error verifying password:", error);
+    res.status(500).json({ error: "Failed to verify password" });
+  }
+});
+
+// Update authentication type
+router.post("/auth/set-type", ensureAuthenticated, async (req, res) => {
+  try {
+    const { authType } = req.body;
+    
+    if (!['oidc', 'basicauth', null].includes(authType)) {
+      return res.status(400).json({ error: "Invalid auth type" });
+    }
+    
+    const currentConfig = await loadConfig();
+    const oldAuthType = currentConfig.authType;
+    
+    // Update auth type in config file
+    currentConfig.authType = authType;
+    await saveConfig(currentConfig);
+    
+    // Update runtime config
+    config.setAuthType(authType);
+    
+    // Log auth type change
+    const userInfo = req.session?.user?.claims;
+    await database.logAuthEvent({
+      eventType: 'auth_type_change',
+      userId: userInfo?.sub || userInfo?.preferred_username,
+      username: userInfo?.preferred_username || userInfo?.name,
+      email: userInfo?.email,
+      ipAddress: req.ip || req.connection.remoteAddress,
+      userAgent: req.get('User-Agent'),
+      sessionId: req.sessionID,
+      errorMessage: `Auth type changed from ${oldAuthType || 'disabled'} to ${authType || 'disabled'}`
+    });
+    
+    console.log(`🔄 Auth type changed from ${oldAuthType || 'disabled'} to ${authType || 'disabled'}`);
+    
+    // Reinitialize auth system
+    const { reinitializeAuth } = require("../../services/auth");
+    await reinitializeAuth();
+    
+    res.json({ 
+      success: true, 
+      authType: authType,
+      message: `Authentication type set to ${authType || 'disabled'}` 
+    });
+    
+  } catch (error) {
+    console.error("Error setting auth type:", error);
+    res.status(500).json({ error: "Failed to set authentication type" });
+  }
+});
+
+// Update OIDC configuration
+router.post("/auth/oidc", ensureAuthenticated, async (req, res) => {
   try {
     const { issuerUrl, clientId, clientSecret, domain } = req.body;
     
@@ -126,9 +209,9 @@ router.post("/auth", ensureAuthenticated, async (req, res) => {
     const { Issuer } = require("openid-client");
     try {
       const testIssuer = await Issuer.discover(issuerUrl);
-      console.log("✅  OIDC configuration test passed");
+      console.log("✅ OIDC configuration test passed");
     } catch (testError) {
-      console.error("❌  OIDC configuration test failed:", testError);
+      console.error("❌ OIDC configuration test failed:", testError);
       return res.status(400).json({
         error: `Invalid OIDC configuration: ${testError.message}`
       });
@@ -142,7 +225,7 @@ router.post("/auth", ensureAuthenticated, async (req, res) => {
       domain
     });
 
-    // Update in-memory configuration for backward compatibility
+    // Update in-memory configuration
     config.updateOIDCConfig({ issuerUrl, clientId, clientSecret });
     config.updateDomainConfig(domain);
 
@@ -158,7 +241,7 @@ router.post("/auth", ensureAuthenticated, async (req, res) => {
       });
     }
 
-    console.log("✅  OIDC client successfully reinitialized");
+    console.log("✅ OIDC client successfully reinitialized");
     res.json({
       success: true,
       message: "OIDC configuration updated successfully",
@@ -166,7 +249,7 @@ router.post("/auth", ensureAuthenticated, async (req, res) => {
       issuer: issuerUrl
     });
   } catch (error) {
-    console.error("❌  Error updating OIDC config:", error);
+    console.error("❌ Error updating OIDC config:", error);
     res.status(500).json({
       success: false,
       error: "Failed to update OIDC configuration"
@@ -174,7 +257,86 @@ router.post("/auth", ensureAuthenticated, async (req, res) => {
   }
 });
 
-// Test OIDC connection - NO AUTH REQUIRED (needed to test before auth is working)
+// Update BasicAuth configuration
+router.post("/auth/basicauth", ensureAuthenticated, async (req, res) => {
+  try {
+    const { username, password, currentPassword } = req.body;
+    const userInfo = req.session?.user?.claims;
+    const currentUser = userInfo?.preferred_username || userInfo?.sub;
+    
+    // If user is logged in with BasicAuth, require current password
+    if (userInfo?.authType === 'basicauth') {
+      if (!currentPassword) {
+        return res.status(400).json({ 
+          error: "Current password is required to change BasicAuth settings" 
+        });
+      }
+      
+      const isValid = await validateBasicAuthPassword(currentUser, currentPassword);
+      if (!isValid) {
+        return res.status(401).json({ error: "Current password is incorrect" });
+      }
+    }
+    
+    // Validate required fields
+    if (!username || !password) {
+      return res.status(400).json({
+        error: "Username and password are required"
+      });
+    }
+
+    // Validate password requirements
+    const passwordValidation = validatePasswordRequirements(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({
+        error: "Password does not meet requirements",
+        details: passwordValidation.errors
+      });
+    }
+
+    // Hash the password
+    console.log("🔐 Hashing password...");
+    const passwordHash = await hashPassword(password);
+    console.log("✅ Password hashed successfully");
+
+    // Save configuration to JSON file
+    await updateConfigSection("basicAuth", {
+      username,
+      passwordHash
+    });
+
+    // Update in-memory configuration
+    config.updateBasicAuthConfig({ username, passwordHash });
+
+    console.log("🔄 BasicAuth configuration updated");
+
+    // Reinitialize auth
+    const { reinitializeAuth } = require("../../services/auth");
+    const success = await reinitializeAuth();
+
+    if (!success) {
+      return res.status(500).json({
+        error: "Configuration saved but failed to initialize BasicAuth. Check server logs."
+      });
+    }
+
+    console.log("✅ BasicAuth successfully configured");
+    res.json({
+      success: true,
+      message: "BasicAuth configuration updated successfully",
+      authEnabled: config.auth.enabled,
+      username: username
+    });
+  } catch (error) {
+    console.error("❌ Error updating BasicAuth config:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to update BasicAuth configuration"
+    });
+  }
+});
+
+// Test OIDC connection - NO AUTH REQUIRED (for initial setup)
 router.post("/auth/test", async (req, res) => {
   try {
     const { issuerUrl, clientId, clientSecret, domain } = req.body;
@@ -184,20 +346,15 @@ router.post("/auth/test", async (req, res) => {
     }
 
     console.log("🔍 Testing OIDC configuration...");
-    console.log("🔍 Testing issuer:", issuerUrl);
-
     const { Issuer } = require("openid-client");
 
-    // Try to discover the issuer
     const testIssuer = await Issuer.discover(issuerUrl);
-    console.log("✅  OIDC issuer discovery successful");
-    console.log("✅  Discovered issuer:", testIssuer.issuer);
+    console.log("✅ OIDC issuer discovery successful");
 
-    // Prepare response data
     const responseData = {
       success: true,
       message: "OIDC configuration test successful",
-      issuer: testIssuer.issuer, // This is the key fix - use testIssuer.issuer
+      issuer: testIssuer.issuer,
       issuerUrl: issuerUrl,
       discoveredEndpoints: {
         authorization: testIssuer.authorization_endpoint,
@@ -207,16 +364,13 @@ router.post("/auth/test", async (req, res) => {
       }
     };
 
-    // If we have client credentials, test them too
     if (clientId && clientSecret) {
       try {
         const testClient = new testIssuer.Client({
           client_id: clientId,
           client_secret: clientSecret,
         });
-        console.log("✅  OIDC client creation successful");
-
-        // Test if we can generate an auth URL
+        
         const testAuthUrl = testClient.authorizationUrl({
           scope: "openid profile email",
           redirect_uri: `https://${domain || 'test.example.com'}/auth/callback`,
@@ -225,38 +379,45 @@ router.post("/auth/test", async (req, res) => {
           state: "test_state",
           nonce: "test_nonce"
         });
-        console.log("✅  OIDC authorization URL generation successful");
 
-        // Add client test results
         responseData.clientTest = {
           success: true,
           message: "Client credentials are valid",
           authUrlGenerated: true
         };
       } catch (clientError) {
-        console.warn("⚠️ Client test failed:", clientError.message);
         responseData.clientTest = {
           success: false,
           message: `Client test failed: ${clientError.message}`
         };
       }
-    } else {
-      responseData.clientTest = {
-        success: false,
-        message: "Client ID and secret not provided - only issuer discovery tested"
-      };
     }
 
-    console.log("✅  OIDC test completed successfully");
     res.json(responseData);
   } catch (error) {
-    console.error("❌  OIDC test failed:", error);
+    console.error("❌ OIDC test failed:", error);
     res.status(400).json({
       success: false,
-      error: `OIDC test failed: ${error.message}`,
-      issuer: null,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: `OIDC test failed: ${error.message}`
     });
+  }
+});
+
+// Get current Lidarr configuration (sanitized)
+router.get("/lidarr", ensureAuthenticated, async (req, res) => {
+  try {
+    const configData = await loadConfig();
+    const lidarrConfig = configData.lidarr || {};
+    
+    res.json({
+      url: lidarrConfig.url ? getBaseUrl(lidarrConfig.url) : "",
+      apiKey: lidarrConfig.apiKey ? '***' + lidarrConfig.apiKey.slice(-4) : '',
+      rootFolder: lidarrConfig.rootFolder || "",
+      qualityProfileId: lidarrConfig.qualityProfileId || ""
+    });
+  } catch (error) {
+    console.error("Error getting Lidarr config:", error);
+    res.status(500).json({ error: "Failed to get configuration" });
   }
 });
 
@@ -265,23 +426,20 @@ router.post("/lidarr", ensureAuthenticated, async (req, res) => {
   try {
     const { url, apiKey, rootFolder, qualityProfileId } = req.body;
     
-    // Validate required fields
     if (!url || !apiKey || !rootFolder || !qualityProfileId) {
       return res.status(400).json({
         error: "All fields are required: url, apiKey, rootFolder, qualityProfileId"
       });
     }
 
-    // Validate URL format
     try {
       new URL(url);
     } catch {
       return res.status(400).json({ error: "Invalid URL format" });
     }
 
-    const cleanUrl = url.replace(/\/$/, ""); // Remove trailing slash
+    const cleanUrl = url.replace(/\/$/, "");
 
-    // Save configuration to JSON file
     await updateConfigSection("lidarr", {
       url: cleanUrl,
       apiKey,
@@ -289,18 +447,10 @@ router.post("/lidarr", ensureAuthenticated, async (req, res) => {
       qualityProfileId
     });
 
-    // Update in-memory configuration for backward compatibility
     config.lidarr.url = cleanUrl;
     config.lidarr.apiKey = apiKey;
     config.lidarr.rootFolder = rootFolder;
     config.lidarr.qualityProfileId = qualityProfileId;
-
-    console.log("✅  Lidarr configuration updated:", {
-      url: cleanUrl,
-      apiKey: '***' + apiKey.slice(-4),
-      rootFolder: rootFolder,
-      qualityProfileId: qualityProfileId
-    });
 
     res.json({ success: true, message: "Configuration updated successfully" });
   } catch (error) {
@@ -309,27 +459,24 @@ router.post("/lidarr", ensureAuthenticated, async (req, res) => {
   }
 });
 
-// Test Lidarr connection and get quality profiles
+// Test Lidarr connection
 router.post("/lidarr/test", ensureAuthenticated, async (req, res) => {
   try {
     const { url, apiKey, useSavedApiKey } = req.body;
     
-    // Determine which API key to use
     let testApiKey;
     let testUrl;
     
     if (useSavedApiKey) {
-      // Use saved configuration from JSON file
       const configData = await loadConfig();
       const lidarrConfig = configData.lidarr || {};
       
       if (!lidarrConfig.url || !lidarrConfig.apiKey) {
         return res.status(400).json({ error: "No saved Lidarr configuration found" });
       }
-      testUrl = url || lidarrConfig.url; // Allow URL override
+      testUrl = url || lidarrConfig.url;
       testApiKey = lidarrConfig.apiKey;
     } else {
-      // Use provided parameters
       if (!url || !apiKey) {
         return res.status(400).json({ error: "URL and API key are required" });
       }
@@ -337,7 +484,6 @@ router.post("/lidarr/test", ensureAuthenticated, async (req, res) => {
       testApiKey = apiKey;
     }
 
-    // Validate URL format
     try {
       new URL(testUrl);
     } catch {
@@ -345,49 +491,32 @@ router.post("/lidarr/test", ensureAuthenticated, async (req, res) => {
     }
 
     const baseUrl = testUrl.replace(/\/$/, "");
-    console.log("🧪 Testing Lidarr connection:", baseUrl, useSavedApiKey ? "(using saved API key)" : "");
-
-    // Test connection by getting system status
     const statusUrl = `${baseUrl}/api/v1/system/status`;
-    console.log("📡 Testing status endpoint:", statusUrl);
 
     const statusResponse = await fetch(statusUrl, {
       headers: { "X-Api-Key": testApiKey },
-      timeout: 10000 // 10 second timeout
+      timeout: 10000
     });
 
     if (!statusResponse.ok) {
-      console.error("❌  Status check failed:", {
-        status: statusResponse.status,
-        statusText: statusResponse.statusText
-      });
       if (statusResponse.status === 401) {
         return res.status(400).json({ error: "Invalid API key" });
       } else if (statusResponse.status === 404) {
-        return res.status(400).json({ error: "Lidarr API not found. Check URL and ensure Lidarr is running" });
+        return res.status(400).json({ error: "Lidarr API not found" });
       } else {
-        return res.status(400).json({ error: `Connection failed: ${statusResponse.status} ${statusResponse.statusText}` });
+        return res.status(400).json({ error: `Connection failed: ${statusResponse.status}` });
       }
     }
 
     const statusData = await statusResponse.json();
-    console.log("✅  Lidarr connection successful, version:", statusData.version);
 
-    // Get quality profiles
     const profilesUrl = `${baseUrl}/api/v1/qualityprofile`;
-    console.log("📡 Getting quality profiles:", profilesUrl);
-
     const profilesResponse = await fetch(profilesUrl, {
       headers: { "X-Api-Key": testApiKey },
       timeout: 10000
     });
 
     if (!profilesResponse.ok) {
-      console.error("⚠️ Failed to get quality profiles:", {
-        status: profilesResponse.status,
-        statusText: profilesResponse.statusText
-      });
-      // Connection works but can't get profiles - still return success
       return res.json({
         success: true,
         version: statusData.version,
@@ -397,7 +526,6 @@ router.post("/lidarr/test", ensureAuthenticated, async (req, res) => {
     }
 
     const profiles = await profilesResponse.json();
-    console.log("📋 Quality profiles loaded:", profiles.length);
 
     res.json({
       success: true,
@@ -405,13 +533,11 @@ router.post("/lidarr/test", ensureAuthenticated, async (req, res) => {
       profiles: profiles.map(p => ({ id: p.id, name: p.name }))
     });
   } catch (error) {
-    console.error("❌  Lidarr connection test failed:", error);
+    console.error("❌ Lidarr connection test failed:", error);
     if (error.code === 'ECONNREFUSED') {
-      return res.status(400).json({ error: "Connection refused. Check if Lidarr is running and accessible" });
+      return res.status(400).json({ error: "Connection refused" });
     } else if (error.code === 'ENOTFOUND') {
-      return res.status(400).json({ error: "Host not found. Check the URL" });
-    } else if (error.name === 'AbortError' || error.code === 'ETIMEDOUT') {
-      return res.status(400).json({ error: "Connection timeout. Check URL and network connectivity" });
+      return res.status(400).json({ error: "Host not found" });
     } else {
       return res.status(500).json({ error: `Connection test failed: ${error.message}` });
     }
@@ -423,22 +549,19 @@ router.post("/lidarr/rootfolders", ensureAuthenticated, async (req, res) => {
   try {
     const { url, apiKey, useSavedApiKey } = req.body;
     
-    // Determine which API key to use
     let testApiKey;
     let testUrl;
     
     if (useSavedApiKey) {
-      // Use saved configuration from JSON file
       const configData = await loadConfig();
       const lidarrConfig = configData.lidarr || {};
       
       if (!lidarrConfig.url || !lidarrConfig.apiKey) {
         return res.status(400).json({ error: "No saved Lidarr configuration found" });
       }
-      testUrl = url || lidarrConfig.url; // Allow URL override
+      testUrl = url || lidarrConfig.url;
       testApiKey = lidarrConfig.apiKey;
     } else {
-      // Use provided parameters
       if (!url || !apiKey) {
         return res.status(400).json({ error: "URL and API key are required" });
       }
@@ -446,7 +569,6 @@ router.post("/lidarr/rootfolders", ensureAuthenticated, async (req, res) => {
       testApiKey = apiKey;
     }
 
-    // Validate URL format
     try {
       new URL(testUrl);
     } catch {
@@ -455,7 +577,6 @@ router.post("/lidarr/rootfolders", ensureAuthenticated, async (req, res) => {
 
     const baseUrl = testUrl.replace(/\/$/, "");
     const rootFoldersUrl = `${baseUrl}/api/v1/rootfolder`;
-    console.log("📡 Getting root folders:", rootFoldersUrl, useSavedApiKey ? "(using saved API key)" : "");
 
     const response = await fetch(rootFoldersUrl, {
       headers: { "X-Api-Key": testApiKey },
@@ -463,15 +584,10 @@ router.post("/lidarr/rootfolders", ensureAuthenticated, async (req, res) => {
     });
 
     if (!response.ok) {
-      console.error("❌  Failed to get root folders:", {
-        status: response.status,
-        statusText: response.statusText
-      });
       return res.status(400).json({ error: "Failed to get root folders from Lidarr" });
     }
 
     const rootFolders = await response.json();
-    console.log("📂 Root folders loaded:", rootFolders.length);
 
     res.json({
       rootFolders: rootFolders.map(rf => ({
@@ -483,34 +599,8 @@ router.post("/lidarr/rootfolders", ensureAuthenticated, async (req, res) => {
       }))
     });
   } catch (error) {
-    console.error("❌  Error getting root folders:", error);
+    console.error("❌ Error getting root folders:", error);
     res.status(500).json({ error: "Failed to get root folders" });
-  }
-});
-
-// Debug route to check data directory status (remove in production)
-router.get("/debug/data-dir", async (req, res) => {
-  try {
-    const dataDir = path.dirname(CONFIG_FILE_PATH);
-    const stats = await fs.stat(dataDir).catch(() => null);
-    const configExists = await fs.access(CONFIG_FILE_PATH, fs.constants.F_OK).then(() => true).catch(() => false);
-    const configWritable = await fs.access(CONFIG_FILE_PATH, fs.constants.W_OK).then(() => true).catch(() => false);
-    
-    res.json({
-      dataDir,
-      configFile: CONFIG_FILE_PATH,
-      dataDirExists: !!stats,
-      dataDirStats: stats ? {
-        isDirectory: stats.isDirectory(),
-        mode: '0' + (stats.mode & parseInt('777', 8)).toString(8)
-      } : null,
-      configExists,
-      configWritable,
-      processUid: process.getuid?.(),
-      processGid: process.getgid?.()
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message, stack: error.stack });
   }
 });
 

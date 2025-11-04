@@ -20,7 +20,7 @@ function configureSession(app) {
   const sessionConfig = {
     secret: config.session.secret,
     resave: false,
-    saveUninitialized: false,
+    saveUninitialized: true,
     rolling: true,
     name: 'albumfinder.sid',
     cookie: {

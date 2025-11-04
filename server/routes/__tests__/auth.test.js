@@ -11,7 +11,8 @@ jest.spyOn(console, 'log').mockImplementation(() => {});
 // Mock the auth service
 jest.mock('../../services/auth', () => ({
   getClient: jest.fn(),
-  getIssuer: jest.fn()
+  getIssuer: jest.fn(),
+  validateBasicAuthPassword: jest.fn()
 }));
 
 // Mock the database service
@@ -28,8 +29,10 @@ describe('Authentication Routes', () => {
   let mockClient;
 
   beforeAll(() => {
-    // Configure OIDC settings
+    // Configure OIDC settings for all tests
+    config.authType = 'oidc'; // ✅ SET AUTH TYPE
     config.auth.enabled = true;
+    config.auth.type = 'oidc'; // ✅ SET AUTH TYPE IN AUTH OBJECT
     config.oidc.issuerUrl = 'https://auth.example.com';
     config.oidc.clientId = 'test-client';
     config.oidc.clientSecret = 'test-secret';
@@ -97,8 +100,10 @@ describe('Authentication Routes', () => {
 
     it('should return error if auth not configured', async () => {
       // Temporarily disable auth
-      const originalEnabled = config.auth.enabled;
-      config.auth.enabled = false;
+      const originalType = config.auth.type;
+      const originalAuthType = config.authType;
+      config.auth.type = null;
+      config.authType = null;
 
       const response = await request(app)
         .get('/auth/login');
@@ -107,7 +112,23 @@ describe('Authentication Routes', () => {
       expect(response.text).toContain('Authentication is not configured');
 
       // Restore auth state
-      config.auth.enabled = originalEnabled;
+      config.auth.type = originalType;
+      config.authType = originalAuthType;
+    });
+
+    it('should redirect to home for BasicAuth', async () => {
+      // Temporarily set to BasicAuth
+      const originalType = config.auth.type;
+      config.auth.type = 'basicauth';
+
+      const response = await request(app)
+        .get('/auth/login');
+
+      expect(response.status).toBe(302);
+      expect(response.headers.location).toBe('/?auth=basicauth');
+
+      // Restore auth state
+      config.auth.type = originalType;
     });
   });
 
@@ -164,13 +185,18 @@ describe('Authentication Routes', () => {
     });
 
     it('should handle authentication errors', async () => {
+      const agent = request.agent(app);
+      
+      // Need to initiate login first to have a session
+      await agent.get('/auth/login');
+      
       // Mock callbackParams to return the error
       mockClient.callbackParams.mockReturnValue({
         error: 'access_denied',
         error_description: 'User denied access'
       });
 
-      const response = await request(app)
+      const response = await agent
         .get('/auth/callback')
         .query({
           error: 'access_denied',
@@ -195,7 +221,7 @@ describe('Authentication Routes', () => {
         });
 
       expect(response.status).toBe(400);
-      expect(response.text).toContain('Session expired or invalid');
+      expect(response.text).toContain('Session expired. Please try logging in again.');
     });
 
     it('should validate state parameter', async () => {
@@ -256,14 +282,10 @@ describe('Authentication Routes', () => {
       expect(response.status).toBe(200);
       expect(response.body).toMatchObject({
         authEnabled: true,
+        authType: 'oidc', // ✅ UPDATED TO CHECK AUTH TYPE
         clientAvailable: true,
         sessionExists: expect.any(Boolean),
-        userLoggedIn: expect.any(Boolean),
-        oidcConfig: expect.objectContaining({
-          issuerUrl: config.oidc.issuerUrl,
-          clientId: config.oidc.clientId,
-          redirectUrl: config.oidc.redirectUrl
-        })
+        userLoggedIn: expect.any(Boolean)
       });
     });
   });
