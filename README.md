@@ -22,7 +22,9 @@ A modern, scalable web application for discovering and managing music albums wit
 - **User Preferences** - Persistent search settings and UI preferences
 
 ### 🔐 Multi-User Support
-- **OpenID Connect (OIDC)** - Enterprise-grade authentication
+- **Authentication Options**
+  - **OpenID Connect (OIDC)** - Enterprise-grade authentication
+  - **Basic Authentication (BasicAuth)** - Simple username/password-based access for self-hosted environments
 - **Session Management** - Secure Redis-backed sessions
 - **Activity Logging** - Comprehensive user action tracking
 - **Per-User Analytics** - Search history and addition logs
@@ -46,7 +48,7 @@ A modern, scalable web application for discovering and managing music albums wit
 ### Prerequisites
 - Docker & Docker Compose
 - Lidarr instance (for music management)
-- Optional: OIDC provider for authentication
+- Optional: OIDC or BasicAuth for authentication
 
 ### Installation
 
@@ -81,7 +83,7 @@ docker compose up -d
 
 4. **Access the application**
 - Open http://localhost:3001
-- Navigate to Settings to configure Lidarr and OIDC
+- Navigate to Settings to configure Lidarr and authentication (OIDC or BasicAuth)
 
 ### First Time Setup
 
@@ -91,8 +93,13 @@ docker compose up -d
    - Test connection
 
 2. **Optional: Configure Authentication** (Settings → Auth Settings)
-   - Enter domain, OIDC issuer URL, client ID, and secret
-   - Test connection
+   - Choose between **OIDC** or **BasicAuth**
+     - For **OIDC**:
+       - Enter domain, OIDC issuer URL, client ID, and secret
+       - Test connection
+     - For **BasicAuth**:
+       - Enable BasicAuth mode
+       - Define allowed username/password credentials
    - Save configuration
 
 3. **Start Searching!**
@@ -106,7 +113,7 @@ docker compose up -d
 - **Backend**: Node.js 18+ with Express
 - **Database**: SQLite (activity logging)
 - **Cache**: Redis + NodeCache
-- **Authentication**: OpenID Connect
+- **Authentication**: OpenID Connect or BasicAuth
 - **Container**: Docker with multi-stage builds
 
 ### Project Structure
@@ -142,10 +149,19 @@ Settings are managed through the web interface (Settings page) and stored in `/a
 - **Quality Profile**: Default quality profile for new additions
 
 #### Authentication Configuration
+Authentication is optional and supports two modes:
+
+**1. OpenID Connect (OIDC)**
 - **Domain**: Your application domain (e.g., `album.example.com`)
 - **OIDC Issuer**: OpenID Connect provider URL
 - **Client ID/Secret**: OIDC application credentials
 - **Scopes**: `openid profile email` (default)
+
+**2. BasicAuth**
+- **Enabled**: Boolean toggle to enable BasicAuth
+- **Username**: The allowed username
+- **Password**: The corresponding password
+- Ideal for single-user or local self-hosted setups
 
 #### User Preferences
 - **Dark Mode**: Toggle dark/light theme
