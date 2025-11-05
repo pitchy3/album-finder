@@ -36,33 +36,55 @@ export default function LoginPrompt() {
       setError('Username and password are required');
       return;
     }
-
+  
     setLoading(true);
     setError(null);
-
+  
     try {
       const response = await secureApiCall('/auth/login/basicauth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
-
+  
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || 'Login failed');
       }
-
+  
       const data = await response.json();
       
       if (data.success) {
-        // Redirect to home page
-        window.location.href = '/';
+        // Verify session before redirecting
+        console.log('Login successful, verifying session...');
+        
+        // Small delay to ensure session is set
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Verify session is actually set
+        try {
+          const verifyResponse = await fetch('/api/auth/user', { 
+            credentials: 'include' 
+          });
+          const verifyData = await verifyResponse.json();
+          
+          if (verifyData.loggedIn) {
+            console.log('Session verified, redirecting...');
+            window.location.href = '/';
+          } else {
+            throw new Error('Session not established');
+          }
+        } catch (verifyError) {
+          console.error('Session verification failed:', verifyError);
+          setError('Login succeeded but session failed. Please try again.');
+          setLoading(false);
+        }
       } else {
         setError('Login failed');
+        setLoading(false);
       }
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');
-    } finally {
       setLoading(false);
     }
   };

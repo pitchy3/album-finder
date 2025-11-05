@@ -1,4 +1,4 @@
-// server/middleware/session.js - Fixed session configuration for CSRF compatibility
+// server/middleware/session.js - Updated cookie configuration
 const session = require("express-session");
 const RedisStore = require("connect-redis").default;
 const config = require("../config");
@@ -17,19 +17,34 @@ function configureSession(app) {
     }
   }
 
+  // Determine if we're in a secure context
+  const isSecureContext = config.server.nodeEnv === 'production' && 
+                          config.session.cookieSecure === true;
+  
+  // Log cookie configuration for debugging
+  console.log("🍪 Cookie configuration:", {
+    secure: isSecureContext,
+    sameSite: isSecureContext ? 'strict' : 'lax',
+    nodeEnv: config.server.nodeEnv,
+    cookieSecure: config.session.cookieSecure
+  });
+
   const sessionConfig = {
     secret: config.session.secret,
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false, // 🔧 Changed from true to false - better security
     rolling: true,
     name: 'albumfinder.sid',
     cookie: {
-      secure: config.server.nodeEnv === 'production', // Always secure in production
+      secure: isSecureContext, // Only secure in production with HTTPS
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000,
-      sameSite: config.server.nodeEnv === 'production' ? 'strict' : 'lax'
+      sameSite: isSecureContext ? 'strict' : 'lax',
+      // 🔧 FIX: Add domain/path configuration for better compatibility
+      path: '/',
+      // Don't set domain - let browser handle it automatically
     },
-    // Add session regeneration middleware
+    proxy: true, // Trust proxy headers from Caddy
     genid: () => require('crypto').randomBytes(16).toString('hex')
   };
 
@@ -49,14 +64,25 @@ function configureSession(app) {
   // Apply session middleware
   app.use(session(sessionConfig));
   
-  // Session debugging middleware (development only)
+  // 🔧 FIX: Add middleware to log cookie issues (development only)
   if (config.server.nodeEnv !== 'production') {
     app.use((req, res, next) => {
-      if (req.path.startsWith('/api/') && req.method !== 'GET') {
+      // Log session details for debugging auth issues
+      if (req.path.startsWith('/auth/login') || req.path.startsWith('/api/auth/user')) {
+        const protocol = req.protocol;
+        const host = req.get('host');
+        const isHttps = protocol === 'https' || req.secure || req.get('x-forwarded-proto') === 'https';
+        
         console.log(`🔍 Session debug: ${req.method} ${req.path}`, {
+          protocol,
+          host,
+          isHttps,
           hasSession: !!req.session,
           sessionID: req.sessionID?.substring(0, 8) + '...',
-          hasUser: !!req.session?.user
+          hasUser: !!req.session?.user,
+          cookies: req.headers.cookie ? 'present' : 'missing',
+          secure: req.secure,
+          'x-forwarded-proto': req.get('x-forwarded-proto')
         });
       }
       next();
