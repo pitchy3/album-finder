@@ -67,19 +67,29 @@ function createAuthRoutes(clientParam) {
       
       console.log("✅ BasicAuth login successful:", username);
       
-      req.session.save((err) => {
-        if (err) {
-          console.error("❌ Error saving session:", err);
-          return res.status(500).json({ error: "Failed to create session" });
-        }
-        
-        res.json({ 
-          success: true, 
-          user: {
-            username,
-            authType: 'basicauth'
+	  // Use Promise-based session save and ensure it completes
+      await new Promise((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) {
+            console.error("❌ Error saving session:", err);
+            reject(err);
+          } else {
+            console.log("✅ Session saved successfully for:", username);
+            resolve();
           }
         });
+      });
+      
+      // Add small delay to ensure session cookie is set in headers
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Now send response with session cookie guaranteed to be set
+      res.json({ 
+        success: true, 
+        user: {
+          username,
+          authType: 'basicauth'
+        }
       });
       
     } catch (error) {
