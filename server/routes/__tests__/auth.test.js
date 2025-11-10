@@ -1,13 +1,18 @@
+// server/routes/__tests__/auth.test.js
 const request = require('supertest');
 const express = require('express');
 const session = require('express-session');
 const authRoutes = require('../auth');
 const config = require('../../config');
+const crypto = require('crypto');
 
 // Silence config logging during tests
 jest.spyOn(console, 'warn').mockImplementation(() => {});
 jest.spyOn(console, 'log').mockImplementation(() => {});
 jest.spyOn(console, 'error').mockImplementation(() => {});
+
+// ✅ Mock rate limiting BEFORE it's imported
+jest.mock('../../middleware/rateLimit');
 
 // Mock the auth service
 jest.mock('../../services/auth', () => ({
@@ -25,6 +30,12 @@ jest.mock('../../services/database', () => ({
 
 const { getClient, validateBasicAuthPassword } = require('../../services/auth');
 const { database } = require('../../services/database');
+
+// Mock token encryption to skip real crypto validation
+jest.mock('../../services/tokenEncryption', () => ({
+  encryptToken: jest.fn((token) => `enc(${token})`),
+  decryptToken: jest.fn((token) => token.replace(/^enc\(|\)$/g, ''))
+}));
 
 describe('Authentication Routes', () => {
   let app;
@@ -53,6 +64,34 @@ describe('Authentication Routes', () => {
       userinfo: jest.fn(),
       revoke: jest.fn().mockResolvedValue(undefined)
     };
+	
+	// Default mock OIDC callback and params
+    mockClient.callbackParams.mockImplementation((req) => ({
+      code: 'mock-code',
+      state: 'mock-state'
+    }));
+    
+    mockClient.callback.mockResolvedValue({
+      access_token: 'access123',
+      id_token: 'idtoken123',
+      expires_at: Date.now() / 1000 + 3600,
+      claims: () => ({
+        sub: 'user-123',
+        iss: config.oidc.issuerUrl,
+        aud: config.oidc.clientId,
+        exp: Date.now() / 1000 + 3600,
+        iat: Date.now() / 1000,
+        nonce: 'mock-nonce'
+      })
+    });
+    
+    mockClient.userinfo.mockResolvedValue({
+      sub: 'user-123',
+      email: 'test@example.com',
+      preferred_username: 'testuser',
+      name: 'Test User'
+    });
+
 
     // Mock getClient to return our mock client
     getClient.mockReturnValue(mockClient);
@@ -70,6 +109,16 @@ describe('Authentication Routes', () => {
     
     // Mount auth routes
     app.use('/auth', authRoutes(mockClient));
+	
+	// Inject mock session data required by /auth/callback
+    app.use((req, res, next) => {
+      req.session = req.session || {};
+      req.session.state = 'mock-state';
+      req.session.nonce = 'mock-nonce';
+      req.session.codeVerifier = 'mock-verifier';
+      next();
+    });
+
   });
 
   afterEach(() => {
@@ -256,17 +305,20 @@ describe('Authentication Routes', () => {
     it('should handle successful authentication', async () => {
       const agent = request.agent(app);
       
+      // First establish session with state and nonce
       await agent.get('/auth/login');
       
       const authUrlCall = mockClient.authorizationUrl.mock.calls[0][0];
       const sessionState = authUrlCall.state;
       const sessionNonce = authUrlCall.nonce;
 
+      // ✅ FIX: Mock callbackParams to return the state
       mockClient.callbackParams.mockReturnValue({
         code: 'mock-auth-code',
         state: sessionState
       });
 
+      // ✅ FIX: Mock callback to return valid token set with matching nonce
       mockClient.callback.mockResolvedValue({
         access_token: 'mock-access-token',
         id_token: 'mock-id-token',
@@ -277,14 +329,15 @@ describe('Authentication Routes', () => {
           aud: config.oidc.clientId,
           exp: Date.now() / 1000 + 3600,
           iat: Date.now() / 1000,
-          nonce: sessionNonce
+          nonce: sessionNonce  // ✅ Must match session nonce
         })
       });
 
       mockClient.userinfo.mockResolvedValue({
         sub: 'user-123',
         email: 'test@example.com',
-        preferred_username: 'testuser'
+        preferred_username: 'testuser',
+        name: 'Test User'
       });
 
       const response = await agent
@@ -298,6 +351,12 @@ describe('Authentication Routes', () => {
       expect(response.headers.location).toBe('/');
       expect(mockClient.callback).toHaveBeenCalled();
       expect(mockClient.userinfo).toHaveBeenCalled();
+      expect(database.logAuthEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'login_success',
+          userId: 'user-123'
+        })
+      );
     });
 
     it('should handle authentication errors', async () => {
@@ -438,7 +497,6 @@ describe('Authentication Routes', () => {
     });
 
     it('should log logout event', async () => {
-      // Temporarily enable BasicAuth for this test (restore afterwards)
       const originalType = config.auth.type;
       const originalAuthType = config.authType;
       config.auth.type = 'basicauth';
@@ -449,16 +507,13 @@ describe('Authentication Routes', () => {
       const agent = request.agent(app);
     
       try {
-        // Perform normal login flow so session.user is created by the route
         await agent
           .post('/auth/login/basicauth')
           .send({ username: 'testuser', password: 'testpassword' })
           .expect(200);
     
-        // Then call logout (route performs session.destroy and redirects)
         await agent.post('/auth/logout').expect(302);
     
-        // Assert logout event was logged (at least once with eventType: 'logout')
         expect(database.logAuthEvent).toHaveBeenCalledWith(
           expect.objectContaining({
             eventType: 'logout',
@@ -466,12 +521,10 @@ describe('Authentication Routes', () => {
           })
         );
       } finally {
-        // restore
         config.auth.type = originalType;
         config.authType = originalAuthType;
       }
     });
-
 
     it('should handle token revocation errors gracefully', async () => {
       mockClient.revoke.mockRejectedValue(new Error('Revocation failed'));

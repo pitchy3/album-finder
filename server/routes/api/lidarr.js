@@ -5,6 +5,7 @@ const { ensureAuthenticated } = require("../../middleware/auth");
 const { queuedApiCall, getUsername } = require("../../services/queue");
 const { cachedFetch, getCacheKey, cache } = require("../../services/cache");
 const { database } = require("../../services/database");
+const { getDecryptedLidarrApiKey } = require("../../services/configEncryption");
 
 const router = express.Router();
 
@@ -37,9 +38,10 @@ const lidarrHelpers = {
   // Build API URL with proper formatting
   buildApiUrl(endpoint, params = {}) {
     const baseUrl = config.lidarr.url.replace(/\/$/, "");
+	const decryptedApiKey = getDecryptedLidarrApiKey(config);
     const queryParams = new URLSearchParams({
       ...params,
-      apikey: config.lidarr.apiKey
+      apikey: decryptedApiKey
     });
     return `${baseUrl}/api/v1/${endpoint}?${queryParams}`;
   },
@@ -56,7 +58,7 @@ const lidarrHelpers = {
     
     // Only add X-Api-Key header if not already in URL
     if (!hasApiKeyInUrl) {
-      headers["X-Api-Key"] = config.lidarr.apiKey;
+      headers["X-Api-Key"] = getDecryptedLidarrApiKey(config);
     }
     
     // Create AbortController for timeout

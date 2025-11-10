@@ -122,6 +122,20 @@ jobs:
       
       - name: Build Docker image
         run: docker build -t album-finder:test .
+
+      - name: Create CI env file
+        run: |
+          cat <<EOF > .env
+          NODE_ENV=production
+          APP_PORT=3001
+          PORT=3000
+          SESSION_SECRET=8f4f07398ebf3d7f56807f29fd83d895b28b704dfac5c3bbdb837e2aeaab4c68a3933017e57780ba7c5ab34f046a4a021020196af60258ac3749b1d8820af1ef
+          LIDARR_WEBHOOK_KEY=dummy-webhook-key
+          REDIS_URL=redis://redis:6379
+          COOKIE_SECURE=false
+          ENABLE_CSRF=false
+          TZ=UTC
+          EOF
       
       - name: Run Docker container
         run: |

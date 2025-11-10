@@ -1,109 +1,153 @@
-// server/routes/auth.js - Authentication routes supporting both OIDC and BasicAuth
+// server/routes/auth.js - Updated with Phase 1 security enhancements
 const express = require("express");
 const { generators } = require("openid-client");
 const config = require("../config");
 const { getClient, validateBasicAuthPassword } = require("../services/auth");
 const { database } = require("../services/database");
+const { encryptToken } = require("../services/tokenEncryption");
+const { 
+  authLimiter, 
+  checkProgressiveLockout, 
+  recordAuthSuccess, 
+  recordAuthFailure 
+} = require("../middleware/rateLimit");
 
-function createAuthRoutes(clientParam) {
+function createAuthRoutes() {
   const router = express.Router();
 
   console.log("🔧 Creating auth routes - auth type:", config.auth.type || 'disabled');
 
-  // BasicAuth login route
-  router.post("/login/basicauth", async (req, res) => {
-    console.log("🔐 BasicAuth login attempt");
-    
-    if (config.auth.type !== 'basicauth') {
-      return res.status(400).json({ error: "BasicAuth is not enabled" });
-    }
-    
-    const { username, password } = req.body;
-    
-    if (!username || !password) {
-      return res.status(400).json({ error: "Username and password are required" });
-    }
-    
-    try {
-      const isValid = await validateBasicAuthPassword(username, password);
+  // BasicAuth login route - with rate limiting and timing attack protection
+  router.post("/login/basicauth", 
+    authLimiter,              // Express rate limiter (5 attempts per 15 min)
+    checkProgressiveLockout,  // Progressive lockout (escalating delays)
+    async (req, res) => {
+      console.log("🔐 BasicAuth login attempt");
       
-      if (!isValid) {
-        console.log("❌ BasicAuth login failed: Invalid credentials");
+      // Check if connection is secure
+      const isSecure = req.secure || req.get('X-Forwarded-Proto') === 'https';
+      
+      if (!isSecure) {
+        console.error("🚨 CRITICAL SECURITY WARNING 🚨");
+        console.error("BasicAuth credentials transmitted over INSECURE HTTP");
+        console.error(`Client: ${req.ip}`);
+        console.error("Credentials may have been intercepted");
         
-        await database.logAuthEvent({
-          eventType: 'login_failure',
-          userId: username,
-          username: username,
-          email: null,
-          ipAddress: req.ip || req.connection.remoteAddress,
-          userAgent: req.get('User-Agent'),
-          errorMessage: 'Invalid username or password',
-          sessionId: req.sessionID
-        });
-        
-        return res.status(401).json({ error: "Invalid username or password" });
+        // Optionally reject if configured to require HTTPS
+        if (process.env.REQUIRE_HTTPS_AUTH === 'true') {
+          return res.status(403).json({
+            error: 'HTTPS required for authentication',
+            details: 'This server requires encrypted connections for security'
+          });
+        }
       }
       
-      // Create user session
-      req.session.user = {
-        claims: {
-          sub: username,
-          preferred_username: username,
-          name: username,
-          authType: 'basicauth'
-        }
-      };
+      if (config.auth.type !== 'basicauth') {
+        return res.status(400).json({ error: "BasicAuth is not enabled" });
+      }
       
-      // Log successful login
-      await database.logAuthEvent({
-        eventType: 'login_success',
-        userId: username,
-        username: username,
-        email: null,
-        ipAddress: req.ip || req.connection.remoteAddress,
-        userAgent: req.get('User-Agent'),
-        sessionId: req.sessionID
-      });
+      const { username, password } = req.body;
       
-      console.log("✅ BasicAuth login successful:", username);
+      if (!username || !password) {
+        await recordAuthFailure(req);
+        return res.status(400).json({ error: "Username and password are required" });
+      }
       
-	  // Use Promise-based session save and ensure it completes
-      await new Promise((resolve, reject) => {
-        req.session.save((err) => {
-          if (err) {
-            console.error("❌ Error saving session:", err);
-            reject(err);
-          } else {
-            console.log("✅ Session saved successfully for:", username);
-            resolve();
+      try {
+        // validateBasicAuthPassword now includes timing attack protection
+        const isValid = await validateBasicAuthPassword(username, password);
+        
+        if (!isValid) {
+          console.log("❌ BasicAuth login failed: Invalid credentials");
+          
+          // Record failure and get lockout duration
+          const lockoutSeconds = await recordAuthFailure(req);
+          
+          await database.logAuthEvent({
+            eventType: 'login_failure',
+            userId: username,
+            username: username,
+            email: null,
+            ipAddress: req.ip || req.connection.remoteAddress,
+            userAgent: req.get('User-Agent'),
+            errorMessage: 'Invalid username or password',
+            sessionId: req.sessionID
+          });
+          
+          const response = { 
+            error: "Invalid username or password"
+          };
+          
+          if (lockoutSeconds > 0) {
+            response.retryAfter = lockoutSeconds;
+            response.message = `Account locked. Try again in ${lockoutSeconds} seconds.`;
           }
-        });
-      });
-      
-      // Add small delay to ensure session cookie is set in headers
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Now send response with session cookie guaranteed to be set
-      res.json({ 
-        success: true, 
-        user: {
-          username,
-          authType: 'basicauth'
+          
+          return res.status(401).json(response);
         }
-      });
-      
-    } catch (error) {
-      console.error("❌ BasicAuth login error:", error);
-      res.status(500).json({ error: "Authentication error" });
+        
+        // Success! Record it
+        await recordAuthSuccess(req);
+        
+        // Regenerate session ID to prevent session fixation
+        req.session.regenerate((err) => {
+          if (err) {
+            console.error("❌ Error regenerating session:", err);
+            return res.status(500).json({ error: "Failed to create session" });
+          }
+          
+          // Create user session
+          req.session.user = {
+            claims: {
+              sub: username,
+              preferred_username: username,
+              name: username,
+              authType: 'basicauth'
+            }
+          };
+          
+          // Log successful login
+          database.logAuthEvent({
+            eventType: 'login_success',
+            userId: username,
+            username: username,
+            email: null,
+            ipAddress: req.ip || req.connection.remoteAddress,
+            userAgent: req.get('User-Agent'),
+            sessionId: req.sessionID
+          });
+          
+          console.log("✅ BasicAuth login successful:", username);
+          
+          req.session.save((saveErr) => {
+            if (saveErr) {
+              console.error("❌ Error saving session:", saveErr);
+              return res.status(500).json({ error: "Failed to create session" });
+            }
+            
+            res.json({ 
+              success: true, 
+              user: {
+                username,
+                authType: 'basicauth'
+              }
+            });
+          });
+        });
+        
+      } catch (error) {
+        console.error("❌ BasicAuth login error:", error);
+        await recordAuthFailure(req);
+        res.status(500).json({ error: "Authentication error" });
+      }
     }
-  });
+  );
 
   // OIDC login route
   router.get("/login", (req, res) => {
     console.log("🔐 /auth/login accessed");
     
     if (config.auth.type === 'basicauth') {
-      // Redirect to BasicAuth login page
       return res.redirect('/?auth=basicauth');
     }
     
@@ -172,7 +216,7 @@ function createAuthRoutes(clientParam) {
     }
   });
 
-  // OIDC callback route
+  // OIDC callback route - with enhanced token encryption
   router.get("/callback", async (req, res) => {
     console.log("🔄 /auth/callback accessed");
     
@@ -196,6 +240,18 @@ function createAuthRoutes(clientParam) {
       
       if (params.error) {
         console.error("❌ OIDC callback error:", params.error);
+        
+        await database.logAuthEvent({
+          eventType: 'login_failure',
+          userId: null,
+          username: null,
+          email: null,
+          ipAddress: req.ip || req.connection.remoteAddress,
+          userAgent: req.get('User-Agent'),
+          errorMessage: `OIDC callback error: ${params.error}`,
+          sessionId: req.sessionID
+        });
+        
         return res.status(400).send(`Authentication error: ${params.error}`);
       }
       
@@ -228,56 +284,62 @@ function createAuthRoutes(clientParam) {
 
       const userinfo = await client.userinfo(tokenSet.access_token);
       
+      // Clear OIDC-specific session data
       delete req.session.codeVerifier;
       delete req.session.state;
       delete req.session.nonce;
 
-      // Encrypt tokens
-      const crypto = require('crypto');
-      
-      function encryptToken(token, key) {
-        const iv = crypto.randomBytes(16);
-        const cipher = crypto.createCipheriv('aes-256-cbc', crypto.scryptSync(key, 'salt', 32), iv);
-        let encrypted = cipher.update(token, 'utf8', 'hex');
-        encrypted += cipher.final('hex');
-        return iv.toString('hex') + ':' + encrypted;
-      }
-
-      req.session.user = {
-        claims: {
-          ...userinfo,
-          authType: 'oidc'
-        },
-        tokens: {
-          access_token: encryptToken(tokenSet.access_token, config.session.secret),
-          id_token: encryptToken(tokenSet.id_token, config.session.secret),
-          refresh_token: tokenSet.refresh_token ? encryptToken(tokenSet.refresh_token, config.session.secret) : null,
-          expires_at: tokenSet.expires_at
+      // Regenerate session ID to prevent session fixation
+      req.session.regenerate(async (err) => {
+        if (err) {
+          console.error("❌ Error regenerating session:", err);
+          return res.status(500).send("Failed to create session");
         }
-      };
-
-      await database.logAuthEvent({
-        eventType: 'login_success',
-        userId: userinfo.sub,
-        username: userinfo.preferred_username || userinfo.name,
-        email: userinfo.email,
-        ipAddress: req.ip || req.connection.remoteAddress,
-        userAgent: req.get('User-Agent'),
-        sessionId: req.sessionID,
-        oidcSubject: userinfo.sub
-      });
-
-      req.session.save((saveErr) => {
-        if (saveErr) {
-          console.error("❌ Error saving user session:", saveErr);
-          return res.status(500).send("Failed to save authentication session");
-        }
-
-        const redirectTo = req.session.returnTo || "/";
-        delete req.session.returnTo;
         
-        console.log("✅ OIDC authentication successful");
-        res.redirect(redirectTo);
+        try {
+          // Encrypt tokens using new secure method
+          req.session.user = {
+            claims: {
+              ...userinfo,
+              authType: 'oidc'
+            },
+            tokens: {
+              access_token: encryptToken(tokenSet.access_token, config.session.secret),
+              id_token: encryptToken(tokenSet.id_token, config.session.secret),
+              refresh_token: tokenSet.refresh_token 
+                ? encryptToken(tokenSet.refresh_token, config.session.secret) 
+                : null,
+              expires_at: tokenSet.expires_at
+            }
+          };
+
+          await database.logAuthEvent({
+            eventType: 'login_success',
+            userId: userinfo.sub,
+            username: userinfo.preferred_username || userinfo.name,
+            email: userinfo.email,
+            ipAddress: req.ip || req.connection.remoteAddress,
+            userAgent: req.get('User-Agent'),
+            sessionId: req.sessionID,
+            oidcSubject: userinfo.sub
+          });
+
+          req.session.save((saveErr) => {
+            if (saveErr) {
+              console.error("❌ Error saving user session:", saveErr);
+              return res.status(500).send("Failed to save authentication session");
+            }
+
+            const redirectTo = req.session.returnTo || "/";
+            delete req.session.returnTo;
+            
+            console.log("✅ OIDC authentication successful");
+            res.redirect(redirectTo);
+          });
+        } catch (encryptError) {
+          console.error("❌ Token encryption error:", encryptError);
+          return res.status(500).send("Failed to secure authentication tokens");
+        }
       });
       
     } catch (err) {
@@ -340,6 +402,7 @@ function createAuthRoutes(clientParam) {
       
       res.clearCookie("connect.sid");
       res.clearCookie("albumfinder.sid");
+      res.clearCookie("__Host-albumfinder.sid");
       
       // For OIDC, redirect to provider logout if available
       if (authType === 'oidc' && config.auth.type === 'oidc') {

@@ -1,5 +1,6 @@
-// client/src/hooks/useAuthConfig.js - Updated with BasicAuth support
+// client/src/hooks/useAuthConfig.js - Fixed to use secureApiCall for CSRF protection
 import { useState, useEffect } from 'react';
+import { secureApiCall } from '../services/apiService.js';
 
 export function useAuthConfig() {
   const [config, setConfig] = useState({
@@ -160,11 +161,10 @@ export function useAuthConfig() {
         return { success: false, error: 'Client Secret is required' };
       }
 
-      // First save OIDC config
-      const response = await fetch('/api/config/auth/oidc', {
+      // First save OIDC config (uses secureApiCall for CSRF)
+      const response = await secureApiCall('/api/config/auth/oidc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           domain: config.oidc.domain,
           issuerUrl: config.oidc.issuerUrl,
@@ -180,11 +180,10 @@ export function useAuthConfig() {
         return { success: false, error: result.error || 'Failed to save OIDC configuration' };
       }
 
-      // Then set auth type to OIDC
-      const typeResponse = await fetch('/api/config/auth/set-type', {
+      // Then set auth type to OIDC (uses secureApiCall for CSRF)
+      const typeResponse = await secureApiCall('/api/config/auth/set-type', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ authType: 'oidc' })
       });
 
@@ -232,11 +231,10 @@ export function useAuthConfig() {
         payload.currentPassword = config.basicAuth.currentPassword;
       }
 
-      // First save BasicAuth config
-      const response = await fetch('/api/config/auth/basicauth', {
+      // First save BasicAuth config (uses secureApiCall for CSRF)
+      const response = await secureApiCall('/api/config/auth/basicauth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(payload)
       });
 
@@ -247,11 +245,10 @@ export function useAuthConfig() {
         return { success: false, error: result.error || 'Failed to save BasicAuth configuration' };
       }
 
-      // Then set auth type to basicauth
-      const typeResponse = await fetch('/api/config/auth/set-type', {
+      // Then set auth type to basicauth (uses secureApiCall for CSRF)
+      const typeResponse = await secureApiCall('/api/config/auth/set-type', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ authType: 'basicauth' })
       });
 
@@ -288,10 +285,10 @@ export function useAuthConfig() {
 
   const disableAuth = async () => {
     try {
-      const response = await fetch('/api/config/auth/set-type', {
+      // Use secureApiCall for CSRF protection
+      const response = await secureApiCall('/api/config/auth/set-type', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ authType: null })
       });
 
