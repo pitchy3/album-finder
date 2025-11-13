@@ -104,7 +104,7 @@ export function useAuthConfig() {
         testPayload.domain = config.oidc.domain;
       }
 
-      const response = await fetch('/api/config/auth/test', {
+      const response = await secureApiCall('/api/config/auth/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

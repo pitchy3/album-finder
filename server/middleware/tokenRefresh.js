@@ -3,6 +3,8 @@ const { getClient } = require('../services/auth');
 const { encryptToken, decryptToken } = require('../services/tokenEncryption');
 const config = require('../config');
 
+const debug = ( process.env.NODE_ENV.toLowerCase() !== 'production' || process.env.DEBUG.toLowerCase() === 'true' );
+
 /**
  * Middleware to automatically refresh OIDC tokens before they expire
  * Should be placed after session middleware and before protected routes
@@ -36,7 +38,10 @@ async function refreshTokenMiddleware(req, res, next) {
   }
 
   // Token expired or expiring soon, attempt refresh
-  console.log(`🔄 Token expires in ${timeUntilExpiry}s, attempting refresh...`);
+  const debug = false;
+  if (debug) {
+    console.log(`🔄 Token expires in ${timeUntilExpiry}s, attempting refresh...`);
+  }
   
   if (!tokens.refresh_token) {
     console.log('❌ No refresh token available, user must re-authenticate');
@@ -76,12 +81,16 @@ async function refreshTokenMiddleware(req, res, next) {
       throw new Error('Failed to decrypt refresh token');
     }
 
-    console.log('🔄 Refreshing tokens with OIDC provider...');
+    if (debug) {
+      console.log('🔄 Refreshing tokens with OIDC provider...');
+	}
 
     // Refresh the tokens
     const tokenSet = await client.refresh(refreshToken);
     
-    console.log('✅ Tokens refreshed successfully');
+	if (debug) {
+      console.log('✅ Tokens refreshed successfully');
+	}
 
     // Update session with new tokens
     req.session.user.tokens = {
@@ -111,7 +120,9 @@ async function refreshTokenMiddleware(req, res, next) {
         });
       }
       
-      console.log('✅ Session updated with refreshed tokens');
+	  if (debug) {
+        console.log('✅ Session updated with refreshed tokens');
+      }
       next();
     });
 

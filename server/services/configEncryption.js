@@ -2,6 +2,8 @@
 const { encryptToken, decryptToken } = require('./tokenEncryption');
 const config = require('../config');
 
+const debug = ( process.env.NODE_ENV.toLowerCase() !== 'production' || process.env.DEBUG.toLowerCase() === 'true' );
+
 /**
  * Fields that should be encrypted in config.json
  */
@@ -50,7 +52,9 @@ function encryptConfig(configData) {
       if (value && typeof value === 'string' && !value.startsWith('{"version"')) {
         try {
           encrypted[section][field] = encryptToken(value, key);
-          console.log(`🔒 Encrypted ${section}.${field}`);
+		  if (debug) {
+            console.log(`🔒 Encrypted ${section}.${field}`);
+		  }
         } catch (error) {
           console.error(`❌ Failed to encrypt ${section}.${field}:`, error.message);
           throw error;
@@ -99,7 +103,9 @@ function decryptConfig(encryptedConfig) {
       if (value && typeof value === 'string' && value.startsWith('{"version"')) {
         try {
           decrypted[section][field] = decryptToken(value, key);
-          console.log(`🔓 Decrypted ${section}.${field}`);
+		  if (debug) {
+            console.log(`🔓 Decrypted ${section}.${field}`);
+		  }
         } catch (error) {
           console.error(`❌ Failed to decrypt ${section}.${field}:`, error.message);
           throw new Error(`Failed to decrypt ${section}.${field} - config may be corrupted or key changed`);
@@ -136,7 +142,9 @@ function getDecryptedLidarrApiKey(encryptedConfig) {
 
     // Decrypt the single field
     const decrypted = decryptToken(value, key);
-    console.log('🔓 Decrypted Lidarr API key');
+	if (debug) {
+      console.log('🔓 Decrypted Lidarr API key');
+	}
     return decrypted;
   } catch (error) {
     console.error('❌ Failed to decrypt Lidarr API key:', error.message);

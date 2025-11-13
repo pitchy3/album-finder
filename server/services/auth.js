@@ -36,6 +36,7 @@ async function initializeOIDC() {
     client = new issuer.Client({
       client_id: config.oidc.clientId,
       client_secret: config.oidc.clientSecret,
+	  token_endpoint_auth_method: 'client_secret_basic',
     });
     
     console.log("✅ OIDC authentication enabled and client initialized");

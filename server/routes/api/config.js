@@ -372,6 +372,73 @@ router.post("/auth/basicauth",
   }
 );
 
+// Test OIDC connection - NO AUTH REQUIRED (for initial setup)
+router.post("/auth/test", async (req, res) => {
+  try {
+    const { issuerUrl, clientId, clientSecret, domain } = req.body;
+    
+    if (!issuerUrl) {
+      return res.status(400).json({ error: "Issuer URL is required for testing" });
+    }
+
+    console.log("🔍 Testing OIDC configuration...");
+    const { Issuer } = require("openid-client");
+
+    const testIssuer = await Issuer.discover(issuerUrl);
+    console.log("✅ OIDC issuer discovery successful");
+
+    const responseData = {
+      success: true,
+      message: "OIDC configuration test successful",
+      issuer: testIssuer.issuer,
+      issuerUrl: issuerUrl,
+      discoveredEndpoints: {
+        authorization: testIssuer.authorization_endpoint,
+        token: testIssuer.token_endpoint,
+        userinfo: testIssuer.userinfo_endpoint,
+        jwks: testIssuer.jwks_uri
+      }
+    };
+
+    if (clientId && clientSecret) {
+      try {
+        const testClient = new testIssuer.Client({
+          client_id: clientId,
+          client_secret: clientSecret,
+        });
+        
+        const testAuthUrl = testClient.authorizationUrl({
+          scope: "openid profile email",
+          redirect_uri: `https://${domain || 'test.example.com'}/auth/callback`,
+          code_challenge: "test_challenge",
+          code_challenge_method: "S256",
+          state: "test_state",
+          nonce: "test_nonce"
+        });
+
+        responseData.clientTest = {
+          success: true,
+          message: "Client credentials are valid",
+          authUrlGenerated: true
+        };
+      } catch (clientError) {
+        responseData.clientTest = {
+          success: false,
+          message: `Client test failed: ${clientError.message}`
+        };
+      }
+    }
+
+    res.json(responseData);
+  } catch (error) {
+    console.error("❌ OIDC test failed:", error);
+    res.status(400).json({
+      success: false,
+      error: `OIDC test failed: ${error.message}`
+    });
+  }
+});
+
 // Get current Lidarr configuration (sanitized)
 router.get("/lidarr", ensureAuthenticated, async (req, res) => {
   try {

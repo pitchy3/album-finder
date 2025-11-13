@@ -26,7 +26,7 @@ const config = {
     clientId: "",
     clientSecret: "",
     redirectUrl: "", // Will be constructed as [domain]/auth/callback
-    scopes: "openid profile email"
+    scopes: "openid profile email offline_access"
   },
 
   // BasicAuth configuration - ONLY configurable via settings page (no env vars)
