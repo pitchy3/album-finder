@@ -38,7 +38,6 @@ async function refreshTokenMiddleware(req, res, next) {
   }
 
   // Token expired or expiring soon, attempt refresh
-  const debug = false;
   if (debug) {
     console.log(`🔄 Token expires in ${timeUntilExpiry}s, attempting refresh...`);
   }
