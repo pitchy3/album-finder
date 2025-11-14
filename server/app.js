@@ -17,6 +17,7 @@ const authRoutes = require("./routes/auth");
 const apiRoutes = require("./routes/api");
 const adminRoutes = require("./routes/admin");
 const webhookRoutes = require("./routes/webhook");
+const { apiKeyAuthMiddleware, logApiKeyStatus } = require('./middleware/apiKeyAuth');
 
 // Configuration file path
 const CONFIG_FILE_PATH = path.join(__dirname, "data/config.json");
@@ -147,6 +148,10 @@ async function main() {
   // Load stored configuration
   await loadStoredConfiguration();
 
+  // Validate and log API key status
+  console.log("\n🔐 Validating API key configuration...");
+  logApiKeyStatus();
+
   // Initialize Redis
   await initializeRedis();
   
@@ -193,6 +198,10 @@ async function main() {
   // Input sanitization
   const { sanitizeInput } = require('./middleware/validation');
   app.use(sanitizeInput);
+
+  // This allows stateless API access without sessions
+  console.log("\n🔧 Setting up API key authentication...");
+  app.use(apiKeyAuthMiddleware);
 
   // CSRF Protection with enhanced security
   console.log("\n🔧 Setting up CSRF protection...");
