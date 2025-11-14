@@ -12,6 +12,8 @@ const {
   recordAuthFailure 
 } = require("../middleware/rateLimit");
 
+const debug = ( process.env.NODE_ENV.toLowerCase() !== 'production' || process.env.DEBUG.toLowerCase() === 'true' );
+
 function createAuthRoutes() {
   const router = express.Router();
 
@@ -145,7 +147,9 @@ function createAuthRoutes() {
 
   // OIDC login route
   router.get("/login", (req, res) => {
-    console.log("🔐 /auth/login accessed");
+	if (debug) {
+      console.log("🔐 /auth/login accessed");
+	}
     
     if (config.auth.type === 'basicauth') {
       return res.redirect('/?auth=basicauth');
@@ -175,7 +179,9 @@ function createAuthRoutes() {
       return res.status(500).send("Session not available");
     }
     
-    console.log("🔐 Starting OIDC login flow...");
+	if (debug) {
+      console.log("🔐 Starting OIDC login flow...");
+	}
     
     try {
       const codeVerifier = generators.codeVerifier();
@@ -203,7 +209,9 @@ function createAuthRoutes() {
             nonce: nonce
           });
           
-          console.log("🔐 Redirecting to OIDC provider");
+		  if (debug) {
+            console.log("🔐 Redirecting to OIDC provider");
+		  }
           res.redirect(authUrl);
         } catch (urlError) {
           console.error("❌ Error generating authorization URL:", urlError);
@@ -218,7 +226,9 @@ function createAuthRoutes() {
 
   // OIDC callback route - with enhanced token encryption
   router.get("/callback", async (req, res) => {
-    console.log("🔄 /auth/callback accessed");
+	if (debug) {
+      console.log("🔄 /auth/callback accessed");
+	}
     
     if (config.auth.type !== 'oidc') {
       return res.status(400).send("OIDC authentication is not configured");
@@ -333,7 +343,9 @@ function createAuthRoutes() {
             const redirectTo = req.session.returnTo || "/";
             delete req.session.returnTo;
             
-            console.log("✅ OIDC authentication successful");
+			if (debug) {
+              console.log("✅ OIDC authentication successful");
+			}
             res.redirect(redirectTo);
           });
         } catch (encryptError) {
@@ -362,7 +374,9 @@ function createAuthRoutes() {
 
   // Unified logout route
   router.post("/logout", async (req, res) => {
-    console.log("🚪 Logout requested");
+	if (debug) {
+      console.log("🚪 Logout requested");
+	}
     
     const userInfo = req.session?.user?.claims;
     const authType = userInfo?.authType || config.auth.type;
@@ -388,7 +402,9 @@ function createAuthRoutes() {
       if (tokens?.refresh_token && client?.revoke) {
         try {
           await client.revoke(tokens.refresh_token);
-          console.log("✅ Refresh token revoked at provider");
+		  if (debug) {
+            console.log("✅ Refresh token revoked at provider");
+		  }
         } catch (err) {
           console.warn("⚠️ Token revocation failed:", err.message);
         }

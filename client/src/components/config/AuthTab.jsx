@@ -1,6 +1,8 @@
 // client/src/components/config/AuthTab.jsx - Updated with BasicAuth support
 import { useState, useEffect } from 'react';
 import { useAuthConfig } from '../../hooks';
+import { secureApiCall } from '../../services/apiService.js';
+
 import {
   ConfigInput,
   ConfigSection,
@@ -46,7 +48,7 @@ export default function AuthTab({ darkMode, onRequestReauth }) {
       text: result.success ? result.message : result.error
     });
 	
-	await fetch('/auth/logout', {
+	await secureApiCall('/auth/logout', {
       method: 'POST',
       credentials: 'include'
     });
@@ -68,7 +70,7 @@ export default function AuthTab({ darkMode, onRequestReauth }) {
       text: result.success ? result.message : result.error
     });
 	
-	await fetch('/auth/logout', {
+	await secureApiCall('/auth/logout', {
       method: 'POST',
       credentials: 'include'
     });

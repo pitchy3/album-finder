@@ -45,6 +45,14 @@ describe('useLidarrConfig', () => {
       expect(result.current.loading.config).toBe(false);
     });
 
+    // Mock CSRF token request (happens before test connection POST)
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        csrfToken: 'test-csrf-token'
+      })
+    });
+
     // Mock test connection response
     fetch.mockResolvedValueOnce({
       ok: true,
@@ -52,6 +60,22 @@ describe('useLidarrConfig', () => {
         success: true,
         version: '1.0.0',
         profiles: [{ id: 1, name: 'Standard' }]
+      })
+    });
+
+    // Mock CSRF token for the automatic loadRootFolders call (happens after successful test)
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        csrfToken: 'test-csrf-token-2'
+      })
+    });
+
+    // Mock root folders response (called automatically after successful connection)
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        rootFolders: [{ path: '/music', id: 1 }]
       })
     });
 
@@ -65,6 +89,7 @@ describe('useLidarrConfig', () => {
     });
 
     expect(testResult.success).toBe(true);
+    expect(result.current.profiles[0]).toEqual({ id: 1, name: 'Standard' });
   });
 
   it('should save configuration', async () => {

@@ -70,6 +70,7 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
       ENABLE_CSRF: ${ENABLE_CSRF:-true}
+      DEBUG: ${DEBUG:-false}
       LIDARR_WEBHOOK_KEY: ${LIDARR_WEBHOOK_KEY}
       # Timezone
       TZ: ${TZ:-UTC}

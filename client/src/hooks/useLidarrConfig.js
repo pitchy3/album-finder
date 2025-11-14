@@ -76,15 +76,17 @@ export function useLidarrConfig() {
       let response;
       
       if (hasNewApiKey) {
-        response = await fetch('/api/config/lidarr/rootfolders', {
+        response = await secureApiCall('/api/config/lidarr/rootfolders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ url: config.url, apiKey: config.apiKey })
         });
       } else if (hasSavedObfuscatedKey) {
-        response = await fetch('/api/config/lidarr/rootfolders', {
+        response = await secureApiCall('/api/config/lidarr/rootfolders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ url: config.url, useSavedApiKey: true })
         });
       } else {
@@ -130,15 +132,17 @@ export function useLidarrConfig() {
       let response;
       
       if (hasNewApiKey) {
-        response = await fetch('/api/config/lidarr/test', {
+        response = await secureApiCall('/api/config/lidarr/test', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ url: config.url, apiKey: config.apiKey })
         });
       } else {
-        response = await fetch('/api/config/lidarr/test', {
+        response = await secureApiCall('/api/config/lidarr/test', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ url: config.url, useSavedApiKey: true })
         });
       }
@@ -192,7 +196,7 @@ export function useLidarrConfig() {
         // Let's load the actual key from config
         const currentConfig = await (async () => {
           try {
-            const response = await fetch('/api/config/lidarr');
+            const response = await secureApiCall('/api/config/lidarr');
             if (response.ok) {
               const data = await response.json();
               // The GET endpoint returns obfuscated key, so we need the real one
