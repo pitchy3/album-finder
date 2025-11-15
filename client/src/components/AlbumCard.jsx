@@ -1,9 +1,13 @@
 // client/src/components/AlbumCard.jsx
 
+import { useState } from 'react';
+import RootFolderModal from './RootFolderModal.jsx';
+
 import { usePreferences } from "../contexts/PreferencesContext.jsx";
 
 export default function AlbumCard({ album, index, onAddToLidarr, showMatchScore = true }) {
   const { preferences } = usePreferences();
+  const [showRootFolderModal, setShowRootFolderModal] = useState(false);
 
   const getReleaseTypeStyle = (releaseType) => {
     const baseStyles = {
@@ -32,6 +36,26 @@ export default function AlbumCard({ album, index, onAddToLidarr, showMatchScore 
     } catch (e) {
       return dateString;
     }
+  };
+  
+  const handleAddClick = () => {
+    // Check if album is already in Lidarr
+    if (album.inLidarr) {
+      return; // Button should be disabled, but extra safety
+    }
+    
+    // Show root folder selection modal
+    setShowRootFolderModal(true);
+  };
+  
+  const handleRootFolderConfirm = async (album, rootFolder) => {
+    setShowRootFolderModal(false);
+    // Pass root folder to parent handler
+    await onAddToLidarr(album, rootFolder);
+  };
+
+  const handleRootFolderCancel = () => {
+    setShowRootFolderModal(false);
   };
   
   const getButtonState = () => {
@@ -158,7 +182,7 @@ export default function AlbumCard({ album, index, onAddToLidarr, showMatchScore 
               const buttonState = getButtonState();
               return (
                 <button
-                  onClick={() => onAddToLidarr(album)}
+                  onClick={handleAddClick}
                   disabled={buttonState.disabled}
                   className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${buttonState.className}`}
                 >
@@ -176,6 +200,13 @@ export default function AlbumCard({ album, index, onAddToLidarr, showMatchScore 
               🔗 View on MusicBrainz
             </a>
           </div>
+		  
+		  <RootFolderModal
+            album={album}
+            isOpen={showRootFolderModal}
+            onConfirm={handleRootFolderConfirm}
+            onCancel={handleRootFolderCancel}
+          />
           
         </div>
       </div>

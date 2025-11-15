@@ -88,11 +88,13 @@ export default function ConfigPage({ onBack, onRequestReauth }) {
 
           {activeTab === 'lidarr' && (
             <ul className={`space-y-2 text-sm ${
-              preferences.darkMode ? 'text-blue-300' : 'text-blue-700'
+              darkMode ? 'text-blue-300' : 'text-blue-700'
             }`}>
               <li>• <strong>URL:</strong> Ensure your Lidarr instance is accessible from this server</li>
               <li>• <strong>API Key:</strong> Found in Lidarr → Settings → General → Security → API Key</li>
-              <li>• <strong>Root Folder:</strong> Must match a folder configured in Lidarr → Settings → Media Management → Root Folders</li>
+              <li>• <strong>Root Folder:</strong> Default folder for new artists. When adding albums:</li>
+              <li className="ml-6">• <strong>Existing artists:</strong> Always use the artist's current folder</li>
+              <li className="ml-6">• <strong>New artists:</strong> You'll select from available folders (default shown first)</li>
               <li>• <strong>Quality Profile:</strong> Found in Lidarr → Settings → Profiles → Quality Profiles</li>
             </ul>
           )}
