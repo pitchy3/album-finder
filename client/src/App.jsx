@@ -157,7 +157,9 @@ function AppContent() {
       await checkLidarrConfig();
     }
     
-    const result = await addToLidarr(album);
+	// Pass root folder to service
+    const result = await addToLidarr(album, rootFolder);
+
     if (result.success) {
       if (searchMode === "song") {
         updateAlbumLidarrStatus(album.mbid, true);

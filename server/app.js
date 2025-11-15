@@ -24,14 +24,34 @@ const CONFIG_FILE_PATH = path.join(__dirname, "data/config.json");
 
 // Load configuration from JSON file if it exists
 async function loadStoredConfiguration() {
+  const { decryptConfig, isConfigEncrypted } = require('./services/configEncryption');
+  
   try {
     console.log("📖 Looking for stored configuration at:", CONFIG_FILE_PATH);
     
     await fs.access(CONFIG_FILE_PATH);
     const configData = await fs.readFile(CONFIG_FILE_PATH, "utf8");
-    const storedConfig = JSON.parse(configData);
+    const parsed = JSON.parse(configData);
     
     console.log("✅ Found stored configuration file");
+    
+    // Decrypt if encrypted
+    let storedConfig;
+    if (isConfigEncrypted(parsed)) {
+      console.log("🔓 Decrypting stored configuration...");
+      try {
+        storedConfig = decryptConfig(parsed);
+        console.log("✅ Configuration decrypted successfully");
+      } catch (decryptError) {
+        console.error("❌ CRITICAL: Failed to decrypt configuration:", decryptError.message);
+        console.error("   This usually means SESSION_SECRET has changed or config is corrupted");
+        console.error("   Starting with empty config - please reconfigure via Settings page");
+        return false;
+      }
+    } else {
+      console.log("ℹ️  Configuration is not encrypted");
+      storedConfig = parsed;
+    }
     
     // Update Lidarr configuration if present
     if (storedConfig.lidarr) {

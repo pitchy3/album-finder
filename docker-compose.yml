@@ -72,6 +72,7 @@ services:
       ENABLE_CSRF: ${ENABLE_CSRF:-true}
       DEBUG: ${DEBUG:-false}
       LIDARR_WEBHOOK_KEY: ${LIDARR_WEBHOOK_KEY}
+      API_KEY: ${API_KEY}
       # Timezone
       TZ: ${TZ:-UTC}
       # Cache configuration

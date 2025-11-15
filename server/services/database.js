@@ -222,7 +222,8 @@ class Database {
         user_agent TEXT,
         request_data TEXT, -- JSON of original request
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        downloaded BOOLEAN DEFAULT FALSE
+        downloaded BOOLEAN DEFAULT FALSE,
+		root_folder_used TEXT
       )
     `);
 
@@ -252,7 +253,8 @@ class Database {
     ]);
 	
     await this.addColumnsIfNotExist('album_additions', [
-      { name: 'downloaded', type: 'BOOLEAN' }
+      { name: 'downloaded', type: 'BOOLEAN' },
+      { name: 'root_folder_used', type: 'TEXT' }
     ]);
 
     // Create indexes for better performance
@@ -466,8 +468,8 @@ class Database {
           timestamp, user_id, username, email, album_title, album_mbid, 
           artist_name, artist_mbid, lidarr_album_id, lidarr_artist_id, 
           release_date, monitored, search_triggered, success, error_message,
-          ip_address, user_agent, request_data, downloaded
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ip_address, user_agent, request_data, downloaded, root_folder_used
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         timestamp,
         data.userId || null,
@@ -487,7 +489,8 @@ class Database {
         data.ipAddress || null,
         data.userAgent || null,
         data.requestData || null,
-        data.downloaded || null
+        data.downloaded || null,
+        data.rootFolderUsed || null
       ]);
     } catch (error) {
       console.error('⚠️ Error logging album addition:', error.message);
