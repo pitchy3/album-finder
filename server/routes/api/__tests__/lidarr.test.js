@@ -42,27 +42,21 @@ jest.mock('../../../services/cache', () => ({
   }
 }));
 
+// Mock the config encryption service
+jest.mock('../../../services/configEncryption', () => ({
+  getDecryptedLidarrApiKey: jest.fn(() => 'test-api-key')
+}));
+
 describe('Lidarr API Routes', () => {
   let app;
   let fetchCallCount = 0;
 
-  // Suppress console output
   beforeAll(() => {
-    jest.spyOn(console, 'log').mockImplementation(() => {});
-    jest.spyOn(console, 'warn').mockImplementation(() => {});
-    jest.spyOn(console, 'error').mockImplementation(() => {});
-    
     // Configure Lidarr settings
     config.lidarr.url = 'http://localhost:8686';
     config.lidarr.apiKey = 'test-api-key';
     config.lidarr.rootFolder = '/music';
     config.lidarr.qualityProfileId = 1;
-  });
-
-  afterAll(() => {
-    console.log.mockRestore();
-    console.warn.mockRestore();
-    console.error.mockRestore();
   });
 
   beforeEach(() => {
@@ -251,7 +245,14 @@ describe('Lidarr API Routes', () => {
         })
       });
 
-      // Mock 4: Get artist albums
+      // Mock 4: Trigger artist refresh
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({ id: 1 })
+      });
+
+      // Mock 5: Get artist albums
       global.fetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -264,7 +265,7 @@ describe('Lidarr API Routes', () => {
         }])
       });
 
-      // Mock 5: Update album monitoring
+      // Mock 6: Update album monitoring
       global.fetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -274,7 +275,7 @@ describe('Lidarr API Routes', () => {
         })
       });
 
-      // Mock 6: Trigger album search
+      // Mock 7: Trigger album search
       global.fetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -288,6 +289,11 @@ describe('Lidarr API Routes', () => {
           title: 'Test Album',
           artist: 'Test Artist'
         });
+
+      // If test fails, show the error in the assertion message
+      if (response.status !== 200) {
+        throw new Error(`Expected 200 but got ${response.status}. Error: ${response.body.error || JSON.stringify(response.body)}`);
+      }
 
       expect(response.status).toBe(200);
       expect(response.body.id).toBe(1);
@@ -320,7 +326,18 @@ describe('Lidarr API Routes', () => {
         }])
       });
 
-      // Mock 3: Get artist albums
+      // Mock 3: Get artist root folder
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          id: 5,
+          artistName: 'Existing Artist',
+          rootFolderPath: '/music'
+        })
+      });
+
+      // Mock 4: Get artist albums
       global.fetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -333,7 +350,7 @@ describe('Lidarr API Routes', () => {
         }])
       });
 
-      // Mock 4: Update album monitoring
+      // Mock 5: Update album monitoring
       global.fetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -343,7 +360,7 @@ describe('Lidarr API Routes', () => {
         })
       });
 
-      // Mock 5: Trigger album search
+      // Mock 6: Trigger album search
       global.fetch.mockResolvedValueOnce({
         ok: true,
         status: 200,

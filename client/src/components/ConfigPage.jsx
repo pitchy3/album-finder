@@ -88,7 +88,7 @@ export default function ConfigPage({ onBack, onRequestReauth }) {
 
           {activeTab === 'lidarr' && (
             <ul className={`space-y-2 text-sm ${
-              darkMode ? 'text-blue-300' : 'text-blue-700'
+              preferences.darkMode ? 'text-blue-300' : 'text-blue-700'
             }`}>
               <li>• <strong>URL:</strong> Ensure your Lidarr instance is accessible from this server</li>
               <li>• <strong>API Key:</strong> Found in Lidarr → Settings → General → Security → API Key</li>

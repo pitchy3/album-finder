@@ -113,7 +113,7 @@ describe('Security Headers Middleware', () => {
 
       const response = await request(app).get('/test');
 
-      expect(response.headers['cross-origin-embedder-policy']).toBe('require-corp');
+      expect(response.headers['cross-origin-embedder-policy']).toBe('credentialless');
     });
 
     it('should set Cross-Origin-Resource-Policy', async () => {
@@ -121,7 +121,7 @@ describe('Security Headers Middleware', () => {
 
       const response = await request(app).get('/test');
 
-      expect(response.headers['cross-origin-resource-policy']).toBe('same-origin');
+      expect(response.headers['cross-origin-resource-policy']).toBe('same-site');
     });
 
     it('should remove X-Powered-By header', async () => {

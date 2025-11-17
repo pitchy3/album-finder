@@ -21,7 +21,7 @@ function createNotificationDiv(message, isError = false) {
   }, isError ? 10000 : 5000);
 }
 
-export async function addToLidarr(album) {
+export async function addToLidarr(album, rootFolder = null) {
   console.log("🚀 Starting addToLidarr for:", album);
 
   if (rootFolder) {

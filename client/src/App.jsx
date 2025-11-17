@@ -152,7 +152,7 @@ function AppContent() {
     await searchArtistReleases(artistQuery, preferences);
   };
 
-  const handleAddToLidarr = async (album) => {
+  const handleAddToLidarr = async (album, rootFolder = null) => {
     if (lidarrConfigured === null) {
       await checkLidarrConfig();
     }

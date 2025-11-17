@@ -337,6 +337,8 @@ const lidarrHelpers = {
     // Use query parameter authentication
     const url = this.buildApiUrl("command"); // This includes apikey in query
     
+	const timeoutId = setTimeout(() => controller.abort(), 30000);
+	
     try {
       const response = await fetch(url, {
         method: "POST",
@@ -350,6 +352,8 @@ const lidarrHelpers = {
           artistIds: Array.isArray(artistIds) ? artistIds : [artistIds]
         })
       });
+	  
+	  clearTimeout(timeoutId);
   
       if (!response.ok) {
         const text = await response.text().catch(() => "");
@@ -359,6 +363,7 @@ const lidarrHelpers = {
       this.log(title, "Artist refresh triggered successfully");
       return true;
     } catch (error) {
+	  clearTimeout(timeoutId);
       this.log(title, "Artist refresh failed:", error.message);
       return false;
     }
@@ -378,8 +383,7 @@ const lidarrHelpers = {
       artistName: artistInfo.artistName,
       qualityProfileId: parseInt(config.lidarr.qualityProfileId, 10),
       metadataProfileId: 1,
-	  rootFolderPath: rootFolderPath,
-      rootFolderPath: config.lidarr.rootFolder,
+      rootFolderPath: rootFolderPath,
       monitored: true,
       monitorNewItems: "none",
       addOptions: {
@@ -1175,7 +1179,7 @@ async function handleExistingArtist(existingArtist, mbid, title, artist, userNam
 }
 
 // Helper function to add new artist and album
-async function addNewArtistAndAlbum(artistInfo, mbid, title, artist, userName, req) {
+async function addNewArtistAndAlbum(artistInfo, mbid, title, artist, userName, req, customRootFolder) {
   let addedArtist;
   const userInfo = req.session?.user?.claims;
   
@@ -1187,8 +1191,6 @@ async function addNewArtistAndAlbum(artistInfo, mbid, title, artist, userName, r
     // Add the artist without searching for all albums
     addedArtist = await lidarrHelpers.addArtist(artistInfo, title, rootFolderToUse);
 
-    // Enhanced artist addition logging with user details
-    const userInfo = req.session?.user?.claims;
     await database.logArtistAddition({
       userId: userName,
       username: userInfo?.preferred_username || userInfo?.name || null,
@@ -1197,13 +1199,12 @@ async function addNewArtistAndAlbum(artistInfo, mbid, title, artist, userName, r
       artistMbid: addedArtist.foreignArtistId,
       lidarrArtistId: addedArtist.id,
       qualityProfileId: parseInt(config.lidarr.qualityProfileId, 10),
-      rootFolder: config.lidarr.rootFolder,
+      rootFolder: rootFolderToUse,
       monitored: addedArtist.monitored,
       success: true,
       ipAddress: req.ip || req.connection.remoteAddress,
       userAgent: req.get('User-Agent'),
       requestData: JSON.stringify({ mbid, title, artist, rootFolder: rootFolderToUse }), // Original request context
-	  rootFolderUsed: rootFolderToUse,
       downloaded: false
     });
 
@@ -1286,6 +1287,7 @@ async function addNewArtistAndAlbum(artistInfo, mbid, title, artist, userName, r
       lidarrAlbumId: targetAlbum.id,
       lidarrArtistId: addedArtist.id,
       releaseDate: targetAlbum.releaseDate,
+      rootFolder: rootFolderToUse,
       monitored: true,
       searchTriggered: searchTriggered,
       success: true,

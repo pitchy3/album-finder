@@ -1,6 +1,7 @@
 // server/middleware/csrf.js - Enhanced CSRF protection with origin validation
 const csrf = require('@dr.pogodin/csurf');
 const crypto = require('crypto');
+const { apiKeyAuthMiddleware, logApiKeyStatus } = require('./apiKeyAuth');
 
 /**
  * Create CSRF protection middleware with enhanced security
@@ -122,6 +123,12 @@ function createCsrfProtection() {
    * Check if request should skip CSRF validation
    */
   function shouldSkipCsrf(req) {
+    // Skip for API key authenticated requests
+    if (req.apiKeyAuthenticated) {
+      console.log("🔓 CSRF check skipped for API key authenticated request");
+      return true;
+    }
+
     // Skip for safe HTTP methods
     if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       return true;

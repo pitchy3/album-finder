@@ -5,7 +5,13 @@ import RootFolderModal from './RootFolderModal.jsx';
 
 import { usePreferences } from "../contexts/PreferencesContext.jsx";
 
-export default function AlbumCard({ album, index, onAddToLidarr, showMatchScore = true }) {
+export default function AlbumCard({ 
+  album, 
+  index, 
+  onAddToLidarr, 
+  showMatchScore = true,
+  artistInLidarr = false
+  }) {
   const { preferences } = usePreferences();
   const [showRootFolderModal, setShowRootFolderModal] = useState(false);
 
@@ -38,14 +44,20 @@ export default function AlbumCard({ album, index, onAddToLidarr, showMatchScore 
     }
   };
   
-  const handleAddClick = () => {
+  const handleAddClick = () => {  
     // Check if album is already in Lidarr
-    if (album.inLidarr) {
+    if (isFullyDownloaded) {
       return; // Button should be disabled, but extra safety
     }
     
-    // Show root folder selection modal
-    setShowRootFolderModal(true);
+    if (artistInLidarr) {
+      console.log('🎵 Artist exists in Lidarr - adding album directly (no modal)');
+      console.log('  - Calling onAddToLidarr with null rootFolder');
+      onAddToLidarr(album, null);
+    } else {
+      console.log('📁 New artist - showing root folder selection modal');
+      setShowRootFolderModal(true);
+    }
   };
   
   const handleRootFolderConfirm = async (album, rootFolder) => {

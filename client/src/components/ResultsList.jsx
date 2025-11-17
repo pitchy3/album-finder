@@ -20,6 +20,7 @@ export default function ResultsList({ results, onAddToLidarr }) {
           album={album}
           index={index}
           onAddToLidarr={onAddToLidarr}
+		  artistInLidarr={false}
         />
       ))}
     </div>

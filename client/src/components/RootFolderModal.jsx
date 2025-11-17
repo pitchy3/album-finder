@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { usePreferences } from "../contexts/PreferencesContext.jsx";
+import { secureApiCall } from '../services/apiService.js';
 
 export default function RootFolderModal({ 
   album, 
@@ -24,24 +25,29 @@ export default function RootFolderModal({
     setError(null);
     
     try {
-      const response = await fetch('/api/config/lidarr/rootfolders', {  // ✅ Updated endpoint
+      const response = await secureApiCall('/api/config/lidarr/rootfolders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ useSavedApiKey: true })  // ✅ Use saved credentials
+        body: JSON.stringify({ useSavedApiKey: true })
       });
       
       if (!response.ok) {
         throw new Error('Failed to load root folders');
       }
       
-      const folders = await response.json();
-      setRootFolders(folders.rootFolders);  // ✅ Extract from response object
+      const data = await response.json();
+      const foldersArray = data.rootFolders || [];
       
-      // Pre-select default folder
-      const defaultFolder = folders.find(f => f.isDefault);
+      setRootFolders(foldersArray);
+      
+      // Pre-select default folder - FIXED: search in the array, not the response object
+      const defaultFolder = foldersArray.find(f => f.isDefault);
       if (defaultFolder) {
         setSelectedFolder(defaultFolder.path);
+      } else if (foldersArray.length > 0) {
+        // Fallback: select first folder if no default found
+        setSelectedFolder(foldersArray[0].path);
       }
     } catch (err) {
       setError(err.message);
@@ -97,7 +103,17 @@ export default function RootFolderModal({
           </div>
         )}
 
-        {!loading && !error && (
+        {!loading && !error && rootFolders.length === 0 && (
+          <div className={`p-4 rounded-xl mb-4 ${
+            preferences.darkMode 
+              ? 'bg-yellow-900/50 text-yellow-300 border border-yellow-700' 
+              : 'bg-yellow-50 text-yellow-800 border border-yellow-200'
+          }`}>
+            No root folders found. Please configure root folders in Lidarr.
+          </div>
+        )}
+
+        {!loading && !error && rootFolders.length > 0 && (
           <div className="space-y-3 max-h-96 overflow-y-auto mb-4">
             {rootFolders.map((folder) => (
               <button

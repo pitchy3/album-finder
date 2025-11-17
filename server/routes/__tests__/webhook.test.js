@@ -50,7 +50,7 @@ describe('Webhook Routes', () => {
     it('should reject requests with invalid API key', async () => {
       const response = await request(app)
         .post('/webhook/lidarr')
-        .set('x-api-key', 'wrong-key')
+        .set('x-webhook-key', 'wrong-key')
         .send({
           eventType: 'Download',
           album: { id: 1, title: 'Test Album' }
@@ -68,7 +68,7 @@ describe('Webhook Routes', () => {
       
       const response = await request(app)
         .post('/webhook/lidarr')
-        .set('x-api-key', WEBHOOK_KEY)
+        .set('x-webhook-key', WEBHOOK_KEY)
         .send({
           eventType: 'Download',
           artist: { name: 'Test Artist' },
@@ -83,7 +83,7 @@ describe('Webhook Routes', () => {
     it('should handle Grab events', async () => {
       const response = await request(app)
         .post('/webhook/lidarr')
-        .set('x-api-key', WEBHOOK_KEY)
+        .set('x-webhook-key', WEBHOOK_KEY)
         .send({
           eventType: 'Grab',
           artist: { name: 'Test Artist' },
@@ -96,7 +96,7 @@ describe('Webhook Routes', () => {
     it('should handle Rename events', async () => {
       const response = await request(app)
         .post('/webhook/lidarr')
-        .set('x-api-key', WEBHOOK_KEY)
+        .set('x-webhook-key', WEBHOOK_KEY)
         .send({
           eventType: 'Rename',
           artist: { name: 'Test Artist' }
@@ -108,7 +108,7 @@ describe('Webhook Routes', () => {
     it('should handle unknown event types', async () => {
       const response = await request(app)
         .post('/webhook/lidarr')
-        .set('x-api-key', WEBHOOK_KEY)
+        .set('x-webhook-key', WEBHOOK_KEY)
         .send({
           eventType: 'Unknown',
           artist: { name: 'Test Artist' }
@@ -123,7 +123,7 @@ describe('Webhook Routes', () => {
       
       const response = await request(app)
         .post('/webhook/lidarr')
-        .set('x-api-key', WEBHOOK_KEY)
+        .set('x-webhook-key', WEBHOOK_KEY)
         .send({
           eventType: 'Download',
           album: { id: 1, title: 'Test Album' }
