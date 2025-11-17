@@ -21,7 +21,7 @@ function securityHeaders(app) {
     // Allow fonts from Google Fonts
     "font-src 'self' https://fonts.gstatic.com data:",
     // Allow images from self, data URIs, and Cover Art Archive
-    "img-src 'self' data: https: http://coverartarchive.org https://coverartarchive.org",
+    "img-src 'self' data: https: http://coverartarchive.org https://coverartarchive.org https://images.lidarr.audio",
     // Allow connections to self (API calls)
     "connect-src 'self'",
     // Deny frames
@@ -39,7 +39,7 @@ function securityHeaders(app) {
   // Main security headers middleware
   app.use((req, res, next) => {
     // Add upgrade-insecure-requests in production with HTTPS
-    if (isProduction && cookieSecure) {
+    if (isProduction && cookieSecure && !cspDirectives.includes("upgrade-insecure-requests")) {
       cspDirectives.push("upgrade-insecure-requests");
     }
     
@@ -84,8 +84,8 @@ function securityHeaders(app) {
     
     // Cross-Origin Policies
     res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-    res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-    res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+    res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
+    res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
     
     // Remove X-Powered-By header (information disclosure)
     res.removeHeader('X-Powered-By');
@@ -136,6 +136,8 @@ Allow: /
   console.log(`   HSTS: ${cookieSecure ? 'Enabled' : 'Disabled (HTTP mode)'}`);
   console.log(`   Frame protection: DENY`);
   console.log(`   MIME sniffing: Prevented`);
+  console.log('   COEP: credentialless (allows external images)');
+  console.log('   CORP: cross-origin (allows external resources)');
 }
 
 /**
@@ -216,6 +218,8 @@ function developmentSecurityHeaders(app) {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.removeHeader('X-Powered-By');
+	
+	res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     
     next();
   });

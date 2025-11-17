@@ -337,6 +337,8 @@ const lidarrHelpers = {
     // Use query parameter authentication
     const url = this.buildApiUrl("command"); // This includes apikey in query
     
+	const timeoutId = setTimeout(() => controller.abort(), 30000);
+	
     try {
       const response = await fetch(url, {
         method: "POST",
@@ -350,6 +352,8 @@ const lidarrHelpers = {
           artistIds: Array.isArray(artistIds) ? artistIds : [artistIds]
         })
       });
+	  
+	  clearTimeout(timeoutId);
   
       if (!response.ok) {
         const text = await response.text().catch(() => "");
@@ -359,21 +363,27 @@ const lidarrHelpers = {
       this.log(title, "Artist refresh triggered successfully");
       return true;
     } catch (error) {
+	  clearTimeout(timeoutId);
       this.log(title, "Artist refresh failed:", error.message);
       return false;
     }
   },
 
   // Add artist to Lidarr - FIXED: Use proper authentication
-  async addArtist(artistInfo, title) {
+  async addArtist(artistInfo, title, customRootFolder = null) {
     this.log(title, "Adding artist to Lidarr");
+	
+	// Use custom root folder if provided, otherwise use default
+    const rootFolderPath = customRootFolder || config.lidarr.rootFolder;
+  
+    this.log(title, `Using root folder: ${rootFolderPath}${customRootFolder ? ' (custom)' : ' (default)'}`);
     
     const artistData = {
       foreignArtistId: artistInfo.foreignArtistId,
       artistName: artistInfo.artistName,
       qualityProfileId: parseInt(config.lidarr.qualityProfileId, 10),
       metadataProfileId: 1,
-      rootFolderPath: config.lidarr.rootFolder,
+      rootFolderPath: rootFolderPath,
       monitored: true,
       monitorNewItems: "none",
       addOptions: {
@@ -445,6 +455,31 @@ const lidarrHelpers = {
       return null;
     } catch (error) {
       this.log("GET_ARTIST", "Error finding artist:", error.message);
+      return null;
+    }
+  },
+  
+  /**
+   * Get the root folder path for an existing artist
+   * @param {number} artistId - Lidarr artist ID
+   * @returns {Promise<string|null>} Root folder path or null if not found
+   */
+  async getArtistRootFolder(artistId) {
+    try {
+      this.log("GET_ROOT_FOLDER", `Getting root folder for artist ID: ${artistId}`);
+      
+      const url = this.buildApiUrl(`artist/${artistId}`);
+      const artistData = await this.apiRequest(url);
+      
+      if (artistData && artistData.rootFolderPath) {
+        this.log("GET_ROOT_FOLDER", `Found root folder: ${artistData.rootFolderPath}`);
+        return artistData.rootFolderPath;
+      }
+      
+      this.log("GET_ROOT_FOLDER", "Root folder not found in artist data");
+      return null;
+    } catch (error) {
+      this.log("GET_ROOT_FOLDER", "Error getting root folder:", error.message);
       return null;
     }
   },
@@ -587,15 +622,36 @@ router.get("/lookup-search", ensureAuthenticated, async (req, res) => {
   });
 });
 
-// Add artist endpoint
+/**
+ * POST /api/lidarr/add
+ * 
+ * Add album to Lidarr
+ * 
+ * Body:
+ *   - mbid: string (required) - MusicBrainz release group ID
+ *   - title: string (required) - Album title
+ *   - artist: string (required) - Artist name
+ *   - rootFolder: string (optional) - Custom root folder path
+ *     * Only used when adding NEW artists
+ *     * Ignored for existing artists (uses artist's current folder)
+ *     * If omitted, uses default root folder from config
+ * 
+ * Authentication: Session or API Key
+ */
 router.post("/add", ensureAuthenticated, async (req, res) => {
   await queuedApiCall(req, res, async () => {
-    const { mbid, title, artist } = req.body;
+    const { mbid, title, artist, rootFolder } = req.body;
     if (!mbid) throw new Error("Missing 'mbid' in request body");
     
     const userName = getUsername(req); // 🆕 Extract userName
     
     lidarrHelpers.validateConfig();
+	
+	// Log if custom root folder was provided
+    if (rootFolder) {
+      lidarrHelpers.log("ADD", `📁 Custom root folder requested: ${rootFolder}`);
+    }
+	
     lidarrHelpers.log("ADD", `Lidarr add request for: ${title} by ${artist} (MBID: ${mbid})`);
 
     // Step 1: Look up the album to get artist information
@@ -617,11 +673,15 @@ router.post("/add", ensureAuthenticated, async (req, res) => {
     const existingArtist = await lidarrHelpers.findExistingArtist(artistInfo.foreignArtistId, title);
     
     if (existingArtist) {
+	  // Artist exists: ignore custom root folder
+      if (rootFolder) {
+        lidarrHelpers.log(title, `⚠️ Ignoring custom root folder - artist exists in: ${existingArtist.path || 'unknown'}`);
+      }
       return await handleExistingArtist(existingArtist, mbid, title, artist, userName, req);
     }
 
     // Step 3: Add new artist and album
-    return await addNewArtistAndAlbum(artistInfo, mbid, title, artist, userName, req);
+    return await addNewArtistAndAlbum(artistInfo, mbid, title, artist, userName, req, rootFolder);
   });
 });
 
@@ -928,6 +988,12 @@ router.get("/artist-with-albums/:mbid", ensureAuthenticated, async (req, res) =>
 async function handleExistingArtist(existingArtist, mbid, title, artist, userName, req) {
   const userInfo = req.session?.user?.claims;
   
+  // Get artist's current root folder
+  const artistRootFolder = await lidarrHelpers.getArtistRootFolder(existingArtist.id);
+  if (artistRootFolder) {
+    lidarrHelpers.log(title, `📁 Artist exists in root folder: ${artistRootFolder}`);
+  }
+  
   // Check if the specific album is already in artist's discography
   try {
     const artistAlbums = await lidarrHelpers.getArtistAlbums(existingArtist.id);
@@ -968,7 +1034,12 @@ async function handleExistingArtist(existingArtist, mbid, title, artist, userNam
         success: true,
         ipAddress: req.ip || req.connection.remoteAddress,
         userAgent: req.get('User-Agent'),
-        requestData: JSON.stringify({ mbid, title, artist }),
+        requestData: JSON.stringify({ 
+		  mbid, 
+		  title, 
+		  artist, 
+		  rootFolder: artistRootFolder || 'unknown' 
+		}),
 		downloaded: false
       });
       
@@ -1108,16 +1179,18 @@ async function handleExistingArtist(existingArtist, mbid, title, artist, userNam
 }
 
 // Helper function to add new artist and album
-async function addNewArtistAndAlbum(artistInfo, mbid, title, artist, userName, req) {
+async function addNewArtistAndAlbum(artistInfo, mbid, title, artist, userName, req, customRootFolder) {
   let addedArtist;
   const userInfo = req.session?.user?.claims;
   
+  // Determine root folder to use
+  const rootFolderToUse = customRootFolder || config.lidarr.rootFolder;
+  lidarrHelpers.log(title, `📁 Adding new artist to root folder: ${rootFolderToUse}`);
+  
   try {
     // Add the artist without searching for all albums
-    addedArtist = await lidarrHelpers.addArtist(artistInfo, title);
+    addedArtist = await lidarrHelpers.addArtist(artistInfo, title, rootFolderToUse);
 
-    // Enhanced artist addition logging with user details
-    const userInfo = req.session?.user?.claims;
     await database.logArtistAddition({
       userId: userName,
       username: userInfo?.preferred_username || userInfo?.name || null,
@@ -1126,12 +1199,13 @@ async function addNewArtistAndAlbum(artistInfo, mbid, title, artist, userName, r
       artistMbid: addedArtist.foreignArtistId,
       lidarrArtistId: addedArtist.id,
       qualityProfileId: parseInt(config.lidarr.qualityProfileId, 10),
-      rootFolder: config.lidarr.rootFolder,
+      rootFolder: rootFolderToUse,
       monitored: addedArtist.monitored,
       success: true,
       ipAddress: req.ip || req.connection.remoteAddress,
       userAgent: req.get('User-Agent'),
-      requestData: JSON.stringify({ mbid, title, artist }) // Original request context
+      requestData: JSON.stringify({ mbid, title, artist, rootFolder: rootFolderToUse }), // Original request context
+      downloaded: false
     });
 
     // Find and add the specific album
@@ -1213,6 +1287,7 @@ async function addNewArtistAndAlbum(artistInfo, mbid, title, artist, userName, r
       lidarrAlbumId: targetAlbum.id,
       lidarrArtistId: addedArtist.id,
       releaseDate: targetAlbum.releaseDate,
+      rootFolder: rootFolderToUse,
       monitored: true,
       searchTriggered: searchTriggered,
       success: true,

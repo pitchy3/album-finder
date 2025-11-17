@@ -1,5 +1,5 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import AlbumCard from '../../components/AlbumCard';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 
@@ -17,8 +17,14 @@ describe('AlbumCard', () => {
     percentComplete: 0
   };
 
-  const mockOnAddToLidarr = vi.fn();
+  let mockOnAddToLidarr;
 
+  beforeEach(() => {
+    mockOnAddToLidarr = vi.fn();
+    // Clear any previous mock state
+    vi.clearAllMocks();
+  });
+  
   const renderComponent = (album = mockAlbum, props = {}) => {
     return render(
       <PreferencesProvider>
@@ -26,6 +32,7 @@ describe('AlbumCard', () => {
           album={album}
           index={0}
           onAddToLidarr={mockOnAddToLidarr}
+		  artistInLidarr={false}
           {...props}
         />
       </PreferencesProvider>
@@ -61,12 +68,14 @@ describe('AlbumCard', () => {
   });
 
   it('should call onAddToLidarr when add button clicked', () => {
-    renderComponent();
+    // When artist EXISTS in Lidarr, should call directly
+    renderComponent(mockAlbum, { artistInLidarr: true });
     
     const addButton = screen.getByText('➕ Add to Lidarr');
     fireEvent.click(addButton);
     
-    expect(mockOnAddToLidarr).toHaveBeenCalledWith(mockAlbum);
+    // Should call with album and null (backend will use artist's folder)
+    expect(mockOnAddToLidarr).toHaveBeenCalledWith(mockAlbum, null);
   });
 
   it('should show complete status when in Lidarr', () => {

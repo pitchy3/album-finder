@@ -66,7 +66,7 @@ async function handleRename(payload) {
 }
 
 function checkApiKey(req, res, next) {
-  const apiKey = req.header("x-api-key"); // Lidarr will send this header
+  const apiKey = req.header("x-webhook-key"); // Lidarr will send this header
   if (!apiKey || apiKey !== LIDARR_WEBHOOK_KEY) {
     console.warn("❌ Webhook API key validation failed:", {
       provided: apiKey ? `***${apiKey.slice(-4)}` : 'none',

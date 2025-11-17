@@ -152,12 +152,14 @@ function AppContent() {
     await searchArtistReleases(artistQuery, preferences);
   };
 
-  const handleAddToLidarr = async (album) => {
+  const handleAddToLidarr = async (album, rootFolder = null) => {
     if (lidarrConfigured === null) {
       await checkLidarrConfig();
     }
     
-    const result = await addToLidarr(album);
+	// Pass root folder to service
+    const result = await addToLidarr(album, rootFolder);
+
     if (result.success) {
       if (searchMode === "song") {
         updateAlbumLidarrStatus(album.mbid, true);

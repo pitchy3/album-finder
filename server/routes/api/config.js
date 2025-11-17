@@ -612,14 +612,25 @@ router.post("/lidarr/rootfolders", ensureAuthenticated, async (req, res) => {
 
     const rootFolders = await response.json();
 
-    res.json({
-      rootFolders: rootFolders.map(rf => ({
+    // Add default flag and sort (default first, then alphabetically)
+    const enhancedFolders = rootFolders
+      .map(rf => ({
         id: rf.id,
         path: rf.path,
         accessible: rf.accessible,
         freeSpace: rf.freeSpace,
-        totalSpace: rf.totalSpace
+        totalSpace: rf.totalSpace,
+        isDefault: rf.path === config.lidarr.rootFolder // Mark default folder
       }))
+      .sort((a, b) => {
+        // Sort default folder first, then alphabetically
+        if (a.isDefault && !b.isDefault) return -1;
+        if (!a.isDefault && b.isDefault) return 1;
+        return a.path.localeCompare(b.path);
+      });
+
+    res.json({
+      rootFolders: enhancedFolders
     });
   } catch (error) {
     console.error("❌ Error getting root folders:", error);

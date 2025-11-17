@@ -21,21 +21,33 @@ function createNotificationDiv(message, isError = false) {
   }, isError ? 10000 : 5000);
 }
 
-export async function addToLidarr(album) {
+export async function addToLidarr(album, rootFolder = null) {
   console.log("🚀 Starting addToLidarr for:", album);
+
+  if (rootFolder) {
+    console.log("📁 Using custom root folder:", rootFolder);
+  }
   
   try {
     console.log("🔡 Making POST request to /api/lidarr/add");
-    console.log("📦 Request payload:", { mbid: album.mbid, title: album.title, artist: album.artist });
+	
+    const payload = { 
+      mbid: album.mbid, 
+      title: album.title, 
+      artist: album.artist
+    };
+	
+	// Include root folder if provided
+    if (rootFolder) {
+      payload.rootFolder = rootFolder;
+    }
+	
+    console.log("📦 Request payload:", payload);
     
     const r = await secureApiCall("/api/lidarr/add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        mbid: album.mbid, 
-        title: album.title, 
-        artist: album.artist
-      }),
+      body: JSON.stringify(payload),
     });
     
     console.log("📈 Response status:", r.status);
