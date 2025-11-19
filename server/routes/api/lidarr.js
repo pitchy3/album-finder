@@ -518,7 +518,10 @@ const lidarrHelpers = {
             title: album.title,
             trackCount: album.statistics?.trackCount || 0,
             trackFileCount: album.statistics?.trackFileCount || 0,
-            coverUrl: coverUrl // ✅ Include cover art from Lidarr
+            coverUrl: coverUrl,
+            albumType: album.albumType || 'Album',
+            secondaryTypes: album.secondaryTypes || [],
+            releaseDate: album.releaseDate || null
           });
         }
       });

@@ -9,13 +9,13 @@ const { lidarrHelpers } = require("./lidarr");
 
 const router = express.Router();
 
-// ✅ Updated processBatch - uses pre-built Lidarr map for instant lookups
+// Updated processBatch - uses pre-built Lidarr map for instant lookups
 async function processBatch(releases, artistName, lidarrAlbumsMap, categories) {
   console.log(`🔄 Processing batch of ${releases.length} releases...`);
   
   let coverArtResults = [];
   
-  if ( lidarrAlbumsMap.size === 0 ) {
+  if (lidarrAlbumsMap.size === 0) {
     // Get cover art for all albums in parallel - only if we don't already have it in the lidarrAlbumsMap data
     const coverArtPromises = releases.map(async (release) => {
       try {
@@ -45,13 +45,55 @@ async function processBatch(releases, artistName, lidarrAlbumsMap, categories) {
     console.log(`✅ Fetched cover art for batch (${coverArtResults.filter(Boolean).length}/${releases.length} found)`);
   }
     
-  // ✅ Process results with instant Lidarr status lookup (no API calls!)
+  // Process results with instant Lidarr status lookup (no API calls!)
   const processedResults = releases
     .map((release, index) => {
+      // Get Lidarr info if available
+      const lidarrInfo = lidarrAlbumsMap.get(release.id || release.foreignAlbumId) || {
+        inLibrary: false,
+        fullyAvailable: false,
+        percentComplete: 0,
+        coverUrl: false,
+        albumType: null,
+        secondaryTypes: []
+      };
+	  
+	  console.log(lidarrInfo);
+      
+      // Determine release type - handle both MusicBrainz and Lidarr formats
+      let releaseType;
+      
+      if (release['primary-type']) {
+        // MusicBrainz format
+        releaseType = release['primary-type'].toLowerCase();
+      } else if (lidarrInfo.albumType) {
+        // Lidarr format from our map - map their types to our types
+        const lidarrType = lidarrInfo.albumType.toLowerCase();
+        const typeMap = {
+          'album': 'album',
+          'ep': 'ep',
+          'single': 'single',
+          'broadcast': 'other',
+          'other': 'other'
+        };
+        releaseType = typeMap[lidarrType] || 'other';
+      } else if (release.albumType) {
+        // Fallback: Direct from release object (shouldn't happen but safe)
+        const lidarrType = release.albumType.toLowerCase();
+        const typeMap = {
+          'album': 'album',
+          'ep': 'ep',
+          'single': 'single',
+          'broadcast': 'other',
+          'other': 'other'
+        };
+        releaseType = typeMap[lidarrType] || 'other';
+      } else {
+        releaseType = 'unknown';
+      }
 	  
       // Apply category filtering
       if (categories && categories !== 'all') {
-        const releaseType = release['primary-type']?.toLowerCase() || 'other';
         const allowedCategories = categories.split(',').map(c => c.trim().toLowerCase());
         
         const categoryMap = {
@@ -63,27 +105,30 @@ async function processBatch(releases, artistName, lidarrAlbumsMap, categories) {
         const releaseCategory = categoryMap[releaseType] || 'other';
         if (!allowedCategories.includes(releaseCategory)) return null;
       }
-      
-      // Instant lookup in pre-built map (O(1) operation, no API call!)
-      const lidarrInfo = lidarrAlbumsMap.get(release.id) || {
-        inLibrary: false,
-        fullyAvailable: false,
-        percentComplete: 0,
-		coverUrl: false
-      };
 	  
 	  // Determine cover URL source
       const coverUrl = lidarrAlbumsMap.size === 0 
         ? (coverArtResults && coverArtResults[index]) 
         : lidarrInfo.coverUrl;
       
+      // Handle artist credit for both formats
+      let artistCredit;
+      if (release['artist-credit']) {
+        artistCredit = release['artist-credit'][0]?.name;
+      } else if (release.artist) {
+        artistCredit = release.artist.artistName;
+      }
+      
+      // Combine secondary types from both sources
+      const secondaryTypes = release['secondary-types'] || lidarrInfo.secondaryTypes || [];
+      
       return {
-        mbid: release.id,
+        mbid: release.id || release.foreignAlbumId,
         title: release.title,
-        artist: release['artist-credit']?.[0]?.name || artistName,
-        releaseDate: release['first-release-date'],
-        releaseType: release['primary-type']?.toLowerCase() || 'unknown',
-        secondaryTypes: release['secondary-types'] || [],
+        artist: artistCredit || artistName,
+        releaseDate: release['first-release-date'] || release.releaseDate,
+        releaseType: releaseType,
+        secondaryTypes: secondaryTypes,
         score: 1.0,
         coverUrl,
         inLidarr: lidarrInfo.inLibrary,
@@ -414,31 +459,16 @@ router.get("/release-group/stream", ensureAuthenticated, async (req, res) => {
         console.log(`✅ Artist found in Lidarr with ID: ${lidarrArtistId}`);
         
         try {
-          const lidarrAlbums = await lidarrHelpers.getArtistAlbums(lidarrArtistId);
-          console.log(`✅ Retrieved ${lidarrAlbums.length} albums from Lidarr`);
+          const albumsMapFromHelper = await lidarrHelpers.getAllAlbumsForArtist(lidarrArtistId);
+          console.log(`✅ Retrieved albums map with ${albumsMapFromHelper.size} entries from Lidarr`);
           
-          lidarrAlbums.forEach(album => {
-            if (album.foreignAlbumId) {
-              const percentComplete = album.statistics?.percentOfTracks || 0;
-              let coverUrl = null;
-              if (album.images?.length > 0) {
-                const coverImage = album.images.find(img => img.coverType === 'cover') || album.images[0];
-                coverUrl = coverImage?.remoteUrl || coverImage?.url || null;
-              }
-              
-              lidarrAlbumsMap.set(album.foreignAlbumId, {
-                inLibrary: true,
-                fullyAvailable: percentComplete === 100,
-                percentComplete,
-                lidarrId: album.id,
-                monitored: album.monitored,
-                title: album.title,
-                coverUrl
-              });
-            }
+          // Copy the map entries into our lidarrAlbumsMap
+          albumsMapFromHelper.forEach((value, key) => {
+            lidarrAlbumsMap.set(key, value);
           });
           
           console.log(`✅ Mapped ${lidarrAlbumsMap.size} Lidarr albums`);
+          
         } catch (albumError) {
           console.error('❌ Error getting Lidarr albums:', albumError);
         }
@@ -471,9 +501,9 @@ router.get("/release-group/stream", ensureAuthenticated, async (req, res) => {
       const lidarrReleases = Array.from(lidarrAlbumsMap.entries()).map(([mbid, albumInfo]) => ({
         id: mbid,
         title: albumInfo.title,
-        'first-release-date': null, // Lidarr doesn't always have this in the map
-        'primary-type': 'album', // Default assumption from Lidarr
-        'secondary-types': [],
+        'first-release-date': albumInfo.releaseDate || null,
+        'albumType': albumInfo.albumType || 'Album',
+        'secondaryTypes': albumInfo.secondaryTypes || [],
         'artist-credit': [{ name: artistName }]
       }));
       
