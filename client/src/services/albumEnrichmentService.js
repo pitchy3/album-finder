@@ -1,3 +1,6 @@
+// client/src/services/albumEnrichmentService.js
+import { secureApiCall } from '../services/apiService.js';
+
 export async function enrichAlbumsWithMetadata(albums) {
   console.log("🎨 Fetching cover art and Lidarr info in parallel for", albums.length, "releases");
   
@@ -54,7 +57,7 @@ export async function enrichAlbumsWithMetadata(albums) {
 
 async function fetchCoverArt(album) {
   try {
-    const coverRes = await fetch(`/api/coverart/${album.mbid}`);
+    const coverRes = await secureApiCall(`/api/coverart/${album.mbid}`);
     console.log(`🖼️ Cover art response status for ${album.title}:`, coverRes.status);
     
     if (coverRes.ok) {
@@ -71,7 +74,7 @@ async function fetchCoverArt(album) {
 
 async function checkLidarrStatus(album) {
   try {
-    const lidarrRes = await fetch(`/api/lidarr/lookup?mbid=${encodeURIComponent(album.mbid)}&title=${encodeURIComponent(album.title)}&artist=${encodeURIComponent(album.artist)}`);
+    const lidarrRes = await secureApiCall(`/api/lidarr/lookup?mbid=${encodeURIComponent(album.mbid)}&title=${encodeURIComponent(album.title)}&artist=${encodeURIComponent(album.artist)}`);
     console.log(`📚 Lidarr lookup response status for ${album.title}:`, lidarrRes.status);
     
     if (lidarrRes.ok) {

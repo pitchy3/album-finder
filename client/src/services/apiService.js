@@ -1,3 +1,5 @@
+// client/src/services/apiService.js
+
 // Create centralized API service with CSRF handling
 let csrfToken = null;
 
