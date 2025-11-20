@@ -190,17 +190,8 @@ router.get("/release-group", ensureAuthenticated, async (req, res) => {
       // 3. Include common name variations for specific artists
       const artistLower = artist.toLowerCase();
       
-      // Special handling for common artist name variations
-     // if (artistLower === '2pac' || artistLower === 'tupac') {
-     //   // For 2Pac/Tupac, search both common variations
-     //   searchQuery = `artist:"2Pac" OR artist:"Tupac" OR artist:"2pac" OR artistname:"2Pac" OR artistname:"Tupac"`;
-     //   console.log("🎤 Using specific variations for 2Pac/Tupac search");
-     // } else {
-        // For other artists, use exact match with minimal fuzzy fallback
-     //   searchQuery = `artist:"${artist}" OR artistname:"${artist}" OR artist:${artist}~0.95`;
-        searchQuery = `artist:"${artist}" OR artistname:"${artist}"`;
-        console.log("🎤 Using precise search with minimal fuzzy matching");
-     // }
+      searchQuery = `artist:"${artist}" OR artistname:"${artist}"`;
+      console.log("🎤 Using precise search with minimal fuzzy matching");
     } else {
       throw new Error("Missing 'query' or 'artist' parameter");
     }

@@ -337,6 +337,8 @@ const lidarrHelpers = {
     // Use query parameter authentication
     const url = this.buildApiUrl("command"); // This includes apikey in query
     
+	// Create AbortController for timeout
+    const controller = new AbortController();
 	const timeoutId = setTimeout(() => controller.abort(), 30000);
 	
     try {
@@ -535,42 +537,6 @@ const lidarrHelpers = {
       this.log("GET_ALBUMS", "Error fetching albums:", error.message);
       throw error;
     }
-  },
-  
-  // Get artist and all their albums in one optimized call
-  async getArtistWithAlbums(artistMbid) {
-    try {
-      this.validateConfig();
-      
-      const artist = await getArtistByMbid(artistMbid);
-      
-      if (!artist) {
-        return {
-          found: false,
-          artist: null,
-          albumsMap: new Map()
-        };
-      }
-      
-      const albumsMap = await getAllAlbumsForArtist(artist.id);
-      
-      return {
-        found: true,
-        artist: {
-          id: artist.id,
-          name: artist.artistName,
-          foreignArtistId: artist.foreignArtistId,
-          monitored: artist.monitored,
-          albumCount: artist.statistics?.albumCount || 0,
-          trackFileCount: artist.statistics?.trackFileCount || 0
-        },
-        albumsMap: albumsMap
-      };
-      
-    } catch (error) {
-      this.log("GET_ARTIST_WITH_ALBUMS", "Error:", error.message);
-      throw error;
-    }
   }
   
 };
@@ -646,13 +612,13 @@ router.post("/add", ensureAuthenticated, async (req, res) => {
     const { mbid, title, artist, rootFolder } = req.body;
     if (!mbid) throw new Error("Missing 'mbid' in request body");
     
-    const userName = getUsername(req); // 🆕 Extract userName
+    const userName = getUsername(req); // Extract userName
     
     lidarrHelpers.validateConfig();
 	
 	// Log if custom root folder was provided
     if (rootFolder) {
-      lidarrHelpers.log("ADD", `📁 Custom root folder requested: ${rootFolder}`);
+      lidarrHelpers.log("ADD", `Custom root folder requested: ${rootFolder}`);
     }
 	
     lidarrHelpers.log("ADD", `Lidarr add request for: ${title} by ${artist} (MBID: ${mbid})`);
@@ -694,10 +660,10 @@ router.get("/debug", ensureAuthenticated, async (req, res) => {
     
     // Test basic connectivity
     const url = lidarrHelpers.buildApiUrl("system/status");
-    console.log('🔍 Testing Lidarr connection:', lidarrHelpers.redactApiKey(url));
+    lidarrHelpers.log('[DEBUG]','Testing Lidarr connection:', lidarrHelpers.redactApiKey(url));
     
     const status = await lidarrHelpers.apiRequest(url);
-    console.log('✅ Lidarr connection successful:', status);
+    lidarrHelpers.log('[DEBUG]','Lidarr connection successful:', status);
     
     res.json({
       success: true,
@@ -953,38 +919,6 @@ router.post("/retry-download", ensureAuthenticated, async (req, res) => {
       throw error;
     }
   });
-});
-
-// Get artist and all albums by MusicBrainz ID (for streaming endpoint or debugging)
-router.get("/artist-with-albums/:mbid", ensureAuthenticated, async (req, res) => {
-  try {
-    const { mbid } = req.params;
-    
-    lidarrHelpers.validateConfig();
-    lidarrHelpers.log("ARTIST_WITH_ALBUMS", `Request for artist MBID: ${mbid}`);
-    
-    const result = await getArtistWithAlbums(mbid);
-    
-    // Convert Map to object for JSON serialization
-    const albumsArray = Array.from(result.albumsMap.entries()).map(([mbid, info]) => ({
-      mbid,
-      ...info
-    }));
-    
-    res.json({
-      found: result.found,
-      artist: result.artist,
-      albums: albumsArray,
-      totalAlbums: result.albumsMap.size
-    });
-    
-  } catch (error) {
-    lidarrHelpers.log("ARTIST_WITH_ALBUMS", "Error:", error.message);
-    res.status(500).json({ 
-      error: "Failed to get artist with albums",
-      details: error.message 
-    });
-  }
 });
 
 // Helper function to handle existing artist case
