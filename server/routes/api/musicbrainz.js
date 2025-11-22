@@ -5,13 +5,35 @@ const { queuedApiCall } = require("../../services/queue");
 const { cachedFetch } = require("../../services/cache");
 const { rateLimitedFetch } = require("../../services/rateLimit");
 const config = require("../../config");
-const { lidarrHelpers } = require("./lidarr");
+
+// Import new Lidarr services instead of old helpers
+const { LidarrClient } = require("../../services/lidarr/lidarrClient");
+const { AlbumService } = require("../../services/lidarr/albumService");
+const { ArtistService } = require("../../services/lidarr/artistService");
 
 const router = express.Router();
 
+// Initialize Lidarr services (singleton pattern)
+let lidarrClient, albumService, artistService;
+
+function getLidarrServices() {
+  if (!lidarrClient) {
+    try {
+      LidarrClient.validateConfig();
+      lidarrClient = new LidarrClient();
+      albumService = new AlbumService(lidarrClient);
+      artistService = new ArtistService(lidarrClient);
+    } catch (error) {
+      console.warn('⚠️  Lidarr not configured, will skip Lidarr integration');
+      return null;
+    }
+  }
+  return { lidarrClient, albumService, artistService };
+}
+
 // Updated processBatch - uses pre-built Lidarr map for instant lookups
 async function processBatch(releases, artistName, lidarrAlbumsMap, categories) {
-  console.log(`🔄 Processing batch of ${releases.length} releases...`);
+  console.log(`📄 Processing batch of ${releases.length} releases...`);
   
   let coverArtResults = [];
   
@@ -326,7 +348,7 @@ router.get("/release-group", ensureAuthenticated, async (req, res) => {
       // Log final results for debugging
       console.log(`🎯 Final results: ${data['release-groups']?.length || 0} releases returned`);
       if (data['release-groups']?.length > 0) {
-        console.log("📝 First few results:");
+        console.log("🔍 First few results:");
         data['release-groups'].slice(0, 3).forEach((release, idx) => {
           console.log(`  ${idx + 1}. ${release.title} (${release['primary-type'] || 'unknown'}) by ${release['artist-credit']?.[0]?.name || 'Unknown'}`);
         });
@@ -439,32 +461,39 @@ router.get("/release-group/stream", ensureAuthenticated, async (req, res) => {
     const artistName = artists[0].name;
     console.log(`✅ Found artist: ${artistName} (${artistMbid})`);
     
-    // STEP 2: Check Lidarr status
+    // STEP 2: Check Lidarr status using new services
     try {
       console.log('🔍 Checking Lidarr status for artist:', artistMbid);
-      const existingArtist = await lidarrHelpers.findExistingArtist(artistMbid, "STREAM");
+      const services = getLidarrServices();
       
-      if (existingArtist) {
-        artistInLidarr = true;
-        lidarrArtistId = existingArtist.id;
-        console.log(`✅ Artist found in Lidarr with ID: ${lidarrArtistId}`);
+      if (services) {
+        const { artistService, albumService } = services;
+        const existingArtist = await artistService.findByMbid(artistMbid);
         
-        try {
-          const albumsMapFromHelper = await lidarrHelpers.getAllAlbumsForArtist(lidarrArtistId);
-          console.log(`✅ Retrieved albums map with ${albumsMapFromHelper.size} entries from Lidarr`);
+        if (existingArtist) {
+          artistInLidarr = true;
+          lidarrArtistId = existingArtist.id;
+          console.log(`✅ Artist found in Lidarr with ID: ${lidarrArtistId}`);
           
-          // Copy the map entries into our lidarrAlbumsMap
-          albumsMapFromHelper.forEach((value, key) => {
-            lidarrAlbumsMap.set(key, value);
-          });
-          
-          console.log(`✅ Mapped ${lidarrAlbumsMap.size} Lidarr albums`);
-          
-        } catch (albumError) {
-          console.error('❌ Error getting Lidarr albums:', albumError);
+          try {
+            const albumsMapFromService = await albumService.getAllWithCoverArt(lidarrArtistId);
+            console.log(`✅ Retrieved albums map with ${albumsMapFromService.size} entries from Lidarr`);
+            
+            // Copy the map entries into our lidarrAlbumsMap
+            albumsMapFromService.forEach((value, key) => {
+              lidarrAlbumsMap.set(key, value);
+            });
+            
+            console.log(`✅ Mapped ${lidarrAlbumsMap.size} Lidarr albums`);
+            
+          } catch (albumError) {
+            console.error('❌ Error getting Lidarr albums:', albumError);
+          }
+        } else {
+          console.log('ℹ️ Artist not found in Lidarr');
         }
       } else {
-        console.log('ℹ️ Artist not found in Lidarr');
+        console.log('ℹ️ Lidarr services not available (not configured)');
       }
     } catch (lidarrError) {
       console.error('❌ Error checking Lidarr:', lidarrError);
