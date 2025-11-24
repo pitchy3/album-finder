@@ -6,6 +6,10 @@ server/coverage/
 playwright-report/
 test-results/
 
+docs/
+e2e/
+load-tests/
+
 albumfinder-data
 
 .env
