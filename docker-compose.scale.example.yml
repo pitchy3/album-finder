@@ -9,9 +9,7 @@ services:
 
   # Second app instance
   album-finder-app-2:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/pitchy3/album-finder:latest
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"
     depends_on:
@@ -63,9 +61,7 @@ services:
 
   # Third app instance
   album-finder-app-3:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/pitchy3/album-finder:latest
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"
     depends_on:

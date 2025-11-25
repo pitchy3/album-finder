@@ -46,9 +46,7 @@ services:
 
   # Main application - exposed on port for Caddy to proxy
   album-finder:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/pitchy3/album-finder:latest
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"
     depends_on:
