@@ -248,74 +248,158 @@ router.get("/album-list", ensureAuthenticated, async (req, res) => {
  * Retry downloading an album that's already in Lidarr
  * 
  * Body params:
- * - mbid: MusicBrainz Release Group ID (required)
- * - title: Album title (required)
- * - artist: Artist name (required)
- * - lidarrArtistId: Lidarr artist ID (required)
+ * - logId: Database log ID for tracking (required)
+ * - albumTitle: Album title (required for logging)
+ * - artistName: Artist name (required for logging)
+ * - albumMbid: MusicBrainz Release Group ID (optional, used if lidarrAlbumId not provided)
+ * - lidarrAlbumId: Lidarr album ID (optional, preferred method)
  */
 router.post("/retry-download", ensureAuthenticated, async (req, res) => {
   await queuedApiCall(req, res, async () => {
-    const { mbid, title, artist, lidarrArtistId } = req.body;
+    const { logId, albumTitle, artistName, albumMbid, lidarrAlbumId } = req.body;
     
-    if (!mbid || !title || !artist || !lidarrArtistId) {
-      throw new Error("Missing required parameters: mbid, title, artist, lidarrArtistId");
+    if (!logId) {
+      throw new Error("Missing 'logId' in request body");
     }
 
-    console.log(`\n🔄 Retrying download: "${title}" by "${artist}"`);
+    console.log(`\n🔄 Retrying download: "${albumTitle}" by "${artistName}" (Log ID: ${logId})`);
 
     const { albumService, artistService } = getServices();
     const logger = new LidarrLogger(req);
 
-    // Get artist details
-    const artistDetails = await artistService.getById(lidarrArtistId);
+    let albumInfo;
+    
+    // Step 1: Get album information
+    if (lidarrAlbumId) {
+      // Option 1: Get album by Lidarr ID (preferred - direct and fast)
+      console.log(`📀 Getting album details for Lidarr album ID: ${lidarrAlbumId}`);
+      
+      try {
+        albumInfo = await albumService.getById(lidarrAlbumId);
+        console.log(`✅ Successfully retrieved album details from Lidarr`);
+      } catch (detailsError) {
+        console.log(`❌ Failed to get album details: ${detailsError.message}`);
+        throw new Error(`Album with ID ${lidarrAlbumId} not found in Lidarr: ${detailsError.message}`);
+      }
+    } else if (albumMbid) {
+      // Option 2: Look up by MusicBrainz ID
+      console.log(`🔍 Looking up album by MBID: ${albumMbid}`);
+      albumInfo = await albumService.lookupByMbid(albumMbid);
+      
+      if (!albumInfo || !albumInfo.id) {
+        throw new Error(`Album "${albumTitle}" not found in Lidarr. It may need to be re-added first.`);
+      }
+      
+      console.log(`✅ Found album via MBID lookup`);
+    } else {
+      throw new Error("Either lidarrAlbumId or albumMbid is required to retry download");
+    }
+
+    // Log what we found
+    console.log(`📊 Album found:`, {
+      id: albumInfo.id,
+      title: albumInfo.title,
+      foreignAlbumId: albumInfo.foreignAlbumId || 'missing',
+      monitored: albumInfo.monitored,
+      artistId: albumInfo.artistId || 'missing'
+    });
+
+    // Step 2: Get artist details
+    const artistDetails = await artistService.getById(albumInfo.artistId);
     if (!artistDetails) {
-      throw new Error(`Artist not found with ID: ${lidarrArtistId}`);
+      throw new Error(`Artist not found with ID: ${albumInfo.artistId}`);
     }
 
-    // Find album in artist's discography
-    const albums = await albumService.getByArtistId(lidarrArtistId);
-    const targetAlbum = albumService.findInDiscography(albums, mbid);
+    console.log(`✅ Found artist: ${artistDetails.artistName} (ID: ${artistDetails.id})`);
 
-    if (!targetAlbum) {
-      throw new Error(`Album "${title}" not found in artist's Lidarr library`);
+    // Step 3: Enable monitoring if needed
+    let monitoringUpdated = false;
+    if (!albumInfo.monitored) {
+      console.log(`👁️  Album is not monitored, enabling monitoring`);
+      try {
+        await albumService.updateMonitoring(albumInfo, true);
+        monitoringUpdated = true;
+        albumInfo.monitored = true;
+        console.log(`✅ Album monitoring enabled successfully`);
+      } catch (monitoringError) {
+        console.log(`⚠️  Warning: Failed to update monitoring: ${monitoringError.message}`);
+        console.log(`🔍 Continuing with search trigger anyway`);
+      }
+    } else {
+      console.log(`✅ Album is already monitored`);
     }
 
-    // Enable monitoring if needed
-    if (!targetAlbum.monitored) {
-      console.log(`👁️  Enabling monitoring for ${title}`);
-      await albumService.updateMonitoring(targetAlbum, true);
-      targetAlbum.monitored = true;
+    // Step 4: Trigger album search (most important part)
+    console.log(`🔍 Triggering album search for album ID: ${albumInfo.id}`);
+    const searchTriggered = await albumService.triggerSearch(albumInfo.id);
+    
+    if (!searchTriggered) {
+      throw new Error("Failed to trigger album search in Lidarr");
     }
 
-    // Trigger search
-    console.log(`🔍 Triggering album search`);
-    const searchTriggered = await albumService.triggerSearch(targetAlbum.id);
+    console.log(`✅ Successfully triggered album search for: ${albumInfo.title}`);
 
-    // Log the retry attempt
-    const albumData = LidarrLogger.buildAlbumData(targetAlbum, artistDetails, {
-      monitored: true,
-      searchTriggered
+    // Step 5: Log the retry attempt to database
+    const albumData = LidarrLogger.buildAlbumData(albumInfo, artistDetails, {
+      monitored: albumInfo.monitored || monitoringUpdated,
+      searchTriggered: true
     });
 
     await logger.logAlbum(albumData, {
-      success: searchTriggered,
-      requestData: { mbid, title, artist, retry: true }
+      success: true,
+      requestData: { 
+        retryFrom: logId,
+        originalAlbumTitle: albumTitle,
+        originalArtistName: artistName,
+        retryReason: 'manual_retry',
+        monitoringUpdated: monitoringUpdated
+      }
     });
 
-    if (!searchTriggered) {
-      throw new Error('Failed to trigger album search');
+    console.log(`✅ Retry operation completed successfully`);
+
+    // Return success response
+    return {
+      success: true,
+      message: `Download retry triggered successfully for "${albumInfo.title}"`,
+      albumId: albumInfo.id,
+      albumTitle: albumInfo.title,
+      searchTriggered: true,
+      monitored: albumInfo.monitored || monitoringUpdated,
+      monitoringUpdated: monitoringUpdated
+    };
+
+  }, async (error) => {
+    // Error handler - log failed retry attempt to database
+    const logger = new LidarrLogger(req);
+    
+    try {
+      await logger.logAlbum({
+        albumTitle: req.body.albumTitle,
+        albumMbid: req.body.albumMbid,
+        artistName: req.body.artistName,
+        artistMbid: null,
+        lidarrAlbumId: req.body.lidarrAlbumId || null,
+        lidarrArtistId: null,
+        releaseDate: null,
+        monitored: false,
+        searchTriggered: false
+      }, {
+        success: false,
+        error,
+        requestData: {
+          retryFrom: req.body.logId,
+          originalAlbumTitle: req.body.albumTitle,
+          originalArtistName: req.body.artistName,
+          retryReason: 'manual_retry_failed'
+        }
+      });
+    } catch (logError) {
+      console.error(`⚠️  Failed to log retry error:`, logError.message);
     }
 
-    console.log(`✅ Search triggered successfully`);
-
-    return {
-      id: artistDetails.id,
-      albumId: targetAlbum.id,
-      title: targetAlbum.title,
-      artist: artistDetails.artistName,
-      message: `Search triggered for "${targetAlbum.title}" by "${artistDetails.artistName}"`,
-      searchTriggered: true
-    };
+    console.log(`❌ Retry failed for ${req.body.albumTitle}:`, error.message);
+    throw error;
   });
 });
 

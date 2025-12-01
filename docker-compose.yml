@@ -13,14 +13,14 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 64M
+    #deploy:
+    #  resources:
+    #    limits:
+    #      memory: 256M
+    #    reservations:
+    #      memory: 64M
 
-  # ✅ NEW: Init container to fix permissions (runs once, then exits)
+  # Init container to fix permissions (runs once, then exits)
   album-finder-init:
     image: alpine:latest
     user: "0:0"  # Runs as root (only container that does)
@@ -91,10 +91,10 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    deploy:
-      resources:
-        limits:
-          memory: 512M
+    #deploy:
+    #  resources:
+    #    limits:
+    #      memory: 512M
 
 volumes:
   albumfinder-data:
