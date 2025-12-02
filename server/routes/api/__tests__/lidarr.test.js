@@ -735,8 +735,93 @@ describe('Lidarr API Routes', () => {
   });
 
   describe('POST /api/lidarr/retry-download', () => {
-    it('should retry download for existing album', async () => {
-      // Mock 1: Get artist by ID
+    it('should retry download for existing album using lidarrAlbumId', async () => {
+      // Mock 1: Get album by ID
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          id: 10,
+          foreignAlbumId: 'album-mbid',
+          title: 'Test Album',
+          monitored: false,
+          artistId: 1,
+          statistics: { percentOfTracks: 50 }
+        })
+      });
+  
+      // Mock 2: Get artist by ID
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          id: 1,
+          artistName: 'Test Artist',
+          foreignArtistId: 'artist-mbid',
+          path: '/music/TestArtist'
+        })
+      });
+  
+      // Mock 3: Update monitoring
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({ id: 10, monitored: true })
+      });
+  
+      // Mock 4: Trigger search
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({ id: 1 })
+      });
+  
+      const response = await request(app)
+        .post('/api/lidarr/retry-download')
+        .send({
+          logId: 'log-123',
+          albumTitle: 'Test Album',
+          artistName: 'Test Artist',
+          lidarrAlbumId: 10
+        });
+  
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.searchTriggered).toBe(true);
+      expect(response.body.albumTitle).toBe('Test Album');
+      expect(response.body.monitoringUpdated).toBe(true);
+    });
+  
+    it('should retry download for existing album using albumMbid', async () => {
+      // Mock 1: Album lookup by MBID (returns array with album that has id)
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue([{
+          id: 10, // Has id = in library, triggers internal getById call
+          foreignAlbumId: 'album-mbid',
+          title: 'Test Album',
+          monitored: false,
+          artistId: 1,
+          statistics: { percentOfTracks: 50 }
+        }])
+      });
+  
+      // Mock 2: Get album by ID (called INSIDE lookupByMbid)
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          id: 10,
+          foreignAlbumId: 'album-mbid',
+          title: 'Test Album',
+          monitored: false,
+          artistId: 1,
+          statistics: { percentOfTracks: 50 }
+        })
+      });
+  
+      // Mock 3: Get artist by ID
       global.fetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -746,77 +831,387 @@ describe('Lidarr API Routes', () => {
           foreignArtistId: 'artist-mbid'
         })
       });
-
-      // Mock 2: Get artist albums
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: jest.fn().mockResolvedValue([{
-          id: 10,
-          foreignAlbumId: 'album-mbid',
-          title: 'Test Album',
-          monitored: false,
-          statistics: { percentOfTracks: 50 }
-        }])
-      });
-
-      // Mock 3: Update monitoring
+  
+      // Mock 4: Update monitoring
       global.fetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: jest.fn().mockResolvedValue({ id: 10, monitored: true })
       });
-
-      // Mock 4: Trigger search
+  
+      // Mock 5: Trigger search
       global.fetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: jest.fn().mockResolvedValue({ id: 1 })
       });
-
+  
       const response = await request(app)
         .post('/api/lidarr/retry-download')
         .send({
-          mbid: 'album-mbid',
-          title: 'Test Album',
-          artist: 'Test Artist',
-          lidarrArtistId: 1
+          logId: 'log-456',
+          albumTitle: 'Test Album',
+          artistName: 'Test Artist',
+          albumMbid: 'album-mbid'
         });
-
+  
+      if (response.status !== 200) {
+        console.error('Test failed with error:', response.body.error);
+        console.error('Full response:', JSON.stringify(response.body, null, 2));
+      }
+  
       expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
       expect(response.body.searchTriggered).toBe(true);
-      expect(response.body.title).toBe('Test Album');
+      expect(response.body.albumTitle).toBe('Test Album');
     });
-
-    it('should require all parameters', async () => {
-      const response = await request(app)
-        .post('/api/lidarr/retry-download')
-        .send({
-          mbid: 'album-mbid',
-          title: 'Test Album'
-          // Missing artist and lidarrArtistId
-        });
-
-      expect(response.status).toBe(500);
-      expect(response.body.error).toBeDefined();
-    });
-
-    it('should handle artist not found', async () => {
-      global.fetch.mockRejectedValueOnce({
-        message: 'Artist not found with ID: 999'
-      });
-
-      const response = await request(app)
-        .post('/api/lidarr/retry-download')
-        .send({
-          mbid: 'album-mbid',
+  
+    it('should skip monitoring update if already monitored', async () => {
+      // Mock 1: Get album by ID (already monitored)
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          id: 10,
+          foreignAlbumId: 'album-mbid',
           title: 'Test Album',
-          artist: 'Test Artist',
-          lidarrArtistId: 999
+          monitored: true, // Already monitored
+          artistId: 1,
+          statistics: { percentOfTracks: 50 }
+        })
+      });
+  
+      // Mock 2: Get artist by ID
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          id: 1,
+          artistName: 'Test Artist',
+          foreignArtistId: 'artist-mbid'
+        })
+      });
+  
+      // Mock 3: Trigger search (no monitoring update needed)
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({ id: 1 })
+      });
+  
+      const response = await request(app)
+        .post('/api/lidarr/retry-download')
+        .send({
+          logId: 'log-789',
+          albumTitle: 'Test Album',
+          artistName: 'Test Artist',
+          lidarrAlbumId: 10
         });
-
+  
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.monitoringUpdated).toBe(false);
+      expect(response.body.monitored).toBe(true);
+    });
+  
+    it('should require logId parameter', async () => {
+      const response = await request(app)
+        .post('/api/lidarr/retry-download')
+        .send({
+          albumTitle: 'Test Album',
+          artistName: 'Test Artist',
+          lidarrAlbumId: 10
+          // Missing logId
+        });
+  
       expect(response.status).toBe(500);
-      expect(response.body.error).toContain('Artist not found');
+      expect(response.body.error).toContain('logId');
+    });
+  
+    it('should require either lidarrAlbumId or albumMbid', async () => {
+      const response = await request(app)
+        .post('/api/lidarr/retry-download')
+        .send({
+          logId: 'log-123',
+          albumTitle: 'Test Album',
+          artistName: 'Test Artist'
+          // Missing both lidarrAlbumId and albumMbid
+        });
+  
+      expect(response.status).toBe(500);
+      expect(response.body.error).toContain('lidarrAlbumId');
+    });
+  
+    it('should handle album not found by lidarrAlbumId', async () => {
+      // Mock get album by ID - album service returns null for 404
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        text: jest.fn().mockResolvedValue('Album not found')
+      });
+  
+      const response = await request(app)
+        .post('/api/lidarr/retry-download')
+        .send({
+          logId: 'log-123',
+          albumTitle: 'Test Album',
+          artistName: 'Test Artist',
+          lidarrAlbumId: 999
+        });
+  
+      expect(response.status).toBe(500);
+      // The error message will be from the catch block or LidarrClient
+      expect(response.body.error).toMatch(/Album with ID 999 not found|404/);
+    });
+  
+    it('should handle album not found by albumMbid', async () => {
+      // Mock album lookup - returns empty array
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue([])
+      });
+  
+      const response = await request(app)
+        .post('/api/lidarr/retry-download')
+        .send({
+          logId: 'log-456',
+          albumTitle: 'Test Album',
+          artistName: 'Test Artist',
+          albumMbid: 'nonexistent-mbid'
+        });
+  
+      expect(response.status).toBe(500);
+      expect(response.body.error).toContain('not found in Lidarr');
+    });
+  
+    it('should handle artist not found', async () => {
+      // Mock 1: Get album by ID (success)
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          id: 10,
+          foreignAlbumId: 'album-mbid',
+          title: 'Test Album',
+          monitored: false,
+          artistId: 999, // Non-existent artist
+          statistics: { percentOfTracks: 50 }
+        })
+      });
+  
+      // Mock 2: Get artist by ID - returns 404
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        text: jest.fn().mockResolvedValue('Artist not found')
+      });
+  
+      const response = await request(app)
+        .post('/api/lidarr/retry-download')
+        .send({
+          logId: 'log-999',
+          albumTitle: 'Test Album',
+          artistName: 'Test Artist',
+          lidarrAlbumId: 10
+        });
+  
+      expect(response.status).toBe(500);
+      // Accept either error message format
+      expect(response.body.error).toMatch(/Artist not found with ID: 999|404/);
+    });
+  
+    it('should handle monitoring update failure gracefully', async () => {
+      // Mock 1: Get album by ID
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          id: 10,
+          foreignAlbumId: 'album-mbid',
+          title: 'Test Album',
+          monitored: false,
+          artistId: 1,
+          statistics: { percentOfTracks: 50 }
+        })
+      });
+  
+      // Mock 2: Get artist by ID
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          id: 1,
+          artistName: 'Test Artist',
+          foreignArtistId: 'artist-mbid'
+        })
+      });
+  
+      // Mock 3: Update monitoring - fails
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        text: jest.fn().mockResolvedValue('Monitoring update failed')
+      });
+  
+      // Mock 4: Trigger search (should still happen)
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({ id: 1 })
+      });
+  
+      const response = await request(app)
+        .post('/api/lidarr/retry-download')
+        .send({
+          logId: 'log-123',
+          albumTitle: 'Test Album',
+          artistName: 'Test Artist',
+          lidarrAlbumId: 10
+        });
+  
+      // Should still succeed even if monitoring update fails
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.searchTriggered).toBe(true);
+    });
+  
+    it('should handle search trigger failure', async () => {
+      // Mock 1: Get album by ID
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          id: 10,
+          foreignAlbumId: 'album-mbid',
+          title: 'Test Album',
+          monitored: true,
+          artistId: 1,
+          statistics: { percentOfTracks: 50 }
+        })
+      });
+  
+      // Mock 2: Get artist by ID
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          id: 1,
+          artistName: 'Test Artist',
+          foreignArtistId: 'artist-mbid'
+        })
+      });
+  
+      // Mock 3: Trigger search - fails
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        text: jest.fn().mockResolvedValue('Search trigger failed')
+      });
+  
+      const response = await request(app)
+        .post('/api/lidarr/retry-download')
+        .send({
+          logId: 'log-123',
+          albumTitle: 'Test Album',
+          artistName: 'Test Artist',
+          lidarrAlbumId: 10
+        });
+  
+      expect(response.status).toBe(500);
+      expect(response.body.error).toContain('Failed to trigger album search');
+    });
+  
+    it('should handle album lookup returning album without id', async () => {
+      // Mock album lookup - returns album but without id (not in library)
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue([{
+          foreignAlbumId: 'album-mbid',
+          title: 'Test Album',
+          monitored: false,
+          artist: {
+            artistName: 'Test Artist',
+            foreignArtistId: 'artist-mbid'
+          }
+          // No 'id' field = not in library
+        }])
+      });
+  
+      const response = await request(app)
+        .post('/api/lidarr/retry-download')
+        .send({
+          logId: 'log-456',
+          albumTitle: 'Test Album',
+          artistName: 'Test Artist',
+          albumMbid: 'album-mbid'
+        });
+  
+      expect(response.status).toBe(500);
+      expect(response.body.error).toContain('not found in Lidarr');
+    });
+  
+    it('should include all required fields in success response', async () => {
+      // Setup successful flow
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          id: 10,
+          foreignAlbumId: 'album-mbid',
+          title: 'Test Album',
+          monitored: false,
+          artistId: 1,
+          statistics: { percentOfTracks: 50 }
+        })
+      });
+  
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          id: 1,
+          artistName: 'Test Artist',
+          foreignArtistId: 'artist-mbid'
+        })
+      });
+  
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({ id: 10, monitored: true })
+      });
+  
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({ id: 1 })
+      });
+  
+      const response = await request(app)
+        .post('/api/lidarr/retry-download')
+        .send({
+          logId: 'log-123',
+          albumTitle: 'Test Album',
+          artistName: 'Test Artist',
+          lidarrAlbumId: 10
+        });
+  
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({
+        success: true,
+        message: expect.any(String),
+        albumId: 10,
+        albumTitle: 'Test Album',
+        searchTriggered: true,
+        monitored: true,
+        monitoringUpdated: expect.any(Boolean)
+      });
     });
   });
 
