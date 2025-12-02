@@ -276,6 +276,11 @@ router.post("/retry-download", ensureAuthenticated, async (req, res) => {
       
       try {
         albumInfo = await albumService.getById(lidarrAlbumId);
+        
+        if (!albumInfo) {
+          throw new Error(`Album with ID ${lidarrAlbumId} not found in Lidarr`);
+        }
+        
         console.log(`✅ Successfully retrieved album details from Lidarr`);
       } catch (detailsError) {
         console.log(`❌ Failed to get album details: ${detailsError.message}`);
@@ -305,12 +310,19 @@ router.post("/retry-download", ensureAuthenticated, async (req, res) => {
     });
 
     // Step 2: Get artist details
-    const artistDetails = await artistService.getById(albumInfo.artistId);
-    if (!artistDetails) {
+    let artistDetails;
+    try {
+      artistDetails = await artistService.getById(albumInfo.artistId);
+      
+      if (!artistDetails) {
+        throw new Error(`Artist not found with ID: ${albumInfo.artistId}`);
+      }
+      
+      console.log(`✅ Found artist: ${artistDetails.artistName} (ID: ${artistDetails.id})`);
+    } catch (artistError) {
+      console.log(`❌ Failed to get artist: ${artistError.message}`);
       throw new Error(`Artist not found with ID: ${albumInfo.artistId}`);
     }
-
-    console.log(`✅ Found artist: ${artistDetails.artistName} (ID: ${artistDetails.id})`);
 
     // Step 3: Enable monitoring if needed
     let monitoringUpdated = false;
