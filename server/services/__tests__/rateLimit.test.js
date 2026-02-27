@@ -1,5 +1,5 @@
 // server/services/__tests__/rateLimit.test.js
-const { rateLimitedFetch } = require('../rateLimit');
+const { rateLimitedFetch, resetRateLimitState } = require('../rateLimit');
 const config = require('../../config');
 
 global.fetch = jest.fn();
@@ -7,6 +7,7 @@ global.fetch = jest.fn();
 describe('Rate Limit Service', () => {
   beforeEach(() => {
     global.fetch.mockClear();
+    resetRateLimitState();
     config.rateLimit.musicbrainzDelay = 100; // Fast for testing
   });
 
