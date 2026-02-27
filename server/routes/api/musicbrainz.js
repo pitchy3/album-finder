@@ -79,9 +79,7 @@ async function processBatch(releases, artistName, lidarrAlbumsMap, categories) {
         albumType: null,
         secondaryTypes: []
       };
-	  
-	  console.log(lidarrInfo);
-      
+
       // Determine release type - handle both MusicBrainz and Lidarr formats
       let releaseType;
       
@@ -210,8 +208,6 @@ router.get("/release-group", ensureAuthenticated, async (req, res) => {
       // 1. Try exact match first (in quotes)
       // 2. Add fuzzy match with higher threshold for close variations only
       // 3. Include common name variations for specific artists
-      const artistLower = artist.toLowerCase();
-      
       searchQuery = `artist:"${artist}" OR artistname:"${artist}"`;
       console.log("🎤 Using precise search with minimal fuzzy matching");
     } else {

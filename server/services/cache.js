@@ -31,17 +31,22 @@ class ScalableCache {
     });
 
     // Periodic cleanup
-    setInterval(() => {
+    this.cleanupInterval = setInterval(() => {
       this.cleanup();
     }, 5 * 60 * 1000); // Every 5 minutes
+
+    // Don't block Node.js process exit in tests/CLI usage.
+    if (typeof this.cleanupInterval.unref === 'function') {
+      this.cleanupInterval.unref();
+    }
   }
 
   updateMemoryUsage() {
     const data = this.cache.data;
     this.memoryUsage = Object.keys(data).reduce((total, key) => {
-      const value = data[key] ? data[key].v : null; // read raw cache value
-      if (value) {
-        return total + JSON.stringify(value).length * 2;
+      const value = data[key] ? data[key].v : undefined; // read raw cache value
+      if (value !== undefined) {
+        return total + Buffer.byteLength(JSON.stringify(value), 'utf8');
       }
       return total;
     }, 0);
@@ -54,18 +59,22 @@ class ScalableCache {
       console.log(`🧹 Cache cleanup triggered - memory usage: ${Math.round(this.memoryUsage / 1024 / 1024)}MB`);
       
       const keys = this.cache.keys();
-      const keysWithStats = keys.map(key => ({
-        key,
-        stats: this.cache.getStats()[key] || { hits: 0 }
-      }));
+      const keysWithSizes = keys.map(key => {
+        const rawEntry = this.cache.data[key];
+        const value = rawEntry ? rawEntry.v : undefined;
+        return {
+          key,
+          size: value !== undefined ? Buffer.byteLength(JSON.stringify(value), 'utf8') : 0
+        };
+      });
 
-      // Sort by hit count (ascending) to remove least used items first
-      keysWithStats.sort((a, b) => (a.stats.hits || 0) - (b.stats.hits || 0));
+      // Remove largest entries first to reclaim memory quickly.
+      keysWithSizes.sort((a, b) => b.size - a.size);
 
       // Remove 25% of entries
       const toRemove = Math.floor(keys.length * 0.25);
       for (let i = 0; i < toRemove; i++) {
-        this.cache.del(keysWithStats[i].key);
+        this.cache.del(keysWithSizes[i].key);
       }
 
       this.updateMemoryUsage();
@@ -113,14 +122,27 @@ class ScalableCache {
 
 // Cache utility functions
 function getCacheKey(endpoint, params) {
-  return `${endpoint}:${JSON.stringify(params)}`;
+  return `${endpoint}:${stableStringify(params)}`;
+}
+
+function stableStringify(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(',')}]`;
+  }
+
+  if (value && typeof value === 'object') {
+    const keys = Object.keys(value).sort();
+    return `{${keys.map(key => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`;
+  }
+
+  return JSON.stringify(value);
 }
 
 async function cachedFetch(endpoint, params, fetchFunction, ttl = config.cache.ttl) {
   const cacheKey = getCacheKey(endpoint, params);
   const cached = cache.get(cacheKey);
   
-  if (cached) {
+  if (cached !== null) {
     cacheLog(`💾 Cache hit for ${endpoint}:`, cacheKey);
     // Set a flag that can be checked by the logging middleware
     if (global.currentRequest && global.currentRequest.res) {
