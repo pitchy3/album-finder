@@ -1,5 +1,19 @@
 const request = require('supertest');
 const express = require('express');
+
+jest.mock('../../services/rateLimit', () => ({
+  rateLimitedFetch: jest.fn(async () => {
+    await new Promise(resolve => setTimeout(resolve, 75));
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ recordings: [] })
+    };
+  })
+}));
+
+const { rateLimitedFetch } = require('../../services/rateLimit');
+const { cache } = require('../../services/cache');
 const apiRoutes = require('../../routes/api');
 
 describe('API Performance Tests', () => {
@@ -9,6 +23,11 @@ describe('API Performance Tests', () => {
     app = express();
     app.use(express.json());
     app.use('/api', apiRoutes);
+  });
+
+  beforeEach(() => {
+    cache.flushAll();
+    rateLimitedFetch.mockClear();
   });
 
   test('should handle concurrent requests efficiently', async () => {
@@ -31,18 +50,12 @@ describe('API Performance Tests', () => {
   });
 
   test('should maintain performance with cache', async () => {
-    // First request (cache miss)
-    const firstStart = Date.now();
-    await request(app).get('/api/musicbrainz/recording?query=test');
-    const firstDuration = Date.now() - firstStart;
+    const firstResponse = await request(app).get('/api/musicbrainz/recording?query=test');
+    const secondResponse = await request(app).get('/api/musicbrainz/recording?query=test');
 
-    // Second request (cache hit)
-    const secondStart = Date.now();
-    await request(app).get('/api/musicbrainz/recording?query=test');
-    const secondDuration = Date.now() - secondStart;
-
-    // Cached request should be faster
-    expect(secondDuration).toBeLessThan(firstDuration);
+    expect(firstResponse.status).toBe(200);
+    expect(secondResponse.status).toBe(200);
+    expect(rateLimitedFetch).toHaveBeenCalledTimes(1);
   });
 
   test('should handle queue overflow gracefully', async () => {
@@ -51,9 +64,9 @@ describe('API Performance Tests', () => {
     );
 
     const responses = await Promise.allSettled(requests);
-    
+
     // Most should succeed
-    const successful = responses.filter(r => 
+    const successful = responses.filter(r =>
       r.status === 'fulfilled' && r.value.status === 200
     );
     expect(successful.length).toBeGreaterThan(150);
