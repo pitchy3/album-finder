@@ -254,6 +254,43 @@ describe('Token Refresh Middleware', () => {
       expect(secondNext).toHaveBeenCalled();
     });
 
+    it('should keep sharing the refresh until the updated session is saved', async () => {
+      let finishSave;
+      req.session.save.mockImplementation((cb) => {
+        finishSave = cb;
+      });
+      const secondReq = {
+        ...req,
+        session: {
+          ...req.session,
+          user: {
+            ...req.session.user,
+            claims: { ...req.session.user.claims },
+            tokens: { ...req.session.user.tokens }
+          }
+        }
+      };
+      const secondNext = jest.fn();
+
+      const firstCall = refreshTokenMiddleware(req, res, next);
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(mockClient.refresh).toHaveBeenCalledTimes(1);
+
+      const secondCall = refreshTokenMiddleware(secondReq, res, secondNext);
+      await Promise.resolve();
+
+      expect(mockClient.refresh).toHaveBeenCalledTimes(1);
+      expect(next).not.toHaveBeenCalled();
+      expect(secondNext).not.toHaveBeenCalled();
+
+      finishSave();
+      await Promise.all([firstCall, secondCall]);
+
+      expect(next).toHaveBeenCalledTimes(1);
+      expect(secondNext).toHaveBeenCalledTimes(1);
+    });
+
     it('should refresh different sessions independently', async () => {
       const secondReq = {
         ...req,

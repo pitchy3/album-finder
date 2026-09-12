@@ -6,9 +6,9 @@ const config = require('../config');
 const REFRESH_BUFFER_SECONDS = 60;
 
 // This process-local map is sufficient for the application's current
-// single-process deployment. Each value is the one OIDC refresh promise for a
-// session, allowing parallel requests to share it without blocking refreshes
-// for other sessions.
+// single-process deployment. Each value covers both the OIDC refresh and the
+// subsequent session save, allowing parallel requests to share the complete
+// operation without blocking refreshes for other sessions.
 const inFlightRefreshes = new Map();
 
 const debug = ( process.env.NODE_ENV.toLowerCase() !== 'production' || process.env.DEBUG.toLowerCase() === 'true' );
@@ -115,51 +115,63 @@ async function refreshTokenMiddleware(req, res, next) {
       console.log('🔄 Refreshing tokens with OIDC provider...');
 	}
 
-    // Refresh the tokens
-    const tokenSet = await refreshOncePerSession(
-      req.sessionID,
-      () => client.refresh(refreshToken)
-    );
-    
-	if (debug) {
-      console.log('✅ Tokens refreshed successfully');
-	}
+    // Keep the single-flight entry until the refreshed tokens are persisted.
+    // Otherwise, a request arriving after the provider responds but before the
+    // session store finishes saving could refresh the old token a second time.
+    await refreshOncePerSession(req.sessionID, async () => {
+      const tokenSet = await client.refresh(refreshToken);
 
-    // Update session with new tokens
-    req.session.user.tokens = {
-      access_token: encryptToken(tokenSet.access_token, config.session.secret),
-      id_token: encryptToken(tokenSet.id_token, config.session.secret),
-      refresh_token: tokenSet.refresh_token 
-        ? encryptToken(tokenSet.refresh_token, config.session.secret)
-        : tokens.refresh_token, // Keep old if new not provided
-      expires_at: tokenSet.expires_at
-    };
-
-    // Update user claims if they've changed
-    if (tokenSet.claims) {
-      req.session.user.claims = {
-        ...req.session.user.claims,
-        ...tokenSet.claims()
-      };
-    }
-
-    // Save updated session
-    req.session.save((err) => {
-      if (err) {
-        console.error('❌ Failed to save refreshed tokens:', err);
-        return res.status(500).json({ 
-          error: 'Failed to refresh session',
-          code: 'SESSION_SAVE_FAILED'
-        });
+      if (debug) {
+        console.log('✅ Tokens refreshed successfully');
       }
-      
-	  if (debug) {
+
+      // Update session with new tokens
+      req.session.user.tokens = {
+        access_token: encryptToken(tokenSet.access_token, config.session.secret),
+        id_token: encryptToken(tokenSet.id_token, config.session.secret),
+        refresh_token: tokenSet.refresh_token
+          ? encryptToken(tokenSet.refresh_token, config.session.secret)
+          : tokens.refresh_token, // Keep old if new not provided
+        expires_at: tokenSet.expires_at
+      };
+
+      // Update user claims if they've changed
+      if (tokenSet.claims) {
+        req.session.user.claims = {
+          ...req.session.user.claims,
+          ...tokenSet.claims()
+        };
+      }
+
+      // Saving is part of the shared operation so the flight remains active
+      // until other requests can load the new tokens from the session store.
+      await new Promise((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) {
+            err.code = 'SESSION_SAVE_FAILED';
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      });
+
+      if (debug) {
         console.log('✅ Session updated with refreshed tokens');
       }
-      next();
     });
 
+    next();
+
   } catch (error) {
+    if (error.code === 'SESSION_SAVE_FAILED') {
+      console.error('❌ Failed to save refreshed tokens:', error);
+      return res.status(500).json({
+        error: 'Failed to refresh session',
+        code: 'SESSION_SAVE_FAILED'
+      });
+    }
+
     console.error('❌ Token refresh failed:', error.message);
     
     // Log the refresh failure
