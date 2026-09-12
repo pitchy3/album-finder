@@ -378,6 +378,50 @@ describe('Token Refresh Middleware', () => {
       expect(req.session.destroy).toHaveBeenCalled();
     });
 
+    it('should perform failure side effects once for concurrent requests sharing a rejected refresh', async () => {
+      let rejectRefresh;
+      mockClient.refresh.mockReturnValue(new Promise((resolve, reject) => {
+        rejectRefresh = reject;
+      }));
+      const secondReq = {
+        ...req,
+        session: {
+          ...req.session,
+          user: {
+            ...req.session.user,
+            claims: { ...req.session.user.claims },
+            tokens: { ...req.session.user.tokens }
+          }
+        }
+      };
+      const secondRes = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+        redirect: jest.fn()
+      };
+
+      const firstCall = refreshTokenMiddleware(req, res, next);
+      const secondCall = refreshTokenMiddleware(secondReq, secondRes, jest.fn());
+      await Promise.resolve();
+
+      expect(mockClient.refresh).toHaveBeenCalledTimes(1);
+
+      rejectRefresh(new Error('Shared refresh failed'));
+      await Promise.all([firstCall, secondCall]);
+
+      expect(mockClient.refresh).toHaveBeenCalledTimes(1);
+      expect(mockDatabase.logAuthEvent).toHaveBeenCalledTimes(1);
+      expect(req.session.destroy).toHaveBeenCalledTimes(1);
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+        code: 'TOKEN_REFRESH_FAILED'
+      }));
+      expect(secondRes.status).toHaveBeenCalledWith(401);
+      expect(secondRes.json).toHaveBeenCalledWith(expect.objectContaining({
+        code: 'TOKEN_REFRESH_FAILED'
+      }));
+    });
+
     it('should log refresh failure to database', async () => {
       mockClient.refresh.mockRejectedValue(new Error('Token expired'));
 

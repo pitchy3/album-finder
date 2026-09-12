@@ -16,7 +16,7 @@ const debug = ( process.env.NODE_ENV.toLowerCase() !== 'production' || process.e
 function refreshOncePerSession(sessionId, refresh) {
   const existingRefresh = inFlightRefreshes.get(sessionId);
   if (existingRefresh) {
-    return existingRefresh;
+    return { promise: existingRefresh, isOwner: false };
   }
 
   const refreshPromise = Promise.resolve().then(refresh);
@@ -33,7 +33,7 @@ function refreshOncePerSession(sessionId, refresh) {
     // promise returned by finally() to avoid creating an unhandled rejection.
   });
 
-  return refreshPromise;
+  return { promise: refreshPromise, isOwner: true };
 }
 
 /**
@@ -96,6 +96,11 @@ async function refreshTokenMiddleware(req, res, next) {
     return res.redirect('/auth/login');
   }
 
+  // Requests that fail before joining a flight remain responsible for their
+  // own cleanup. Once a request joins a flight, only its owner may perform the
+  // shared refresh failure's audit and session-destruction side effects.
+  let ownsRefreshFlight = true;
+
   try {
     const client = getClient();
     if (!client) {
@@ -118,7 +123,7 @@ async function refreshTokenMiddleware(req, res, next) {
     // Keep the single-flight entry until the refreshed tokens are persisted.
     // Otherwise, a request arriving after the provider responds but before the
     // session store finishes saving could refresh the old token a second time.
-    await refreshOncePerSession(req.sessionID, async () => {
+    const refreshFlight = refreshOncePerSession(req.sessionID, async () => {
       const tokenSet = await client.refresh(refreshToken);
 
       if (debug) {
@@ -160,6 +165,8 @@ async function refreshTokenMiddleware(req, res, next) {
         console.log('✅ Session updated with refreshed tokens');
       }
     });
+    ownsRefreshFlight = refreshFlight.isOwner;
+    await refreshFlight.promise;
 
     next();
 
@@ -172,27 +179,29 @@ async function refreshTokenMiddleware(req, res, next) {
       });
     }
 
-    console.error('❌ Token refresh failed:', error.message);
-    
-    // Log the refresh failure
-    const { database } = require('../services/database');
-    await database.logAuthEvent({
-      eventType: 'token_refresh_failure',
-      userId: req.session.user.claims.sub,
-      username: req.session.user.claims.preferred_username || req.session.user.claims.name,
-      email: req.session.user.claims.email,
-      ipAddress: req.ip || req.connection.remoteAddress,
-      userAgent: req.get('User-Agent'),
-      errorMessage: error.message,
-      sessionId: req.sessionID
-    });
-    
-    // Clear session and require re-authentication
-    req.session.destroy((destroyErr) => {
-      if (destroyErr) {
-        console.error('Error destroying session:', destroyErr);
-      }
-    });
+    if (ownsRefreshFlight) {
+      console.error('❌ Token refresh failed:', error.message);
+
+      // The flight owner performs shared failure side effects exactly once.
+      const { database } = require('../services/database');
+      await database.logAuthEvent({
+        eventType: 'token_refresh_failure',
+        userId: req.session.user.claims.sub,
+        username: req.session.user.claims.preferred_username || req.session.user.claims.name,
+        email: req.session.user.claims.email,
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        errorMessage: error.message,
+        sessionId: req.sessionID
+      });
+
+      // Clear session and require re-authentication
+      req.session.destroy((destroyErr) => {
+        if (destroyErr) {
+          console.error('Error destroying session:', destroyErr);
+        }
+      });
+    }
     
     // For API requests, return 401
     if (req.path.startsWith('/api/')) {
