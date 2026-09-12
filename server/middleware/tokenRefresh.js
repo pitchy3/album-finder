@@ -2,6 +2,7 @@
 const { getClient } = require('../services/auth');
 const { encryptToken, decryptToken } = require('../services/tokenEncryption');
 const config = require('../config');
+const { errorDetails, safeUrl } = require('../utils/oidcDiagnostics');
 
 const REFRESH_BUFFER_SECONDS = 60;
 const TRANSIENT_ERROR_CODES = new Set([
@@ -184,20 +185,22 @@ async function refreshTokenMiddleware(req, res, next) {
   // own cleanup. Once a request joins a flight, only its owner may perform the
   // shared refresh failure's audit and session-destruction side effects.
   let ownsRefreshFlight = true;
+  const refreshStartedAt = Date.now();
+  let tokenEndpointUrl = null;
 
   try {
     const client = getClient();
     if (!client) {
       throw new Error('OIDC client not available');
     }
+    tokenEndpointUrl = client.issuer?.metadata?.token_endpoint || client.metadata?.token_endpoint || null;
 
     // Decrypt refresh token
     let refreshToken;
     try {
       refreshToken = decryptToken(tokens.refresh_token, config.session.secret);
     } catch (decryptError) {
-      console.error('❌ Failed to decrypt refresh token:', decryptError.message);
-      throw new Error('Failed to decrypt refresh token');
+      throw new Error('Failed to decrypt refresh token', { cause: decryptError });
     }
 
     if (debug) {
@@ -269,8 +272,24 @@ async function refreshTokenMiddleware(req, res, next) {
     next();
 
   } catch (error) {
+    const secrets = [
+      config.session.secret,
+      config.oidc?.clientSecret,
+      tokens.access_token,
+      tokens.refresh_token
+    ];
+    const failureDetails = {
+      timestamp: new Date().toISOString(),
+      elapsedMs: Date.now() - refreshStartedAt,
+      sessionId: req.sessionID || null,
+      tokenEndpointUrl: safeUrl(tokenEndpointUrl, secrets),
+      accessTokenExpiresAt: expiresAt,
+      timeUntilExpiry,
+      ...errorDetails(error, secrets)
+    };
+
     if (error.code === 'SESSION_SAVE_FAILED') {
-      console.error('❌ Failed to save refreshed tokens:', error);
+      console.error('❌ Failed to save refreshed tokens:', failureDetails);
       return res.status(500).json({
         error: 'Failed to refresh session',
         code: 'SESSION_SAVE_FAILED'
@@ -283,7 +302,7 @@ async function refreshTokenMiddleware(req, res, next) {
     if (ownsRefreshFlight) {
       console.error(
         transientFailure ? '⚠️ Token refresh temporarily unavailable:' : '❌ Token refresh failed:',
-        safeError
+        failureDetails
       );
 
       // The flight owner performs shared failure side effects exactly once.
@@ -296,7 +315,8 @@ async function refreshTokenMiddleware(req, res, next) {
         ipAddress: req.ip || req.connection.remoteAddress,
         userAgent: req.get('User-Agent'),
         errorMessage: safeError,
-        sessionId: req.sessionID
+        sessionId: req.sessionID,
+        metadata: failureDetails
       });
 
       if (!transientFailure) {

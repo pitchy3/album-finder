@@ -612,7 +612,7 @@ describe('Token Refresh Middleware', () => {
 
       await refreshTokenMiddleware(req, res, next);
 
-      expect(mockDatabase.logAuthEvent).toHaveBeenCalledWith({
+      expect(mockDatabase.logAuthEvent).toHaveBeenCalledWith(expect.objectContaining({
         eventType: 'token_refresh_failure',
         userId: 'user-123',
         username: 'testuser',
@@ -620,8 +620,54 @@ describe('Token Refresh Middleware', () => {
         ipAddress: '127.0.0.1',
         userAgent: 'test-user-agent',
         errorMessage: 'oidc_refresh_rejected',
-        sessionId: 'test-session-id'
-      });
+        sessionId: 'test-session-id',
+        metadata: expect.objectContaining({
+          timestamp: expect.any(String),
+          elapsedMs: expect.any(Number),
+          sessionId: 'test-session-id',
+          accessTokenExpiresAt: expect.any(Number),
+          timeUntilExpiry: expect.any(Number),
+          errorName: 'Error',
+          errorMessage: 'Token expired',
+          stack: expect.any(String)
+        })
+      }));
+    });
+
+    it('logs structured refresh diagnostics without token or client secrets', async () => {
+      const consoleError = jest.spyOn(console, 'error').mockImplementation();
+      mockClient.issuer = {
+        metadata: { token_endpoint: 'https://auth.example.com/oauth/token' }
+      };
+      const cause = new Error('Bearer old-access-token');
+      cause.code = 'ECONNRESET';
+      const error = new Error('refresh_token=old-refresh-token access_token=old-access-token', { cause });
+      error.code = 'OIDC_REFRESH_FAILED';
+      mockClient.refresh.mockRejectedValue(error);
+
+      await refreshTokenMiddleware(req, res, next);
+
+      const diagnostic = consoleError.mock.calls.find(call =>
+        call[0].includes('Token refresh'))[1];
+      expect(diagnostic).toEqual(expect.objectContaining({
+        timestamp: expect.any(String),
+        elapsedMs: expect.any(Number),
+        sessionId: 'test-session-id',
+        tokenEndpointUrl: 'https://auth.example.com/oauth/token',
+        accessTokenExpiresAt: expect.any(Number),
+        timeUntilExpiry: expect.any(Number),
+        errorCode: 'OIDC_REFRESH_FAILED',
+        errorCause: expect.objectContaining({ code: 'ECONNRESET' }),
+        stack: expect.any(String)
+      }));
+      const emitted = JSON.stringify(consoleError.mock.calls);
+      expect(emitted).not.toContain('old-access-token');
+      expect(emitted).not.toContain('old-refresh-token');
+      expect(emitted).not.toContain('encrypted:old-access-token');
+      expect(emitted).not.toContain('encrypted:old-refresh-token');
+      expect(JSON.stringify(mockDatabase.logAuthEvent.mock.calls)).not.toContain('old-access-token');
+      expect(JSON.stringify(mockDatabase.logAuthEvent.mock.calls)).not.toContain('old-refresh-token');
+      consoleError.mockRestore();
     });
 
     it('should return 401 for API requests on refresh failure', async () => {

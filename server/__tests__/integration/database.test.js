@@ -229,6 +229,26 @@ describe('Database Service Integration', () => {
       expect(result.error_message).toBe('Invalid credentials');
     });
 
+    test('should persist structured authentication failure metadata', async () => {
+      const metadata = {
+        elapsedMs: 125,
+        errorCode: 'ETIMEDOUT',
+        tokenEndpointUrl: 'https://auth.example.com/token'
+      };
+
+      await database.logAuthEvent({
+        eventType: 'token_refresh_transient_failure',
+        sessionId: 'diagnostic-session',
+        metadata
+      });
+
+      const result = await database.get(
+        'SELECT metadata FROM auth_events WHERE session_id = ?',
+        ['diagnostic-session']
+      );
+      expect(JSON.parse(result.metadata)).toEqual(metadata);
+    });
+
     test('should log logout event', async () => {
       const logoutData = {
         eventType: 'logout',

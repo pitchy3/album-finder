@@ -63,6 +63,38 @@ describe('Auth Service - Actual Implementation', () => {
       expect(result.issuer).toBeNull();
       expect(result.client).toBeNull();
     });
+
+    it('logs structured discovery diagnostics without secrets', async () => {
+      delete require.cache[require.resolve('../auth')];
+      const { initializeAuth } = require('../auth');
+      const consoleError = jest.spyOn(console, 'error').mockImplementation();
+
+      config.auth.enabled = true;
+      config.auth.type = 'oidc';
+      config.oidc.issuerUrl = 'https://auth.example.com';
+      config.oidc.clientId = 'test-client';
+      config.oidc.clientSecret = 'super-secret-client-value';
+      const cause = new Error('upstream exposed super-secret-client-value');
+      cause.code = 'ECONNRESET';
+      const error = new Error('Discovery failed with client_secret=super-secret-client-value', { cause });
+      error.code = 'OIDC_DISCOVERY_FAILED';
+      Issuer.discover.mockRejectedValue(error);
+
+      await initializeAuth();
+
+      const diagnostic = consoleError.mock.calls.find(call => call[0].includes('Failed to initialize'))[1];
+      expect(diagnostic).toEqual(expect.objectContaining({
+        timestamp: expect.any(String),
+        elapsedMs: expect.any(Number),
+        issuerUrl: 'https://auth.example.com/',
+        errorName: 'Error',
+        errorCode: 'OIDC_DISCOVERY_FAILED',
+        stack: expect.any(String),
+        errorCause: expect.objectContaining({ code: 'ECONNRESET' })
+      }));
+      expect(JSON.stringify(diagnostic)).not.toContain('super-secret-client-value');
+      consoleError.mockRestore();
+    });
   });
 
   describe('getClient and getIssuer', () => {

@@ -241,6 +241,7 @@ class Database {
         error_message TEXT,
         session_id TEXT,
         oidc_subject TEXT,
+        metadata TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -255,6 +256,10 @@ class Database {
     await this.addColumnsIfNotExist('album_additions', [
       { name: 'downloaded', type: 'BOOLEAN' },
       { name: 'root_folder_used', type: 'TEXT' }
+    ]);
+
+    await this.addColumnsIfNotExist('auth_events', [
+      { name: 'metadata', type: 'TEXT' }
     ]);
 
     // Create indexes for better performance
@@ -507,8 +512,8 @@ class Database {
       await this.run(`
         INSERT INTO auth_events (
           timestamp, event_type, user_id, username, email, ip_address, 
-          user_agent, error_message, session_id, oidc_subject
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          user_agent, error_message, session_id, oidc_subject, metadata
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         timestamp,
         data.eventType || null,
@@ -519,7 +524,8 @@ class Database {
         data.userAgent || null,
         data.errorMessage || null,
         data.sessionId || null,
-        data.oidcSubject || null
+        data.oidcSubject || null,
+        data.metadata ? JSON.stringify(data.metadata) : null
       ]);
     } catch (error) {
       console.error('⚠️ Error logging auth event:', error.message);

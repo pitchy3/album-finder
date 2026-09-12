@@ -3,6 +3,7 @@ const { Issuer } = require("../config/openidClient");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const config = require("../config");
+const { errorDetails, safeUrl } = require('../utils/oidcDiagnostics');
 
 let issuer = null;
 let client = null;
@@ -29,6 +30,7 @@ async function initializeAuth() {
  * Initialize OIDC client
  */
 async function initializeOIDC() {
+  const discoveryStartedAt = Date.now();
   try {
     console.log(`Initializing OIDC with issuer: ${config.oidc.issuerUrl}`);
     const newIssuer = await Issuer.discover(config.oidc.issuerUrl);
@@ -47,7 +49,13 @@ async function initializeOIDC() {
     console.log("✅ OIDC authentication enabled and client initialized");
     return { issuer, client };
   } catch (err) {
-    console.error("❌ Failed to initialize OIDC client:", err.message);
+    const secrets = [config.oidc.clientSecret];
+    console.error('❌ Failed to initialize OIDC client:', {
+      timestamp: new Date().toISOString(),
+      elapsedMs: Date.now() - discoveryStartedAt,
+      issuerUrl: safeUrl(config.oidc.issuerUrl, secrets),
+      ...errorDetails(err, secrets)
+    });
     return { issuer: null, client: null };
   }
 }
