@@ -131,7 +131,7 @@ async function refreshTokenMiddleware(req, res, next) {
       }
 
       // Update session with new tokens
-      req.session.user.tokens = {
+      const refreshedTokens = {
         access_token: encryptToken(tokenSet.access_token, config.session.secret),
         id_token: encryptToken(tokenSet.id_token, config.session.secret),
         refresh_token: tokenSet.refresh_token
@@ -139,6 +139,7 @@ async function refreshTokenMiddleware(req, res, next) {
           : tokens.refresh_token, // Keep old if new not provided
         expires_at: tokenSet.expires_at
       };
+      req.session.user.tokens = refreshedTokens;
 
       // Update user claims if they've changed
       if (tokenSet.claims) {
@@ -164,9 +165,22 @@ async function refreshTokenMiddleware(req, res, next) {
       if (debug) {
         console.log('✅ Session updated with refreshed tokens');
       }
+
+      // Return the canonical auth state so requests which joined this flight
+      // can update their separately-loaded session objects without refreshing
+      // again or performing a redundant session-store write.
+      return {
+        tokens: { ...refreshedTokens },
+        claims: { ...req.session.user.claims }
+      };
     });
     ownsRefreshFlight = refreshFlight.isOwner;
-    await refreshFlight.promise;
+    const refreshedAuth = await refreshFlight.promise;
+
+    if (!ownsRefreshFlight) {
+      req.session.user.tokens = { ...refreshedAuth.tokens };
+      req.session.user.claims = { ...refreshedAuth.claims };
+    }
 
     next();
 

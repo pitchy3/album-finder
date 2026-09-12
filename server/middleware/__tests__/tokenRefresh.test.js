@@ -254,6 +254,62 @@ describe('Token Refresh Middleware', () => {
       expect(secondNext).toHaveBeenCalled();
     });
 
+    it('should synchronize refreshed auth state into a waiter session before next', async () => {
+      let resolveRefresh;
+      mockClient.refresh.mockReturnValue(new Promise((resolve) => {
+        resolveRefresh = resolve;
+      }));
+      const ownerSession = req.session;
+      const waiterSession = {
+        ...ownerSession,
+        user: {
+          ...ownerSession.user,
+          claims: { ...ownerSession.user.claims },
+          tokens: { ...ownerSession.user.tokens }
+        },
+        save: jest.fn((cb) => cb())
+      };
+      const waiterReq = { ...req, session: waiterSession };
+      const waiterNext = jest.fn(() => {
+        expect(waiterSession.user.tokens).toEqual({
+          access_token: 'encrypted:shared-access-token',
+          id_token: 'encrypted:shared-id-token',
+          refresh_token: 'encrypted:rotated-refresh-token',
+          expires_at: 1234567890
+        });
+        expect(waiterSession.user.claims).toEqual(expect.objectContaining({
+          name: 'Shared User',
+          role: 'admin'
+        }));
+      });
+
+      expect(ownerSession).not.toBe(waiterSession);
+      expect(ownerSession.user).not.toBe(waiterSession.user);
+
+      const ownerCall = refreshTokenMiddleware(req, res, next);
+      const waiterCall = refreshTokenMiddleware(waiterReq, res, waiterNext);
+      await Promise.resolve();
+
+      expect(mockClient.refresh).toHaveBeenCalledTimes(1);
+
+      resolveRefresh({
+        access_token: 'shared-access-token',
+        id_token: 'shared-id-token',
+        refresh_token: 'rotated-refresh-token',
+        expires_at: 1234567890,
+        claims: () => ({
+          name: 'Shared User',
+          role: 'admin'
+        })
+      });
+      await Promise.all([ownerCall, waiterCall]);
+
+      expect(mockClient.refresh).toHaveBeenCalledTimes(1);
+      expect(ownerSession.save).toHaveBeenCalledTimes(1);
+      expect(waiterSession.save).not.toHaveBeenCalled();
+      expect(waiterNext).toHaveBeenCalledTimes(1);
+    });
+
     it('should keep sharing the refresh until the updated session is saved', async () => {
       let finishSave;
       req.session.save.mockImplementation((cb) => {
