@@ -7,6 +7,9 @@ const config = require('../../config');
 jest.mock('openid-client', () => ({
   Issuer: {
     discover: jest.fn()
+  },
+  custom: {
+    setHttpOptionsDefaults: jest.fn()
   }
 }));
 

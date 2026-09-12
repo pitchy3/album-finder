@@ -1,5 +1,5 @@
 // server/services/auth.js - Enhanced authentication with timing attack protection
-const { Issuer } = require("openid-client");
+const { Issuer } = require("../config/openidClient");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const config = require("../config");
