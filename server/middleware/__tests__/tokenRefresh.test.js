@@ -216,6 +216,162 @@ describe('Token Refresh Middleware', () => {
 
       expect(next).toHaveBeenCalled();
     });
+
+    it('should share one refresh between concurrent requests for the same session', async () => {
+      let resolveRefresh;
+      mockClient.refresh.mockReturnValue(new Promise((resolve) => {
+        resolveRefresh = resolve;
+      }));
+      const secondReq = {
+        ...req,
+        session: {
+          ...req.session,
+          user: {
+            ...req.session.user,
+            claims: { ...req.session.user.claims },
+            tokens: { ...req.session.user.tokens }
+          },
+          save: jest.fn((cb) => cb())
+        }
+      };
+      const secondNext = jest.fn();
+
+      const firstCall = refreshTokenMiddleware(req, res, next);
+      const secondCall = refreshTokenMiddleware(secondReq, res, secondNext);
+      await Promise.resolve();
+
+      expect(mockClient.refresh).toHaveBeenCalledTimes(1);
+
+      resolveRefresh({
+        access_token: 'shared-access-token',
+        id_token: 'shared-id-token',
+        refresh_token: 'shared-refresh-token',
+        expires_at: Math.floor(Date.now() / 1000) + 3600
+      });
+      await Promise.all([firstCall, secondCall]);
+
+      expect(next).toHaveBeenCalled();
+      expect(secondNext).toHaveBeenCalled();
+    });
+
+    it('should synchronize refreshed auth state into a waiter session before next', async () => {
+      let resolveRefresh;
+      mockClient.refresh.mockReturnValue(new Promise((resolve) => {
+        resolveRefresh = resolve;
+      }));
+      const ownerSession = req.session;
+      const waiterSession = {
+        ...ownerSession,
+        user: {
+          ...ownerSession.user,
+          claims: { ...ownerSession.user.claims },
+          tokens: { ...ownerSession.user.tokens }
+        },
+        save: jest.fn((cb) => cb())
+      };
+      const waiterReq = { ...req, session: waiterSession };
+      const waiterNext = jest.fn(() => {
+        expect(waiterSession.user.tokens).toEqual({
+          access_token: 'encrypted:shared-access-token',
+          id_token: 'encrypted:shared-id-token',
+          refresh_token: 'encrypted:rotated-refresh-token',
+          expires_at: 1234567890
+        });
+        expect(waiterSession.user.claims).toEqual(expect.objectContaining({
+          name: 'Shared User',
+          role: 'admin'
+        }));
+      });
+
+      expect(ownerSession).not.toBe(waiterSession);
+      expect(ownerSession.user).not.toBe(waiterSession.user);
+
+      const ownerCall = refreshTokenMiddleware(req, res, next);
+      const waiterCall = refreshTokenMiddleware(waiterReq, res, waiterNext);
+      await Promise.resolve();
+
+      expect(mockClient.refresh).toHaveBeenCalledTimes(1);
+
+      resolveRefresh({
+        access_token: 'shared-access-token',
+        id_token: 'shared-id-token',
+        refresh_token: 'rotated-refresh-token',
+        expires_at: 1234567890,
+        claims: () => ({
+          name: 'Shared User',
+          role: 'admin'
+        })
+      });
+      await Promise.all([ownerCall, waiterCall]);
+
+      expect(mockClient.refresh).toHaveBeenCalledTimes(1);
+      expect(ownerSession.save).toHaveBeenCalledTimes(1);
+      expect(waiterSession.save).not.toHaveBeenCalled();
+      expect(waiterNext).toHaveBeenCalledTimes(1);
+    });
+
+    it('should keep sharing the refresh until the updated session is saved', async () => {
+      let finishSave;
+      req.session.save.mockImplementation((cb) => {
+        finishSave = cb;
+      });
+      const secondReq = {
+        ...req,
+        session: {
+          ...req.session,
+          user: {
+            ...req.session.user,
+            claims: { ...req.session.user.claims },
+            tokens: { ...req.session.user.tokens }
+          }
+        }
+      };
+      const secondNext = jest.fn();
+
+      const firstCall = refreshTokenMiddleware(req, res, next);
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(mockClient.refresh).toHaveBeenCalledTimes(1);
+
+      const secondCall = refreshTokenMiddleware(secondReq, res, secondNext);
+      await Promise.resolve();
+
+      expect(mockClient.refresh).toHaveBeenCalledTimes(1);
+      expect(next).not.toHaveBeenCalled();
+      expect(secondNext).not.toHaveBeenCalled();
+
+      finishSave();
+      await Promise.all([firstCall, secondCall]);
+
+      expect(next).toHaveBeenCalledTimes(1);
+      expect(secondNext).toHaveBeenCalledTimes(1);
+    });
+
+    it('should refresh different sessions independently', async () => {
+      const secondReq = {
+        ...req,
+        sessionID: 'other-session-id',
+        session: {
+          ...req.session,
+          user: {
+            ...req.session.user,
+            claims: { ...req.session.user.claims },
+            tokens: { ...req.session.user.tokens }
+          },
+          save: jest.fn((cb) => cb())
+        }
+      };
+      const secondNext = jest.fn();
+
+      await Promise.all([
+        refreshTokenMiddleware(req, res, next),
+        refreshTokenMiddleware(secondReq, res, secondNext)
+      ]);
+
+      expect(mockClient.refresh).toHaveBeenCalledTimes(2);
+      expect(next).toHaveBeenCalled();
+      expect(secondNext).toHaveBeenCalled();
+    });
   });
 
   describe('refreshTokenMiddleware - No Refresh Token', () => {
@@ -276,6 +432,50 @@ describe('Token Refresh Middleware', () => {
       await refreshTokenMiddleware(req, res, next);
 
       expect(req.session.destroy).toHaveBeenCalled();
+    });
+
+    it('should perform failure side effects once for concurrent requests sharing a rejected refresh', async () => {
+      let rejectRefresh;
+      mockClient.refresh.mockReturnValue(new Promise((resolve, reject) => {
+        rejectRefresh = reject;
+      }));
+      const secondReq = {
+        ...req,
+        session: {
+          ...req.session,
+          user: {
+            ...req.session.user,
+            claims: { ...req.session.user.claims },
+            tokens: { ...req.session.user.tokens }
+          }
+        }
+      };
+      const secondRes = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+        redirect: jest.fn()
+      };
+
+      const firstCall = refreshTokenMiddleware(req, res, next);
+      const secondCall = refreshTokenMiddleware(secondReq, secondRes, jest.fn());
+      await Promise.resolve();
+
+      expect(mockClient.refresh).toHaveBeenCalledTimes(1);
+
+      rejectRefresh(new Error('Shared refresh failed'));
+      await Promise.all([firstCall, secondCall]);
+
+      expect(mockClient.refresh).toHaveBeenCalledTimes(1);
+      expect(mockDatabase.logAuthEvent).toHaveBeenCalledTimes(1);
+      expect(req.session.destroy).toHaveBeenCalledTimes(1);
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+        code: 'TOKEN_REFRESH_FAILED'
+      }));
+      expect(secondRes.status).toHaveBeenCalledWith(401);
+      expect(secondRes.json).toHaveBeenCalledWith(expect.objectContaining({
+        code: 'TOKEN_REFRESH_FAILED'
+      }));
     });
 
     it('should log refresh failure to database', async () => {

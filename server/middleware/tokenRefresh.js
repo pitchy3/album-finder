@@ -5,7 +5,36 @@ const config = require('../config');
 
 const REFRESH_BUFFER_SECONDS = 60;
 
+// This process-local map is sufficient for the application's current
+// single-process deployment. Each value covers both the OIDC refresh and the
+// subsequent session save, allowing parallel requests to share the complete
+// operation without blocking refreshes for other sessions.
+const inFlightRefreshes = new Map();
+
 const debug = ( process.env.NODE_ENV.toLowerCase() !== 'production' || process.env.DEBUG.toLowerCase() === 'true' );
+
+function refreshOncePerSession(sessionId, refresh) {
+  const existingRefresh = inFlightRefreshes.get(sessionId);
+  if (existingRefresh) {
+    return { promise: existingRefresh, isOwner: false };
+  }
+
+  const refreshPromise = Promise.resolve().then(refresh);
+  inFlightRefreshes.set(sessionId, refreshPromise);
+
+  refreshPromise.finally(() => {
+    // Only remove the promise installed by this call. This guard makes cleanup
+    // safe if the implementation later permits a replacement entry.
+    if (inFlightRefreshes.get(sessionId) === refreshPromise) {
+      inFlightRefreshes.delete(sessionId);
+    }
+  }).catch(() => {
+    // The middleware handles the original promise's rejection. Consume the
+    // promise returned by finally() to avoid creating an unhandled rejection.
+  });
+
+  return { promise: refreshPromise, isOwner: true };
+}
 
 /**
  * Middleware to automatically refresh OIDC tokens before they expire
@@ -67,6 +96,11 @@ async function refreshTokenMiddleware(req, res, next) {
     return res.redirect('/auth/login');
   }
 
+  // Requests that fail before joining a flight remain responsible for their
+  // own cleanup. Once a request joins a flight, only its owner may perform the
+  // shared refresh failure's audit and session-destruction side effects.
+  let ownsRefreshFlight = true;
+
   try {
     const client = getClient();
     if (!client) {
@@ -86,69 +120,102 @@ async function refreshTokenMiddleware(req, res, next) {
       console.log('🔄 Refreshing tokens with OIDC provider...');
 	}
 
-    // Refresh the tokens
-    const tokenSet = await client.refresh(refreshToken);
-    
-	if (debug) {
-      console.log('✅ Tokens refreshed successfully');
-	}
+    // Keep the single-flight entry until the refreshed tokens are persisted.
+    // Otherwise, a request arriving after the provider responds but before the
+    // session store finishes saving could refresh the old token a second time.
+    const refreshFlight = refreshOncePerSession(req.sessionID, async () => {
+      const tokenSet = await client.refresh(refreshToken);
 
-    // Update session with new tokens
-    req.session.user.tokens = {
-      access_token: encryptToken(tokenSet.access_token, config.session.secret),
-      id_token: encryptToken(tokenSet.id_token, config.session.secret),
-      refresh_token: tokenSet.refresh_token 
-        ? encryptToken(tokenSet.refresh_token, config.session.secret)
-        : tokens.refresh_token, // Keep old if new not provided
-      expires_at: tokenSet.expires_at
-    };
-
-    // Update user claims if they've changed
-    if (tokenSet.claims) {
-      req.session.user.claims = {
-        ...req.session.user.claims,
-        ...tokenSet.claims()
-      };
-    }
-
-    // Save updated session
-    req.session.save((err) => {
-      if (err) {
-        console.error('❌ Failed to save refreshed tokens:', err);
-        return res.status(500).json({ 
-          error: 'Failed to refresh session',
-          code: 'SESSION_SAVE_FAILED'
-        });
+      if (debug) {
+        console.log('✅ Tokens refreshed successfully');
       }
-      
-	  if (debug) {
+
+      // Update session with new tokens
+      const refreshedTokens = {
+        access_token: encryptToken(tokenSet.access_token, config.session.secret),
+        id_token: encryptToken(tokenSet.id_token, config.session.secret),
+        refresh_token: tokenSet.refresh_token
+          ? encryptToken(tokenSet.refresh_token, config.session.secret)
+          : tokens.refresh_token, // Keep old if new not provided
+        expires_at: tokenSet.expires_at
+      };
+      req.session.user.tokens = refreshedTokens;
+
+      // Update user claims if they've changed
+      if (tokenSet.claims) {
+        req.session.user.claims = {
+          ...req.session.user.claims,
+          ...tokenSet.claims()
+        };
+      }
+
+      // Saving is part of the shared operation so the flight remains active
+      // until other requests can load the new tokens from the session store.
+      await new Promise((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) {
+            err.code = 'SESSION_SAVE_FAILED';
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      });
+
+      if (debug) {
         console.log('✅ Session updated with refreshed tokens');
       }
-      next();
+
+      // Return the canonical auth state so requests which joined this flight
+      // can update their separately-loaded session objects without refreshing
+      // again or performing a redundant session-store write.
+      return {
+        tokens: { ...refreshedTokens },
+        claims: { ...req.session.user.claims }
+      };
     });
+    ownsRefreshFlight = refreshFlight.isOwner;
+    const refreshedAuth = await refreshFlight.promise;
+
+    if (!ownsRefreshFlight) {
+      req.session.user.tokens = { ...refreshedAuth.tokens };
+      req.session.user.claims = { ...refreshedAuth.claims };
+    }
+
+    next();
 
   } catch (error) {
-    console.error('❌ Token refresh failed:', error.message);
-    
-    // Log the refresh failure
-    const { database } = require('../services/database');
-    await database.logAuthEvent({
-      eventType: 'token_refresh_failure',
-      userId: req.session.user.claims.sub,
-      username: req.session.user.claims.preferred_username || req.session.user.claims.name,
-      email: req.session.user.claims.email,
-      ipAddress: req.ip || req.connection.remoteAddress,
-      userAgent: req.get('User-Agent'),
-      errorMessage: error.message,
-      sessionId: req.sessionID
-    });
-    
-    // Clear session and require re-authentication
-    req.session.destroy((destroyErr) => {
-      if (destroyErr) {
-        console.error('Error destroying session:', destroyErr);
-      }
-    });
+    if (error.code === 'SESSION_SAVE_FAILED') {
+      console.error('❌ Failed to save refreshed tokens:', error);
+      return res.status(500).json({
+        error: 'Failed to refresh session',
+        code: 'SESSION_SAVE_FAILED'
+      });
+    }
+
+    if (ownsRefreshFlight) {
+      console.error('❌ Token refresh failed:', error.message);
+
+      // The flight owner performs shared failure side effects exactly once.
+      const { database } = require('../services/database');
+      await database.logAuthEvent({
+        eventType: 'token_refresh_failure',
+        userId: req.session.user.claims.sub,
+        username: req.session.user.claims.preferred_username || req.session.user.claims.name,
+        email: req.session.user.claims.email,
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.get('User-Agent'),
+        errorMessage: error.message,
+        sessionId: req.sessionID
+      });
+
+      // Clear session and require re-authentication
+      req.session.destroy((destroyErr) => {
+        if (destroyErr) {
+          console.error('Error destroying session:', destroyErr);
+        }
+      });
+    }
     
     // For API requests, return 401
     if (req.path.startsWith('/api/')) {
