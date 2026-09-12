@@ -447,9 +447,10 @@ describe('Token Refresh Middleware', () => {
       expect(req.session.destroy).toHaveBeenCalled();
     });
 
-    it('should destroy the session for invalid_grant', async () => {
+    it('should destroy the session for invalid_grant even with HTTP 500', async () => {
       const error = new Error('Refresh credentials were rejected');
       error.error = 'invalid_grant';
+      error.statusCode = 500;
       mockClient.refresh.mockRejectedValue(error);
 
       await refreshTokenMiddleware(req, res, next);
@@ -459,6 +460,26 @@ describe('Token Refresh Middleware', () => {
         expect.objectContaining({
           eventType: 'token_refresh_failure',
           errorMessage: 'invalid_grant'
+        })
+      );
+      expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    it('should destroy the session for invalid_client even with HTTP 503', async () => {
+      const error = new Error('Provider rejected client credentials');
+      error.response = {
+        status: 503,
+        body: { error: 'invalid_client' }
+      };
+      mockClient.refresh.mockRejectedValue(error);
+
+      await refreshTokenMiddleware(req, res, next);
+
+      expect(req.session.destroy).toHaveBeenCalledTimes(1);
+      expect(mockDatabase.logAuthEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'token_refresh_failure',
+          errorMessage: 'invalid_client'
         })
       );
       expect(res.status).toHaveBeenCalledWith(401);
@@ -510,6 +531,21 @@ describe('Token Refresh Middleware', () => {
           eventType: 'token_refresh_transient_failure',
           errorMessage: 'temporarily_unavailable'
         })
+      );
+      expect(res.status).toHaveBeenCalledWith(503);
+    });
+
+    it.each([500, 503])('should treat HTTP %i without an OAuth error as transient', async (statusCode) => {
+      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) - 1;
+      const error = new Error('provider request failed');
+      error.statusCode = statusCode;
+      mockClient.refresh.mockRejectedValue(error);
+
+      await refreshTokenMiddleware(req, res, next);
+
+      expect(req.session.destroy).not.toHaveBeenCalled();
+      expect(mockDatabase.logAuthEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ eventType: 'token_refresh_transient_failure' })
       );
       expect(res.status).toHaveBeenCalledWith(503);
     });

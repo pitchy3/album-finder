@@ -17,6 +17,16 @@ const TRANSIENT_ERROR_CODES = new Set([
 const TRANSIENT_OAUTH_ERRORS = new Set([
   'temporarily_unavailable'
 ]);
+const PERMANENT_OAUTH_ERRORS = new Set([
+  'invalid_grant',
+  'invalid_client',
+  'unauthorized_client'
+]);
+
+function getOAuthError(error) {
+  const oauthError = error?.error || error?.response?.body?.error;
+  return typeof oauthError === 'string' ? oauthError.toLowerCase() : null;
+}
 
 function getErrorValues(error) {
   return [
@@ -33,19 +43,33 @@ function getErrorValues(error) {
 }
 
 function isTransientRefreshError(error) {
+  const oauthError = getOAuthError(error);
+
+  // An explicit OAuth response is more authoritative than an accompanying
+  // transport status. In particular, providers sometimes return a 5xx while
+  // still reporting that the refresh credentials are definitively invalid.
+  if (PERMANENT_OAUTH_ERRORS.has(oauthError)) {
+    return false;
+  }
+  if (TRANSIENT_OAUTH_ERRORS.has(oauthError)) {
+    return true;
+  }
+  if (oauthError) {
+    return false;
+  }
+
   const values = getErrorValues(error);
   const upperCaseValues = values.map(value => value.toUpperCase());
   const status = error?.statusCode || error?.status || error?.response?.statusCode || error?.response?.status;
 
   return upperCaseValues.some(value => TRANSIENT_ERROR_CODES.has(value))
-    || values.some(value => TRANSIENT_OAUTH_ERRORS.has(value.toLowerCase()))
     || values.some(value => /timed?\s*out|timeout|socket hang up|temporary failure/i.test(value))
     || status === 429
     || status >= 500;
 }
 
 function getSafeRefreshError(error, transient) {
-  const oauthError = error?.error || error?.response?.body?.error;
+  const oauthError = getOAuthError(error);
   const transportCode = [error?.code, error?.errno, error?.cause?.code, error?.cause?.errno]
     .find(value => typeof value === 'string' && TRANSIENT_ERROR_CODES.has(value.toUpperCase()));
 
