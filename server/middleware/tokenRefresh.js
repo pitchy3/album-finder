@@ -187,6 +187,7 @@ async function refreshTokenMiddleware(req, res, next) {
   let ownsRefreshFlight = true;
   const refreshStartedAt = Date.now();
   let tokenEndpointUrl = null;
+  let refreshToken;
 
   try {
     const client = getClient();
@@ -196,7 +197,6 @@ async function refreshTokenMiddleware(req, res, next) {
     tokenEndpointUrl = client.issuer?.metadata?.token_endpoint || client.metadata?.token_endpoint || null;
 
     // Decrypt refresh token
-    let refreshToken;
     try {
       refreshToken = decryptToken(tokens.refresh_token, config.session.secret);
     } catch (decryptError) {
@@ -276,7 +276,8 @@ async function refreshTokenMiddleware(req, res, next) {
       config.session.secret,
       config.oidc?.clientSecret,
       tokens.access_token,
-      tokens.refresh_token
+      tokens.refresh_token,
+      refreshToken
     ];
     const failureDetails = {
       timestamp: new Date().toISOString(),

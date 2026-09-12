@@ -641,7 +641,7 @@ describe('Token Refresh Middleware', () => {
       };
       const cause = new Error('Bearer old-access-token');
       cause.code = 'ECONNRESET';
-      const error = new Error('refresh_token=old-refresh-token access_token=old-access-token', { cause });
+      const error = new Error('Provider rejected old-refresh-token access_token=old-access-token', { cause });
       error.code = 'OIDC_REFRESH_FAILED';
       mockClient.refresh.mockRejectedValue(error);
 
