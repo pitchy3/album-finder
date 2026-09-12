@@ -3,6 +3,8 @@ const { getClient } = require('../services/auth');
 const { encryptToken, decryptToken } = require('../services/tokenEncryption');
 const config = require('../config');
 
+const REFRESH_BUFFER_SECONDS = 60;
+
 const debug = ( process.env.NODE_ENV.toLowerCase() !== 'production' || process.env.DEBUG.toLowerCase() === 'true' );
 
 /**
@@ -22,7 +24,7 @@ async function refreshTokenMiddleware(req, res, next) {
   const tokens = req.session.user.tokens;
   const now = Math.floor(Date.now() / 1000);
   
-  // Check if token is expired or will expire in next 5 minutes (300 seconds)
+  // Check if token is expired or will expire within the refresh buffer
   const expiresAt = tokens.expires_at;
   
   if (!expiresAt) {
@@ -32,8 +34,8 @@ async function refreshTokenMiddleware(req, res, next) {
   
   const timeUntilExpiry = expiresAt - now;
   
-  // If token still valid for more than 5 minutes, no refresh needed
-  if (timeUntilExpiry > 300) {
+  // If the token is valid beyond the refresh buffer, no refresh is needed
+  if (timeUntilExpiry > REFRESH_BUFFER_SECONDS) {
     return next();
   }
 

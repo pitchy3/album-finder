@@ -118,7 +118,16 @@ describe('Token Refresh Middleware', () => {
     });
 
     it('should skip if token not expiring soon', async () => {
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 600; // 10 minutes
+      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 299;
+
+      await refreshTokenMiddleware(req, res, next);
+
+      expect(next).toHaveBeenCalled();
+      expect(mockClient.refresh).not.toHaveBeenCalled();
+    });
+
+    it('should not immediately refresh a freshly-issued 300-second token', async () => {
+      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 300;
 
       await refreshTokenMiddleware(req, res, next);
 
@@ -138,8 +147,8 @@ describe('Token Refresh Middleware', () => {
 
   describe('refreshTokenMiddleware - Token Refresh', () => {
     beforeEach(() => {
-      // Set token to expire in 4 minutes (should trigger refresh)
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 240;
+      // Set token to expire within the refresh buffer
+      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 30;
 
       // Mock successful refresh
       mockClient.refresh.mockResolvedValue({
@@ -155,6 +164,15 @@ describe('Token Refresh Middleware', () => {
     });
 
     it('should refresh tokens when expiring soon', async () => {
+      await refreshTokenMiddleware(req, res, next);
+
+      expect(mockClient.refresh).toHaveBeenCalledWith('old-refresh-token');
+      expect(next).toHaveBeenCalled();
+    });
+
+    it('should refresh tokens with exactly 60 seconds remaining', async () => {
+      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 60;
+
       await refreshTokenMiddleware(req, res, next);
 
       expect(mockClient.refresh).toHaveBeenCalledWith('old-refresh-token');
@@ -236,7 +254,7 @@ describe('Token Refresh Middleware', () => {
 
   describe('refreshTokenMiddleware - Refresh Failures', () => {
     beforeEach(() => {
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 240;
+      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 30;
     });
 
     it('should handle OIDC client not available', async () => {
@@ -466,7 +484,7 @@ describe('Token Refresh Middleware', () => {
       
       process.env.DEBUG = 'true';
       process.env.NODE_ENV = 'development';
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 240;
+      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 30;
       
       mockClient.refresh.mockResolvedValue({
         access_token: 'new-access-token',
@@ -490,7 +508,7 @@ describe('Token Refresh Middleware', () => {
       
       process.env.NODE_ENV = 'development';
       process.env.DEBUG = 'false';
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 240;
+      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 30;
       
       mockClient.refresh.mockResolvedValue({
         access_token: 'new-access-token',
@@ -515,7 +533,7 @@ describe('Token Refresh Middleware', () => {
 
     it('should handle missing connection.remoteAddress', async () => {
       delete req.connection.remoteAddress;
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 240;
+      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 30;
       
       mockClient.refresh.mockRejectedValue(new Error('Refresh failed'));
 
@@ -530,7 +548,7 @@ describe('Token Refresh Middleware', () => {
 
     it('should handle missing user-agent', async () => {
       req.get.mockReturnValue(undefined);
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 240;
+      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 30;
       
       mockClient.refresh.mockRejectedValue(new Error('Refresh failed'));
 
@@ -553,21 +571,6 @@ describe('Token Refresh Middleware', () => {
 
       // Should still redirect despite destroy error
       expect(res.redirect).toHaveBeenCalledWith('/auth/login');
-    });
-
-    it('should handle token expiring in exactly 5 minutes', async () => {
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 300;
-      
-      mockClient.refresh.mockResolvedValue({
-        access_token: 'new-access-token',
-        id_token: 'new-id-token',
-        expires_at: Math.floor(Date.now() / 1000) + 3600
-      });
-
-      await refreshTokenMiddleware(req, res, next);
-
-      // Should refresh at exactly 300 seconds
-      expect(mockClient.refresh).toHaveBeenCalled();
     });
 
     it('should handle already expired token', async () => {
