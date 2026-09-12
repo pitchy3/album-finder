@@ -94,6 +94,18 @@ describe('Auth Service - Actual Implementation', () => {
   });
 
   describe('reinitializeAuth', () => {
+    const oidcConfig = () => {
+      config.auth.enabled = true;
+      config.auth.type = 'oidc';
+      config.oidc.issuerUrl = 'https://auth.example.com';
+      config.oidc.clientId = 'test-client';
+      config.oidc.clientSecret = 'test-secret';
+    };
+
+    const mockIssuer = (client) => ({
+      Client: jest.fn(() => client)
+    });
+
     it('should return true when auth disabled', async () => {
       delete require.cache[require.resolve('../auth')];
       const { reinitializeAuth } = require('../auth');
@@ -102,6 +114,62 @@ describe('Auth Service - Actual Implementation', () => {
       
       const result = await reinitializeAuth();
       expect(result).toBe(true);
+    });
+
+    it('should replace the old issuer and client after successful reinitialization', async () => {
+      delete require.cache[require.resolve('../auth')];
+      const { initializeAuth, reinitializeAuth, getClient, getIssuer } = require('../auth');
+      oidcConfig();
+      const oldClient = { name: 'old' };
+      const newClient = { name: 'new' };
+      const oldIssuer = mockIssuer(oldClient);
+      const newIssuer = mockIssuer(newClient);
+      Issuer.discover.mockResolvedValueOnce(oldIssuer).mockResolvedValueOnce(newIssuer);
+
+      await initializeAuth();
+      const result = await reinitializeAuth();
+
+      expect(result).toBe(true);
+      expect(getIssuer()).toBe(newIssuer);
+      expect(getClient()).toBe(newClient);
+    });
+
+    it('should preserve the old issuer and client when replacement discovery fails', async () => {
+      delete require.cache[require.resolve('../auth')];
+      const { initializeAuth, reinitializeAuth, getClient, getIssuer } = require('../auth');
+      oidcConfig();
+      const oldClient = { name: 'old' };
+      const oldIssuer = mockIssuer(oldClient);
+      Issuer.discover.mockResolvedValueOnce(oldIssuer)
+        .mockRejectedValueOnce(new Error('Discovery failed'));
+
+      await initializeAuth();
+      const result = await reinitializeAuth();
+
+      expect(result).toBe(false);
+      expect(getIssuer()).toBe(oldIssuer);
+      expect(getClient()).toBe(oldClient);
+    });
+
+    it('should preserve a valid client when replacement client construction fails', async () => {
+      delete require.cache[require.resolve('../auth')];
+      const { initializeAuth, reinitializeAuth, getClient, getIssuer } = require('../auth');
+      oidcConfig();
+      const oldClient = { name: 'old' };
+      const oldIssuer = mockIssuer(oldClient);
+      const brokenIssuer = {
+        Client: jest.fn(() => {
+          throw new Error('Client construction failed');
+        })
+      };
+      Issuer.discover.mockResolvedValueOnce(oldIssuer).mockResolvedValueOnce(brokenIssuer);
+
+      await initializeAuth();
+      const result = await reinitializeAuth();
+
+      expect(result).toBe(false);
+      expect(getIssuer()).toBe(oldIssuer);
+      expect(getClient()).toBe(oldClient);
     });
   });
 });
