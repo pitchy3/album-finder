@@ -1,6 +1,6 @@
 // server/routes/auth.js - Updated with Phase 1 security enhancements
 const express = require("express");
-const { generators } = require("openid-client");
+const { generators } = require("../config/openidClient");
 const config = require("../config");
 const { getClient, validateBasicAuthPassword } = require("../services/auth");
 const { database } = require("../services/database");

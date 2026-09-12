@@ -253,7 +253,7 @@ router.post("/auth/oidc",
 
       // Test the configuration first
       console.log("🔍 Testing OIDC configuration before saving...");
-      const { Issuer } = require("openid-client");
+      const { Issuer } = require("../../config/openidClient");
       try {
         const testIssuer = await Issuer.discover(issuerUrl);
         console.log("✅ OIDC configuration test passed");
@@ -382,7 +382,7 @@ router.post("/auth/test", async (req, res) => {
     }
 
     console.log("🔍 Testing OIDC configuration...");
-    const { Issuer } = require("openid-client");
+    const { Issuer } = require("../../config/openidClient");
 
     const testIssuer = await Issuer.discover(issuerUrl);
     console.log("✅ OIDC issuer discovery successful");
