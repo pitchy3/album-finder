@@ -31,13 +31,18 @@ async function initializeAuth() {
 async function initializeOIDC() {
   try {
     console.log(`Initializing OIDC with issuer: ${config.oidc.issuerUrl}`);
-    issuer = await Issuer.discover(config.oidc.issuerUrl);
+    const newIssuer = await Issuer.discover(config.oidc.issuerUrl);
     
-    client = new issuer.Client({
+    const newClient = new newIssuer.Client({
       client_id: config.oidc.clientId,
       client_secret: config.oidc.clientSecret,
 	  token_endpoint_auth_method: 'client_secret_basic',
     });
+
+    // Only publish the replacement after discovery and client construction have
+    // both succeeded. This keeps a working client available during retries.
+    issuer = newIssuer;
+    client = newClient;
     
     console.log("✅ OIDC authentication enabled and client initialized");
     return { issuer, client };
@@ -60,13 +65,16 @@ async function initializeBasicAuth() {
  */
 async function reinitializeAuth() {
   console.log("🔄 Reinitializing authentication with new configuration...");
-  
-  issuer = null;
-  client = null;
-  
+
   if (config.auth.enabled) {
     try {
       const result = await initializeAuth();
+
+      if (config.auth.type === 'oidc' && (!result.issuer || !result.client)) {
+        console.error("❌ Failed to reinitialize authentication: OIDC initialization returned no issuer or client");
+        return false;
+      }
+
       issuer = result.issuer;
       client = result.client;
       console.log(`✅ Authentication reinitialized: ${config.auth.type}`);
@@ -76,6 +84,8 @@ async function reinitializeAuth() {
       return false;
     }
   } else {
+    issuer = null;
+    client = null;
     console.log("🔓 Authentication disabled");
     return true;
   }
