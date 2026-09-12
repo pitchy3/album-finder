@@ -434,6 +434,67 @@ describe('Token Refresh Middleware', () => {
       expect(req.session.destroy).toHaveBeenCalled();
     });
 
+    it('should destroy the session for invalid_grant', async () => {
+      const error = new Error('Refresh credentials were rejected');
+      error.error = 'invalid_grant';
+      mockClient.refresh.mockRejectedValue(error);
+
+      await refreshTokenMiddleware(req, res, next);
+
+      expect(req.session.destroy).toHaveBeenCalledTimes(1);
+      expect(mockDatabase.logAuthEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'token_refresh_failure',
+          errorMessage: 'invalid_grant'
+        })
+      );
+      expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    it('should preserve the session and refresh token after a timeout', async () => {
+      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) - 1;
+      const storedRefreshToken = req.session.user.tokens.refresh_token;
+      mockClient.refresh.mockRejectedValue(new Error('outgoing request timed out after 3500ms'));
+
+      await refreshTokenMiddleware(req, res, next);
+
+      expect(req.session.destroy).not.toHaveBeenCalled();
+      expect(req.session.user.tokens.refresh_token).toBe(storedRefreshToken);
+      expect(mockDatabase.logAuthEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ eventType: 'token_refresh_transient_failure' })
+      );
+      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+        code: 'TOKEN_REFRESH_TEMPORARY_FAILURE',
+        retryable: true
+      }));
+    });
+
+    it('should preserve the session after ECONNRESET', async () => {
+      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) - 1;
+      const error = new Error('socket closed');
+      error.code = 'ECONNRESET';
+      mockClient.refresh.mockRejectedValue(error);
+
+      await refreshTokenMiddleware(req, res, next);
+
+      expect(req.session.destroy).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(503);
+    });
+
+    it('should continue after a transient failure while the access token is valid', async () => {
+      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 30;
+      const error = new Error('request failed');
+      error.code = 'ETIMEDOUT';
+      mockClient.refresh.mockRejectedValue(error);
+
+      await refreshTokenMiddleware(req, res, next);
+
+      expect(req.session.destroy).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledTimes(1);
+      expect(res.status).not.toHaveBeenCalled();
+    });
+
     it('should perform failure side effects once for concurrent requests sharing a rejected refresh', async () => {
       let rejectRefresh;
       mockClient.refresh.mockReturnValue(new Promise((resolve, reject) => {
@@ -490,7 +551,7 @@ describe('Token Refresh Middleware', () => {
         email: 'test@example.com',
         ipAddress: '127.0.0.1',
         userAgent: 'test-user-agent',
-        errorMessage: 'Token expired',
+        errorMessage: 'oidc_refresh_rejected',
         sessionId: 'test-session-id'
       });
     });

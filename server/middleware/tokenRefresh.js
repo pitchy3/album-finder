@@ -4,6 +4,55 @@ const { encryptToken, decryptToken } = require('../services/tokenEncryption');
 const config = require('../config');
 
 const REFRESH_BUFFER_SECONDS = 60;
+const TRANSIENT_ERROR_CODES = new Set([
+  'ECONNABORTED',
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'EAI_AGAIN',
+  'ENETDOWN',
+  'ENETUNREACH',
+  'EPIPE',
+  'ETIMEDOUT'
+]);
+
+function getErrorValues(error) {
+  return [
+    error?.code,
+    error?.errno,
+    error?.error,
+    error?.message,
+    error?.cause?.code,
+    error?.cause?.errno,
+    error?.cause?.message,
+    error?.response?.body?.error,
+    error?.response?.body?.error_description
+  ].filter(value => typeof value === 'string');
+}
+
+function isTransientRefreshError(error) {
+  const values = getErrorValues(error);
+  const upperCaseValues = values.map(value => value.toUpperCase());
+  const status = error?.statusCode || error?.status || error?.response?.statusCode || error?.response?.status;
+
+  return upperCaseValues.some(value => TRANSIENT_ERROR_CODES.has(value))
+    || values.some(value => /timed?\s*out|timeout|socket hang up|temporary failure/i.test(value))
+    || status === 429
+    || status >= 500;
+}
+
+function getSafeRefreshError(error, transient) {
+  const oauthError = error?.error || error?.response?.body?.error;
+  const transportCode = [error?.code, error?.errno, error?.cause?.code, error?.cause?.errno]
+    .find(value => typeof value === 'string' && TRANSIENT_ERROR_CODES.has(value.toUpperCase()));
+
+  if (typeof oauthError === 'string' && /^[a-z_]+$/i.test(oauthError)) {
+    return oauthError;
+  }
+  if (transportCode) {
+    return transportCode.toUpperCase();
+  }
+  return transient ? 'transient_oidc_failure' : 'oidc_refresh_rejected';
+}
 
 // This process-local map is sufficient for the application's current
 // single-process deployment. Each value covers both the OIDC refresh and the
@@ -193,27 +242,50 @@ async function refreshTokenMiddleware(req, res, next) {
       });
     }
 
+    const transientFailure = isTransientRefreshError(error);
+    const safeError = getSafeRefreshError(error, transientFailure);
+
     if (ownsRefreshFlight) {
-      console.error('❌ Token refresh failed:', error.message);
+      console.error(
+        transientFailure ? '⚠️ Token refresh temporarily unavailable:' : '❌ Token refresh failed:',
+        safeError
+      );
 
       // The flight owner performs shared failure side effects exactly once.
       const { database } = require('../services/database');
       await database.logAuthEvent({
-        eventType: 'token_refresh_failure',
+        eventType: transientFailure ? 'token_refresh_transient_failure' : 'token_refresh_failure',
         userId: req.session.user.claims.sub,
         username: req.session.user.claims.preferred_username || req.session.user.claims.name,
         email: req.session.user.claims.email,
         ipAddress: req.ip || req.connection.remoteAddress,
         userAgent: req.get('User-Agent'),
-        errorMessage: error.message,
+        errorMessage: safeError,
         sessionId: req.sessionID
       });
 
-      // Clear session and require re-authentication
-      req.session.destroy((destroyErr) => {
-        if (destroyErr) {
-          console.error('Error destroying session:', destroyErr);
-        }
+      if (!transientFailure) {
+        // Permanent refresh failures invalidate the authentication session.
+        req.session.destroy((destroyErr) => {
+          if (destroyErr) {
+            console.error('Error destroying session:', destroyErr);
+          }
+        });
+      }
+    }
+
+    if (transientFailure) {
+      // A refresh is attempted before expiry. Let the request use the existing
+      // access token during a provider/network hiccup while it remains valid.
+      if (expiresAt > Math.floor(Date.now() / 1000)) {
+        return next();
+      }
+
+      return res.status(503).json({
+        error: 'Authentication service temporarily unavailable, please retry',
+        loginUrl: '/auth/login',
+        retryable: true,
+        code: 'TOKEN_REFRESH_TEMPORARY_FAILURE'
       });
     }
     
