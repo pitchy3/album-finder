@@ -14,6 +14,9 @@ const TRANSIENT_ERROR_CODES = new Set([
   'EPIPE',
   'ETIMEDOUT'
 ]);
+const TRANSIENT_OAUTH_ERRORS = new Set([
+  'temporarily_unavailable'
+]);
 
 function getErrorValues(error) {
   return [
@@ -35,6 +38,7 @@ function isTransientRefreshError(error) {
   const status = error?.statusCode || error?.status || error?.response?.statusCode || error?.response?.status;
 
   return upperCaseValues.some(value => TRANSIENT_ERROR_CODES.has(value))
+    || values.some(value => TRANSIENT_OAUTH_ERRORS.has(value.toLowerCase()))
     || values.some(value => /timed?\s*out|timeout|socket hang up|temporary failure/i.test(value))
     || status === 429
     || status >= 500;
@@ -90,6 +94,13 @@ function refreshOncePerSession(sessionId, refresh) {
  * Should be placed after session middleware and before protected routes
  */
 async function refreshTokenMiddleware(req, res, next) {
+  // Local logout must remain available even when the provider cannot refresh
+  // an expired token. The logout handler can destroy the session without a
+  // valid access token and treats provider revocation as best-effort.
+  if (req.method === 'POST' && req.path === '/auth/logout') {
+    return next();
+  }
+
   // Only process if user is logged in with OIDC
   if (!req.session?.user?.tokens) {
     return next();

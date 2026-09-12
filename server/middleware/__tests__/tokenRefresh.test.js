@@ -69,6 +69,7 @@ describe('Token Refresh Middleware', () => {
         save: jest.fn((cb) => cb()),
         destroy: jest.fn((cb) => cb())
       },
+      method: 'GET',
       path: '/api/test',
       ip: '127.0.0.1',
       connection: { remoteAddress: '127.0.0.1' },
@@ -115,6 +116,18 @@ describe('Token Refresh Middleware', () => {
 
       expect(next).toHaveBeenCalled();
       expect(mockClient.refresh).not.toHaveBeenCalled();
+    });
+
+    it('should skip refresh for the local logout route', async () => {
+      req.method = 'POST';
+      req.path = '/auth/logout';
+      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) - 1;
+
+      await refreshTokenMiddleware(req, res, next);
+
+      expect(next).toHaveBeenCalledTimes(1);
+      expect(mockClient.refresh).not.toHaveBeenCalled();
+      expect(res.status).not.toHaveBeenCalled();
     });
 
     it('should skip if token not expiring soon', async () => {
@@ -479,6 +492,25 @@ describe('Token Refresh Middleware', () => {
       await refreshTokenMiddleware(req, res, next);
 
       expect(req.session.destroy).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(503);
+    });
+
+    it('should treat temporarily_unavailable as transient', async () => {
+      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) - 1;
+      const error = new Error('provider rejected refresh');
+      error.error = 'temporarily_unavailable';
+      error.statusCode = 400;
+      mockClient.refresh.mockRejectedValue(error);
+
+      await refreshTokenMiddleware(req, res, next);
+
+      expect(req.session.destroy).not.toHaveBeenCalled();
+      expect(mockDatabase.logAuthEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'token_refresh_transient_failure',
+          errorMessage: 'temporarily_unavailable'
+        })
+      );
       expect(res.status).toHaveBeenCalledWith(503);
     });
 
