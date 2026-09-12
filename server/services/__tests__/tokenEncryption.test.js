@@ -232,6 +232,17 @@ describe('Token Encryption Service', () => {
   });
 
   describe('isTokenExpired', () => {
+    const now = new Date('2025-01-01T00:00:00.000Z').getTime();
+    const maxAge = 30 * 24 * 60 * 60 * 1000;
+
+    beforeEach(() => {
+      jest.spyOn(Date, 'now').mockReturnValue(now);
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
     it('should return false for new token', () => {
       const encrypted = encryptToken(testToken, masterKey);
       const expired = isTokenExpired(encrypted);
@@ -283,17 +294,20 @@ describe('Token Encryption Service', () => {
       expect(expired).toBe(true);
     });
 
-    it('should handle edge case at exactly maxAge', () => {
+    it.each([
+      { description: 'just under maxAge', age: maxAge - 1, expected: false },
+      { description: 'exactly maxAge', age: maxAge, expected: false },
+      { description: 'just over maxAge', age: maxAge + 1, expected: true }
+    ])('should return the expected result at $description', ({ age, expected }) => {
       const encrypted = encryptToken(testToken, masterKey);
       const data = JSON.parse(encrypted);
-      
-      // Set timestamp to exactly 30 days ago
-      data.timestamp = Date.now() - (30 * 24 * 60 * 60 * 1000);
+
+      data.timestamp = now - age;
       const oldEncrypted = JSON.stringify(data);
 
       const expired = isTokenExpired(oldEncrypted);
 
-      expect(expired).toBe(false); // Should not be expired at exact threshold
+      expect(expired).toBe(expected);
     });
   });
 
