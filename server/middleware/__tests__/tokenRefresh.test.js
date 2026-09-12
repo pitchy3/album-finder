@@ -216,6 +216,69 @@ describe('Token Refresh Middleware', () => {
 
       expect(next).toHaveBeenCalled();
     });
+
+    it('should share one refresh between concurrent requests for the same session', async () => {
+      let resolveRefresh;
+      mockClient.refresh.mockReturnValue(new Promise((resolve) => {
+        resolveRefresh = resolve;
+      }));
+      const secondReq = {
+        ...req,
+        session: {
+          ...req.session,
+          user: {
+            ...req.session.user,
+            claims: { ...req.session.user.claims },
+            tokens: { ...req.session.user.tokens }
+          },
+          save: jest.fn((cb) => cb())
+        }
+      };
+      const secondNext = jest.fn();
+
+      const firstCall = refreshTokenMiddleware(req, res, next);
+      const secondCall = refreshTokenMiddleware(secondReq, res, secondNext);
+      await Promise.resolve();
+
+      expect(mockClient.refresh).toHaveBeenCalledTimes(1);
+
+      resolveRefresh({
+        access_token: 'shared-access-token',
+        id_token: 'shared-id-token',
+        refresh_token: 'shared-refresh-token',
+        expires_at: Math.floor(Date.now() / 1000) + 3600
+      });
+      await Promise.all([firstCall, secondCall]);
+
+      expect(next).toHaveBeenCalled();
+      expect(secondNext).toHaveBeenCalled();
+    });
+
+    it('should refresh different sessions independently', async () => {
+      const secondReq = {
+        ...req,
+        sessionID: 'other-session-id',
+        session: {
+          ...req.session,
+          user: {
+            ...req.session.user,
+            claims: { ...req.session.user.claims },
+            tokens: { ...req.session.user.tokens }
+          },
+          save: jest.fn((cb) => cb())
+        }
+      };
+      const secondNext = jest.fn();
+
+      await Promise.all([
+        refreshTokenMiddleware(req, res, next),
+        refreshTokenMiddleware(secondReq, res, secondNext)
+      ]);
+
+      expect(mockClient.refresh).toHaveBeenCalledTimes(2);
+      expect(next).toHaveBeenCalled();
+      expect(secondNext).toHaveBeenCalled();
+    });
   });
 
   describe('refreshTokenMiddleware - No Refresh Token', () => {

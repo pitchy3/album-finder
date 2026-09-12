@@ -5,7 +5,36 @@ const config = require('../config');
 
 const REFRESH_BUFFER_SECONDS = 60;
 
+// This process-local map is sufficient for the application's current
+// single-process deployment. Each value is the one OIDC refresh promise for a
+// session, allowing parallel requests to share it without blocking refreshes
+// for other sessions.
+const inFlightRefreshes = new Map();
+
 const debug = ( process.env.NODE_ENV.toLowerCase() !== 'production' || process.env.DEBUG.toLowerCase() === 'true' );
+
+function refreshOncePerSession(sessionId, refresh) {
+  const existingRefresh = inFlightRefreshes.get(sessionId);
+  if (existingRefresh) {
+    return existingRefresh;
+  }
+
+  const refreshPromise = Promise.resolve().then(refresh);
+  inFlightRefreshes.set(sessionId, refreshPromise);
+
+  refreshPromise.finally(() => {
+    // Only remove the promise installed by this call. This guard makes cleanup
+    // safe if the implementation later permits a replacement entry.
+    if (inFlightRefreshes.get(sessionId) === refreshPromise) {
+      inFlightRefreshes.delete(sessionId);
+    }
+  }).catch(() => {
+    // The middleware handles the original promise's rejection. Consume the
+    // promise returned by finally() to avoid creating an unhandled rejection.
+  });
+
+  return refreshPromise;
+}
 
 /**
  * Middleware to automatically refresh OIDC tokens before they expire
@@ -87,7 +116,10 @@ async function refreshTokenMiddleware(req, res, next) {
 	}
 
     // Refresh the tokens
-    const tokenSet = await client.refresh(refreshToken);
+    const tokenSet = await refreshOncePerSession(
+      req.sessionID,
+      () => client.refresh(refreshToken)
+    );
     
 	if (debug) {
       console.log('✅ Tokens refreshed successfully');
