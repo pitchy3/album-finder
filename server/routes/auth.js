@@ -2,7 +2,7 @@
 const express = require("express");
 const { generators } = require("../config/openidClient");
 const config = require("../config");
-const { getClient, validateBasicAuthPassword } = require("../services/auth");
+const { getClient, recoverOIDCClient, validateBasicAuthPassword } = require("../services/auth");
 const { database } = require("../services/database");
 const { encryptToken } = require("../services/tokenEncryption");
 const { 
@@ -146,7 +146,7 @@ function createAuthRoutes() {
   );
 
   // OIDC login route
-  router.get("/login", (req, res) => {
+  router.get("/login", async (req, res) => {
 	if (debug) {
       console.log("🔐 /auth/login accessed");
 	}
@@ -159,16 +159,22 @@ function createAuthRoutes() {
       return res.status(400).send("Authentication is not configured. Please configure authentication in Settings.");
     }
     
-    const client = getClient();
+    let client = getClient();
     
     if (!client) {
-      console.error("❌ No OIDC client available");
-      return res.status(500).send(`
+      console.warn("⚠️ No OIDC client available; attempting recovery");
+      client = await recoverOIDCClient();
+    }
+
+    if (!client) {
+      console.error("❌ OIDC client temporarily unavailable after recovery attempt");
+      res.set('Retry-After', '10');
+      return res.status(503).send(`
         <html>
           <body>
-            <h2>Authentication Configuration Error</h2>
-            <p>OIDC client is not properly configured.</p>
-            <p><a href="/">Go back to home page</a> and try accessing Settings to reconfigure.</p>
+            <h2>Authentication Temporarily Unavailable</h2>
+            <p>The identity provider could not be reached. Please try again shortly.</p>
+            <p><a href="/auth/login">Try again</a></p>
           </body>
         </html>
       `);

@@ -21,15 +21,18 @@ describe('Auth Service - Actual Implementation', () => {
     Issuer = require('openid-client').Issuer;
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Clear all mocks before each test
     jest.clearAllMocks();
     
     // Reset config
     config.auth.enabled = false;
+    config.auth.type = null;
     config.oidc.issuerUrl = '';
     config.oidc.clientId = '';
     config.oidc.clientSecret = '';
+    // Clear the process-local client published by any preceding test.
+    await require('../auth').reinitializeAuth();
   });
 
   describe('initializeAuth', () => {
@@ -202,6 +205,80 @@ describe('Auth Service - Actual Implementation', () => {
       expect(result).toBe(false);
       expect(getIssuer()).toBe(oldIssuer);
       expect(getClient()).toBe(oldClient);
+    });
+  });
+
+  describe('OIDC recovery', () => {
+    const oidcConfig = () => {
+      config.auth.enabled = true;
+      config.auth.type = 'oidc';
+      config.oidc.issuerUrl = 'https://auth.example.com';
+      config.oidc.clientId = 'test-client';
+      config.oidc.clientSecret = 'test-secret';
+    };
+
+    const mockIssuer = (client) => ({ Client: jest.fn(() => client) });
+
+    it('retries transient startup discovery failures and succeeds', async () => {
+      delete require.cache[require.resolve('../auth')];
+      const { initializeAuthWithRetry, getClient } = require('../auth');
+      oidcConfig();
+      const recoveredClient = { name: 'recovered' };
+      Issuer.discover
+        .mockRejectedValueOnce(new Error('temporary outage'))
+        .mockResolvedValueOnce(mockIssuer(recoveredClient));
+      const wait = jest.fn().mockResolvedValue(undefined);
+
+      const result = await initializeAuthWithRetry({ retryDelays: [1000, 3000, 10000], wait });
+
+      expect(wait).toHaveBeenCalledTimes(1);
+      expect(wait).toHaveBeenCalledWith(1000);
+      expect(Issuer.discover).toHaveBeenCalledTimes(2);
+      expect(result.client).toBe(recoveredClient);
+      expect(getClient()).toBe(recoveredClient);
+    });
+
+    it('continues after bounded startup retries are exhausted', async () => {
+      delete require.cache[require.resolve('../auth')];
+      const { initializeAuthWithRetry, getClient } = require('../auth');
+      oidcConfig();
+      Issuer.discover.mockRejectedValue(new Error('outage'));
+      const wait = jest.fn().mockResolvedValue(undefined);
+
+      const result = await initializeAuthWithRetry({ retryDelays: [1000, 3000, 10000], wait });
+
+      expect(wait.mock.calls.map(([delay]) => delay)).toEqual([1000, 3000, 10000]);
+      expect(Issuer.discover).toHaveBeenCalledTimes(4);
+      expect(result.client).toBeNull();
+      expect(getClient()).toBeNull();
+    });
+
+    it('shares one lazy discovery attempt among concurrent callers', async () => {
+      delete require.cache[require.resolve('../auth')];
+      const { recoverOIDCClient, getClient } = require('../auth');
+      oidcConfig();
+      const recoveredClient = { name: 'lazy' };
+      let finishDiscovery;
+      Issuer.discover.mockReturnValue(new Promise(resolve => { finishDiscovery = resolve; }));
+
+      const first = recoverOIDCClient();
+      const second = recoverOIDCClient();
+      expect(Issuer.discover).toHaveBeenCalledTimes(1);
+      finishDiscovery(mockIssuer(recoveredClient));
+
+      await expect(Promise.all([first, second])).resolves.toEqual([recoveredClient, recoveredClient]);
+      expect(getClient()).toBe(recoveredClient);
+    });
+
+    it('leaves auth state empty when lazy recovery fails', async () => {
+      delete require.cache[require.resolve('../auth')];
+      const { recoverOIDCClient, getClient, getIssuer } = require('../auth');
+      oidcConfig();
+      Issuer.discover.mockRejectedValueOnce(new Error('outage'));
+
+      await expect(recoverOIDCClient()).resolves.toBeNull();
+      expect(getClient()).toBeNull();
+      expect(getIssuer()).toBeNull();
     });
   });
 });

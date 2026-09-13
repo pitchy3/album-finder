@@ -18,6 +18,7 @@ jest.mock('../../middleware/rateLimit');
 jest.mock('../../services/auth', () => ({
   getClient: jest.fn(),
   getIssuer: jest.fn(),
+  recoverOIDCClient: jest.fn(),
   validateBasicAuthPassword: jest.fn()
 }));
 
@@ -28,7 +29,7 @@ jest.mock('../../services/database', () => ({
   }
 }));
 
-const { getClient, validateBasicAuthPassword } = require('../../services/auth');
+const { getClient, recoverOIDCClient, validateBasicAuthPassword } = require('../../services/auth');
 const { database } = require('../../services/database');
 
 // Mock token encryption to skip real crypto validation
@@ -94,7 +95,8 @@ describe('Authentication Routes', () => {
 
 
     // Mock getClient to return our mock client
-    getClient.mockReturnValue(mockClient);
+	getClient.mockReturnValue(mockClient);
+	recoverOIDCClient.mockResolvedValue(null);
 
     // Setup Express app
     app = express();
@@ -278,14 +280,26 @@ describe('Authentication Routes', () => {
       config.auth.type = originalType;
     });
 
-    it('should return error if no OIDC client available', async () => {
+    it('should return a temporary error if lazy recovery fails', async () => {
       getClient.mockReturnValueOnce(null);
 
       const response = await request(app)
         .get('/auth/login');
 
-      expect(response.status).toBe(500);
-      expect(response.text).toContain('Authentication Configuration Error');
+      expect(response.status).toBe(503);
+      expect(response.headers['retry-after']).toBe('10');
+      expect(response.text).toContain('Authentication Temporarily Unavailable');
+      expect(recoverOIDCClient).toHaveBeenCalledTimes(1);
+    });
+
+    it('should continue login after successful lazy recovery', async () => {
+      getClient.mockReturnValueOnce(null);
+      recoverOIDCClient.mockResolvedValueOnce(mockClient);
+
+      const response = await request(app).get('/auth/login');
+
+      expect(response.status).toBe(302);
+      expect(mockClient.authorizationUrl).toHaveBeenCalledTimes(1);
     });
 
     it('should handle authorizationUrl errors', async () => {

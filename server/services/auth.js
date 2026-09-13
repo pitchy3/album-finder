@@ -7,6 +7,10 @@ const { errorDetails, safeUrl } = require('../utils/oidcDiagnostics');
 
 let issuer = null;
 let client = null;
+let oidcRecoveryPromise = null;
+
+const STARTUP_RETRY_DELAYS_MS = [1000, 3000, 10000];
+const sleep = (delayMs) => new Promise(resolve => setTimeout(resolve, delayMs));
 
 /**
  * Initialize authentication based on configured type
@@ -24,6 +28,50 @@ async function initializeAuth() {
   }
 
   return { issuer: null, client: null };
+}
+
+/**
+ * Initialize authentication during startup, retrying transient OIDC failures.
+ * The retry schedule is deliberately bounded so an unavailable identity
+ * provider can delay, but never prevent, application startup.
+ */
+async function initializeAuthWithRetry({ retryDelays = STARTUP_RETRY_DELAYS_MS, wait = sleep } = {}) {
+  let result = await initializeAuth();
+
+  if (!config.auth.enabled || config.auth.type !== 'oidc' || result.client) {
+    return result;
+  }
+
+  for (const delayMs of retryDelays) {
+    console.warn(`OIDC initialization unavailable; retrying in ${delayMs}ms`);
+    await wait(delayMs);
+    result = await initializeAuth();
+    if (result.client) {
+      return result;
+    }
+  }
+
+  console.warn('OIDC initialization retries exhausted; continuing startup without an OIDC client');
+  return result;
+}
+
+/**
+ * Lazily recover a missing OIDC client. All callers share the same in-flight
+ * discovery attempt, preventing a login burst from amplifying an outage.
+ */
+async function recoverOIDCClient() {
+  if (client) return client;
+  if (!config.auth.enabled || config.auth.type !== 'oidc') return null;
+
+  if (!oidcRecoveryPromise) {
+    oidcRecoveryPromise = initializeOIDC()
+      .then(result => result.client)
+      .finally(() => {
+        oidcRecoveryPromise = null;
+      });
+  }
+
+  return oidcRecoveryPromise;
 }
 
 /**
@@ -315,6 +363,8 @@ function isAuthReady() {
 
 module.exports = {
   initializeAuth,
+  initializeAuthWithRetry,
+  recoverOIDCClient,
   reinitializeAuth,
   getClient,
   getIssuer,
