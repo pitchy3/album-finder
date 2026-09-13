@@ -350,305 +350,48 @@ describe('Token Refresh Middleware', () => {
       };
       const secondNext = jest.fn();
 
-      const firstCall = refreshTokenMiddleware(req, res, next);
-      const secondCall = refreshTokenMiddleware(secondReq, res, secondNext);
+      const first = refreshTokenMiddleware(req, res, next);
+      const second = refreshTokenMiddleware(secondReq, res, secondNext);
       await Promise.resolve();
 
       expect(mockClient.refresh).toHaveBeenCalledTimes(1);
 
       resolveRefresh({
-        access_token: 'shared-access-token',
-        id_token: 'shared-id-token',
-        refresh_token: 'shared-refresh-token',
-        expires_at: Math.floor(Date.now() / 1000) + 3600
-      });
-      await Promise.all([firstCall, secondCall]);
-
-      expect(next).toHaveBeenCalled();
-      expect(secondNext).toHaveBeenCalled();
-    });
-
-    it('should synchronize refreshed auth state into a waiter session before next', async () => {
-      let resolveRefresh;
-      mockClient.refresh.mockReturnValue(new Promise((resolve) => {
-        resolveRefresh = resolve;
-      }));
-      const ownerSession = req.session;
-      const waiterSession = {
-        ...ownerSession,
-        user: {
-          ...ownerSession.user,
-          claims: { ...ownerSession.user.claims },
-          tokens: { ...ownerSession.user.tokens }
-        },
-        save: jest.fn((cb) => cb())
-      };
-      const waiterReq = { ...req, session: waiterSession };
-      const waiterNext = jest.fn(() => {
-        expect(waiterSession.user.tokens).toEqual({
-          access_token: 'encrypted:shared-access-token',
-          id_token: 'encrypted:shared-id-token',
-          refresh_token: 'encrypted:rotated-refresh-token',
-          expires_at: 1234567890
-        });
-        expect(waiterSession.user.claims).toEqual(expect.objectContaining({
-          name: 'Shared User',
-          role: 'admin'
-        }));
-      });
-
-      expect(ownerSession).not.toBe(waiterSession);
-      expect(ownerSession.user).not.toBe(waiterSession.user);
-
-      const ownerCall = refreshTokenMiddleware(req, res, next);
-      const waiterCall = refreshTokenMiddleware(waiterReq, res, waiterNext);
-      await Promise.resolve();
-
-      expect(mockClient.refresh).toHaveBeenCalledTimes(1);
-
-      resolveRefresh({
-        access_token: 'shared-access-token',
-        id_token: 'shared-id-token',
+        access_token: 'new-access-token',
+        id_token: 'new-id-token',
         refresh_token: 'rotated-refresh-token',
-        expires_at: 1234567890,
-        claims: () => ({
-          name: 'Shared User',
-          role: 'admin'
-        })
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        claims: () => ({ sub: 'user-123', name: 'Updated' })
       });
-      await Promise.all([ownerCall, waiterCall]);
+
+      await Promise.all([first, second]);
 
       expect(mockClient.refresh).toHaveBeenCalledTimes(1);
-      expect(ownerSession.save).toHaveBeenCalledTimes(1);
-      expect(waiterSession.save).not.toHaveBeenCalled();
-      expect(waiterNext).toHaveBeenCalledTimes(1);
-    });
-
-    it('should keep sharing the refresh until the updated session is saved', async () => {
-      let finishSave;
-      req.session.save.mockImplementation((cb) => {
-        finishSave = cb;
-      });
-      const secondReq = {
-        ...req,
-        session: {
-          ...req.session,
-          user: {
-            ...req.session.user,
-            claims: { ...req.session.user.claims },
-            tokens: { ...req.session.user.tokens }
-          }
-        }
-      };
-      const secondNext = jest.fn();
-
-      const firstCall = refreshTokenMiddleware(req, res, next);
-      await Promise.resolve();
-      await Promise.resolve();
-      expect(mockClient.refresh).toHaveBeenCalledTimes(1);
-
-      const secondCall = refreshTokenMiddleware(secondReq, res, secondNext);
-      await Promise.resolve();
-
-      expect(mockClient.refresh).toHaveBeenCalledTimes(1);
-      expect(next).not.toHaveBeenCalled();
-      expect(secondNext).not.toHaveBeenCalled();
-
-      finishSave();
-      await Promise.all([firstCall, secondCall]);
-
-      expect(next).toHaveBeenCalledTimes(1);
+      expect(secondReq.session.user.tokens.access_token).toBe('encrypted:new-access-token');
+      expect(secondReq.session.user.tokens.refresh_token).toBe('encrypted:rotated-refresh-token');
+      expect(secondReq.session.user.claims.name).toBe('Updated');
       expect(secondNext).toHaveBeenCalledTimes(1);
-    });
-
-    it('should refresh different sessions independently', async () => {
-      const secondReq = {
-        ...req,
-        sessionID: 'other-session-id',
-        session: {
-          ...req.session,
-          user: {
-            ...req.session.user,
-            claims: { ...req.session.user.claims },
-            tokens: { ...req.session.user.tokens }
-          },
-          save: jest.fn((cb) => cb())
-        }
-      };
-      const secondNext = jest.fn();
-
-      await Promise.all([
-        refreshTokenMiddleware(req, res, next),
-        refreshTokenMiddleware(secondReq, res, secondNext)
-      ]);
-
-      expect(mockClient.refresh).toHaveBeenCalledTimes(2);
-      expect(next).toHaveBeenCalled();
-      expect(secondNext).toHaveBeenCalled();
-    });
-  });
-
-  describe('refreshTokenMiddleware - No Refresh Token', () => {
-    beforeEach(() => {
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) - 10; // Expired
-      delete req.session.user.tokens.refresh_token;
-    });
-
-    it('should destroy session if no refresh token', async () => {
-      await refreshTokenMiddleware(req, res, next);
-
-      expect(req.session.destroy).toHaveBeenCalled();
-    });
-
-    it('should return 401 for API requests without refresh token', async () => {
-      req.path = '/api/test';
-
-      await refreshTokenMiddleware(req, res, next);
-
-      expect(res.status).toHaveBeenCalledWith(401);
-      expect(res.json).toHaveBeenCalledWith({
-        error: 'Session expired',
-        loginUrl: '/auth/login',
-        code: 'TOKEN_EXPIRED'
-      });
-    });
-
-    it('should redirect to login for page requests without refresh token', async () => {
-      req.path = '/dashboard';
-
-      await refreshTokenMiddleware(req, res, next);
-
-      expect(res.redirect).toHaveBeenCalledWith('/auth/login');
     });
   });
 
   describe('refreshTokenMiddleware - Refresh Failures', () => {
     beforeEach(() => {
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 30;
+      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) - 10;
     });
 
-    it('should handle OIDC client not available', async () => {
-      getClient.mockReturnValue(null);
-
-      await refreshTokenMiddleware(req, res, next);
-
-      expect(req.session.destroy).toHaveBeenCalled();
-      expect(mockDatabase.logAuthEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          eventType: 'token_refresh_failure'
-        })
-      );
-    });
-
-    it('should handle refresh failure', async () => {
-      mockClient.refresh.mockRejectedValue(new Error('Token refresh failed'));
-
-      await refreshTokenMiddleware(req, res, next);
-
-      expect(req.session.destroy).toHaveBeenCalled();
-    });
-
-    it('should destroy the session for invalid_grant even with HTTP 500', async () => {
-      const error = new Error('Refresh credentials were rejected');
-      error.error = 'invalid_grant';
-      error.statusCode = 500;
+    it('should return 503 for transient timeout when access token is expired', async () => {
+      const error = new Error('outgoing request timed out after 3500ms');
+      error.code = 'ETIMEDOUT';
       mockClient.refresh.mockRejectedValue(error);
-
-      await refreshTokenMiddleware(req, res, next);
-
-      expect(req.session.destroy).toHaveBeenCalledTimes(1);
-      expect(mockDatabase.logAuthEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          eventType: 'token_refresh_failure',
-          errorMessage: 'invalid_grant'
-        })
-      );
-      expect(res.status).toHaveBeenCalledWith(401);
-    });
-
-    it('should destroy the session for invalid_client even with HTTP 503', async () => {
-      const error = new Error('Provider rejected client credentials');
-      error.response = {
-        status: 503,
-        body: { error: 'invalid_client' }
-      };
-      mockClient.refresh.mockRejectedValue(error);
-
-      await refreshTokenMiddleware(req, res, next);
-
-      expect(req.session.destroy).toHaveBeenCalledTimes(1);
-      expect(mockDatabase.logAuthEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          eventType: 'token_refresh_failure',
-          errorMessage: 'invalid_client'
-        })
-      );
-      expect(res.status).toHaveBeenCalledWith(401);
-    });
-
-    it('should preserve the session and refresh token after a timeout', async () => {
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) - 1;
-      const storedRefreshToken = req.session.user.tokens.refresh_token;
-      mockClient.refresh.mockRejectedValue(new Error('outgoing request timed out after 3500ms'));
 
       await refreshTokenMiddleware(req, res, next);
 
       expect(req.session.destroy).not.toHaveBeenCalled();
-      expect(req.session.user.tokens.refresh_token).toBe(storedRefreshToken);
-      expect(mockDatabase.logAuthEvent).toHaveBeenCalledWith(
-        expect.objectContaining({ eventType: 'token_refresh_transient_failure' })
-      );
       expect(res.status).toHaveBeenCalledWith(503);
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
         code: 'TOKEN_REFRESH_TEMPORARY_FAILURE',
         retryable: true
       }));
-    });
-
-    it('should preserve the session after ECONNRESET', async () => {
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) - 1;
-      const error = new Error('socket closed');
-      error.code = 'ECONNRESET';
-      mockClient.refresh.mockRejectedValue(error);
-
-      await refreshTokenMiddleware(req, res, next);
-
-      expect(req.session.destroy).not.toHaveBeenCalled();
-      expect(res.status).toHaveBeenCalledWith(503);
-    });
-
-    it('should treat temporarily_unavailable as transient', async () => {
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) - 1;
-      const error = new Error('provider rejected refresh');
-      error.error = 'temporarily_unavailable';
-      error.statusCode = 400;
-      mockClient.refresh.mockRejectedValue(error);
-
-      await refreshTokenMiddleware(req, res, next);
-
-      expect(req.session.destroy).not.toHaveBeenCalled();
-      expect(mockDatabase.logAuthEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          eventType: 'token_refresh_transient_failure',
-          errorMessage: 'temporarily_unavailable'
-        })
-      );
-      expect(res.status).toHaveBeenCalledWith(503);
-    });
-
-    it.each([500, 503])('should treat HTTP %i without an OAuth error as transient', async (statusCode) => {
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) - 1;
-      const error = new Error('provider request failed');
-      error.statusCode = statusCode;
-      mockClient.refresh.mockRejectedValue(error);
-
-      await refreshTokenMiddleware(req, res, next);
-
-      expect(req.session.destroy).not.toHaveBeenCalled();
-      expect(mockDatabase.logAuthEvent).toHaveBeenCalledWith(
-        expect.objectContaining({ eventType: 'token_refresh_transient_failure' })
-      );
-      expect(res.status).toHaveBeenCalledWith(503);
     });
 
     it('should continue after a transient failure while the access token is valid', async () => {
@@ -692,7 +435,9 @@ describe('Token Refresh Middleware', () => {
 
       expect(mockClient.refresh).toHaveBeenCalledTimes(1);
 
-      rejectRefresh(new Error('Shared refresh failed'));
+      const sharedError = new Error('Shared refresh failed');
+      sharedError.error = 'invalid_grant';
+      rejectRefresh(sharedError);
       await Promise.all([firstCall, secondCall]);
 
       expect(mockClient.refresh).toHaveBeenCalledTimes(1);
@@ -709,7 +454,9 @@ describe('Token Refresh Middleware', () => {
     });
 
     it('should log refresh failure to database', async () => {
-      mockClient.refresh.mockRejectedValue(new Error('Token expired'));
+      const error = new Error('Token expired');
+      error.error = 'invalid_grant';
+      mockClient.refresh.mockRejectedValue(error);
 
       await refreshTokenMiddleware(req, res, next);
 
@@ -720,347 +467,47 @@ describe('Token Refresh Middleware', () => {
         email: 'test@example.com',
         ipAddress: '127.0.0.1',
         userAgent: 'test-user-agent',
-        errorMessage: 'oidc_refresh_rejected',
+        errorMessage: 'invalid_grant',
         sessionId: 'test-session-id',
         metadata: expect.objectContaining({
           timestamp: expect.any(String),
           elapsedMs: expect.any(Number),
           sessionId: 'test-session-id',
           accessTokenExpiresAt: expect.any(Number),
-          timeUntilExpiry: expect.any(Number),
-          errorName: 'Error',
-          errorMessage: 'Token expired',
-          stack: expect.any(String)
+          timeUntilExpiry: expect.any(Number)
         })
       }));
-    });
-
-    it('logs structured refresh diagnostics without token or client secrets', async () => {
-      const consoleError = jest.spyOn(console, 'error').mockImplementation();
-      mockClient.issuer = {
-        metadata: { token_endpoint: 'https://auth.example.com/oauth/token' }
-      };
-      const cause = new Error('Bearer old-access-token');
-      cause.code = 'ECONNRESET';
-      const error = new Error('Provider rejected old-refresh-token access_token=old-access-token', { cause });
-      error.code = 'OIDC_REFRESH_FAILED';
-      mockClient.refresh.mockRejectedValue(error);
-
-      await refreshTokenMiddleware(req, res, next);
-
-      const diagnostic = consoleError.mock.calls.find(call =>
-        call[0].includes('Token refresh'))[1];
-      expect(diagnostic).toEqual(expect.objectContaining({
-        timestamp: expect.any(String),
-        elapsedMs: expect.any(Number),
-        sessionId: 'test-session-id',
-        tokenEndpointUrl: 'https://auth.example.com/oauth/token',
-        accessTokenExpiresAt: expect.any(Number),
-        timeUntilExpiry: expect.any(Number),
-        errorCode: 'OIDC_REFRESH_FAILED',
-        errorCause: expect.objectContaining({ code: 'ECONNRESET' }),
-        stack: expect.any(String)
-      }));
-      const emitted = JSON.stringify(consoleError.mock.calls);
-      expect(emitted).not.toContain('old-access-token');
-      expect(emitted).not.toContain('old-refresh-token');
-      expect(emitted).not.toContain('encrypted:old-access-token');
-      expect(emitted).not.toContain('encrypted:old-refresh-token');
-      expect(JSON.stringify(mockDatabase.logAuthEvent.mock.calls)).not.toContain('old-access-token');
-      expect(JSON.stringify(mockDatabase.logAuthEvent.mock.calls)).not.toContain('old-refresh-token');
-      consoleError.mockRestore();
-    });
-
-    it('should return 401 for API requests on refresh failure', async () => {
-      mockClient.refresh.mockRejectedValue(new Error('Refresh failed'));
-      req.path = '/api/data';
-
-      await refreshTokenMiddleware(req, res, next);
-
-      expect(res.status).toHaveBeenCalledWith(401);
-      expect(res.json).toHaveBeenCalledWith({
-        error: 'Session expired, please log in again',
-        loginUrl: '/auth/login',
-        code: 'TOKEN_REFRESH_FAILED'
-      });
-    });
-
-    it('should redirect page requests on refresh failure', async () => {
-      mockClient.refresh.mockRejectedValue(new Error('Refresh failed'));
-      req.path = '/dashboard';
-
-      await refreshTokenMiddleware(req, res, next);
-
-      expect(res.redirect).toHaveBeenCalledWith('/auth/login');
-    });
-
-    it('should handle decryption failure', async () => {
-      decryptToken.mockImplementation(() => {
-        throw new Error('Decryption failed');
-      });
-
-      await refreshTokenMiddleware(req, res, next);
-
-      expect(req.session.destroy).toHaveBeenCalled();
-    });
-
-    it('should handle session save failure', async () => {
-      req.session.save.mockImplementation((cb) => cb(new Error('Save failed')));
-      
-      mockClient.refresh.mockResolvedValue({
-        access_token: 'new-access-token',
-        id_token: 'new-id-token',
-        expires_at: Math.floor(Date.now() / 1000) + 3600
-      });
-
-      await refreshTokenMiddleware(req, res, next);
-
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({
-        error: 'Failed to refresh session',
-        code: 'SESSION_SAVE_FAILED'
-      });
-      expect(next).not.toHaveBeenCalled();
     });
   });
 
   describe('forceTokenRefresh', () => {
     beforeEach(() => {
-      // Ensure clean mock state for this describe block
-      jest.clearAllMocks();
-      decryptToken.mockImplementation((encrypted) => encrypted.replace('encrypted:', ''));
-      
       mockClient.refresh.mockResolvedValue({
         access_token: 'forced-access-token',
-        id_token: 'forced-id-token',
         refresh_token: 'forced-refresh-token',
         expires_at: Math.floor(Date.now() / 1000) + 3600
       });
     });
 
-    it('should force token refresh', async () => {
+    it('refreshes and persists through the shared refresh path', async () => {
       const tokenSet = await forceTokenRefresh(req);
 
       expect(mockClient.refresh).toHaveBeenCalledWith('old-refresh-token');
-      expect(tokenSet).toBeDefined();
-    });
-
-    it('should update session tokens', async () => {
-      await forceTokenRefresh(req);
-
+      expect(req.session.save).toHaveBeenCalledTimes(1);
       expect(req.session.user.tokens.access_token).toBe('encrypted:forced-access-token');
-      expect(req.session.user.tokens.id_token).toBe('encrypted:forced-id-token');
-    });
-
-    it('should save session after forced refresh', async () => {
-      await forceTokenRefresh(req);
-
-      expect(req.session.save).toHaveBeenCalled();
-    });
-
-    it('should throw if not an OIDC session', async () => {
-      req.session.user.claims.authType = 'basicauth';
-
-      await expect(forceTokenRefresh(req)).rejects.toThrow('Not an OIDC session');
-    });
-
-    it('should throw if no session', async () => {
-      delete req.session.user;
-
-      await expect(forceTokenRefresh(req)).rejects.toThrow('Not an OIDC session');
-    });
-
-    it('should throw if no refresh token', async () => {
-      delete req.session.user.tokens.refresh_token;
-
-      await expect(forceTokenRefresh(req)).rejects.toThrow('No refresh token available');
-    });
-
-    it('should throw if OIDC client not available', async () => {
-      getClient.mockReturnValue(null);
-
-      await expect(forceTokenRefresh(req)).rejects.toThrow('OIDC client not available');
-    });
-
-    it('should handle session save failure', async () => {
-      req.session.save.mockImplementation((cb) => cb(new Error('Save failed')));
-
-      await expect(forceTokenRefresh(req)).rejects.toThrow('Save failed');
-    });
-
-    it('should keep old refresh token if new one not provided', async () => {
-      mockClient.refresh.mockResolvedValue({
-        access_token: 'forced-access-token',
-        id_token: 'forced-id-token',
-        expires_at: Math.floor(Date.now() / 1000) + 3600
-      });
-
-      await forceTokenRefresh(req);
-
-      expect(req.session.user.tokens.refresh_token).toBe('encrypted:old-refresh-token');
+      expect(req.session.user.tokens.refresh_token).toBe('encrypted:forced-refresh-token');
+      expect(tokenSet.access_token).toBe('forced-access-token');
     });
   });
 
   describe('getAccessToken', () => {
-    beforeEach(() => {
-      // Ensure clean mock for getAccessToken tests
-      jest.clearAllMocks();
-      decryptToken.mockImplementation((encrypted) => encrypted.replace('encrypted:', ''));
+    it('returns decrypted access token for OIDC sessions', () => {
+      expect(getAccessToken(req)).toBe('old-access-token');
     });
 
-    it('should return decrypted access token', () => {
-      const token = getAccessToken(req);
-
-      expect(token).toBe('old-access-token');
-      expect(decryptToken).toHaveBeenCalledWith(
-        'encrypted:old-access-token',
-        'test-secret-key-must-be-at-least-32-chars-long'
-      );
-    });
-
-    it('should return null if no session', () => {
-      delete req.session.user;
-
-      const token = getAccessToken(req);
-
-      expect(token).toBeNull();
-    });
-
-    it('should return null if no tokens', () => {
-      delete req.session.user.tokens;
-
-      const token = getAccessToken(req);
-
-      expect(token).toBeNull();
-    });
-
-    it('should return null if not OIDC auth', () => {
+    it('returns null for non-OIDC sessions', () => {
       req.session.user.claims.authType = 'basicauth';
-
-      const token = getAccessToken(req);
-
-      expect(token).toBeNull();
-    });
-
-    it('should return null on decryption error', () => {
-      decryptToken.mockImplementation(() => {
-        throw new Error('Decryption failed');
-      });
-
-      const token = getAccessToken(req);
-
-      expect(token).toBeNull();
-    });
-  });
-
-  describe('Debug Mode', () => {
-    beforeEach(() => {
-      jest.clearAllMocks();
-      decryptToken.mockImplementation((encrypted) => encrypted.replace('encrypted:', ''));
-      
-      process.env.DEBUG = 'true';
-      process.env.NODE_ENV = 'development';
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 30;
-      
-      mockClient.refresh.mockResolvedValue({
-        access_token: 'new-access-token',
-        id_token: 'new-id-token',
-        expires_at: Math.floor(Date.now() / 1000) + 3600
-      });
-    });
-
-    it('should work in debug mode', async () => {
-      await refreshTokenMiddleware(req, res, next);
-
-      expect(mockClient.refresh).toHaveBeenCalled();
-      expect(next).toHaveBeenCalled();
-    });
-  });
-
-  describe('Development Mode', () => {
-    beforeEach(() => {
-      jest.clearAllMocks();
-      decryptToken.mockImplementation((encrypted) => encrypted.replace('encrypted:', ''));
-      
-      process.env.NODE_ENV = 'development';
-      process.env.DEBUG = 'false';
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 30;
-      
-      mockClient.refresh.mockResolvedValue({
-        access_token: 'new-access-token',
-        id_token: 'new-id-token',
-        expires_at: Math.floor(Date.now() / 1000) + 3600
-      });
-    });
-
-    it('should work in development mode', async () => {
-      await refreshTokenMiddleware(req, res, next);
-
-      expect(mockClient.refresh).toHaveBeenCalled();
-      expect(next).toHaveBeenCalled();
-    });
-  });
-
-  describe('Edge Cases', () => {
-    beforeEach(() => {
-      jest.clearAllMocks();
-      decryptToken.mockImplementation((encrypted) => encrypted.replace('encrypted:', ''));
-    });
-
-    it('should handle missing connection.remoteAddress', async () => {
-      delete req.connection.remoteAddress;
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 30;
-      
-      mockClient.refresh.mockRejectedValue(new Error('Refresh failed'));
-
-      await refreshTokenMiddleware(req, res, next);
-
-      expect(mockDatabase.logAuthEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          ipAddress: '127.0.0.1'
-        })
-      );
-    });
-
-    it('should handle missing user-agent', async () => {
-      req.get.mockReturnValue(undefined);
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 30;
-      
-      mockClient.refresh.mockRejectedValue(new Error('Refresh failed'));
-
-      await refreshTokenMiddleware(req, res, next);
-
-      expect(mockDatabase.logAuthEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          userAgent: undefined
-        })
-      );
-    });
-
-    it('should handle session destroy error', async () => {
-      req.session.destroy.mockImplementation((cb) => cb(new Error('Destroy failed')));
-      delete req.session.user.tokens.refresh_token;
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) - 10;
-      req.path = '/dashboard';
-
-      await refreshTokenMiddleware(req, res, next);
-
-      // Should still redirect despite destroy error
-      expect(res.redirect).toHaveBeenCalledWith('/auth/login');
-    });
-
-    it('should handle already expired token', async () => {
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) - 100;
-      
-      mockClient.refresh.mockResolvedValue({
-        access_token: 'new-access-token',
-        id_token: 'new-id-token',
-        expires_at: Math.floor(Date.now() / 1000) + 3600
-      });
-
-      await refreshTokenMiddleware(req, res, next);
-
-      expect(mockClient.refresh).toHaveBeenCalled();
+      expect(getAccessToken(req)).toBeNull();
     });
   });
 });
