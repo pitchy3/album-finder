@@ -1,5 +1,5 @@
 // server/middleware/apiKeyAuth.js - API Key authentication middleware
-const config = require('../config');
+const crypto = require('crypto');
 const { validateMasterKey } = require('../services/tokenEncryption');
 
 /**
@@ -32,6 +32,18 @@ function validateApiKey() {
 function isApiKeyValid() {
   const validation = validateApiKey();
   return validation.configured && validation.valid;
+}
+
+function constantTimeApiKeyEqual(provided, configured) {
+  if (typeof provided !== 'string' || typeof configured !== 'string') {
+    return false;
+  }
+
+  // Compare fixed-length digests so arbitrarily long keys cannot be silently
+  // truncated while retaining a constant-time final comparison.
+  const providedDigest = crypto.createHash('sha256').update(provided, 'utf8').digest();
+  const configuredDigest = crypto.createHash('sha256').update(configured, 'utf8').digest();
+  return crypto.timingSafeEqual(providedDigest, configuredDigest);
 }
 
 /**
@@ -68,25 +80,8 @@ function apiKeyAuthMiddleware(req, res, next) {
     });
   }
   
-  // Compare provided key with configured key (constant-time comparison)
-  const crypto = require('crypto');
-  
   try {
-    // Normalize and pad for constant-time comparison
-    const configuredKeyBuffer = Buffer.from(process.env.API_KEY, 'utf8');
-    const providedKeyBuffer = Buffer.from(providedKey, 'utf8');
-    
-    // Pad to same length (256 bytes)
-    const maxLength = 256;
-    const paddedConfigured = Buffer.alloc(maxLength);
-    const paddedProvided = Buffer.alloc(maxLength);
-    
-    configuredKeyBuffer.copy(paddedConfigured);
-    providedKeyBuffer.copy(paddedProvided);
-    
-    const isValid = crypto.timingSafeEqual(paddedConfigured, paddedProvided);
-    
-    if (!isValid) {
+    if (!constantTimeApiKeyEqual(providedKey, process.env.API_KEY)) {
       console.warn('⚠️ Invalid API key attempt from', req.ip);
       return res.status(401).json({
         error: 'Invalid API key',
@@ -94,10 +89,10 @@ function apiKeyAuthMiddleware(req, res, next) {
       });
     }
     
-    // Valid API key - create pseudo-session for this request
+    // API-key identity is request-scoped. Do not create or mutate a browser
+    // session merely because this request supplied a valid API key.
     req.apiKeyAuthenticated = true;
-    req.session = req.session || {}; // Ensure session object exists
-    req.session.user = {
+    req.authUser = {
       claims: {
         sub: 'api-key-user',
         preferred_username: 'api-key-user',
@@ -107,7 +102,7 @@ function apiKeyAuthMiddleware(req, res, next) {
     };
     
     console.log('✅ API key authentication successful from', req.ip);
-    next();
+    return next();
     
   } catch (error) {
     console.error('❌ API key comparison error:', error);
@@ -156,55 +151,10 @@ function logApiKeyStatus() {
   }
 }
 
-/**
- * Enhanced ensureAuthenticated that supports API key authentication
- * This replaces the existing middleware in server/middleware/auth.js
- */
-function ensureAuthenticatedWithApiKey(req, res, next) {
-  const config = require('../config');
-  
-  // Check if auth is disabled entirely
-  if (!config.auth.enabled && !isApiKeyValid()) {
-    console.log("Auth check skipped - authentication disabled and no API key");
-    return next();
-  }
-  
-  // Check for API key authentication first
-  if (req.apiKeyAuthenticated) {
-    return next();
-  }
-  
-  // Check session exists
-  if (!req.session) {
-    console.error("Session middleware not initialized - req.session is undefined");
-    return res.status(500).json({ error: "Session not initialized" });
-  }
-  
-  // Check session authentication
-  if (req.session.user) {
-    return next();
-  }
-  
-  // Not authenticated by any method
-  const isApiRequest = req.path.startsWith('/api/') || req.xhr || req.headers['content-type'] === 'application/json';
-  
-  if (isApiRequest) {
-    console.log("API request not authenticated, returning 401");
-    return res.status(401).json({ 
-      error: "Authentication required", 
-      loginUrl: "/auth/login" 
-    });
-  } else {
-    req.session.returnTo = req.originalUrl;
-    console.log("Page request not authenticated, redirecting to login");
-    return res.redirect("/auth/login");
-  }
-}
-
 module.exports = {
   apiKeyAuthMiddleware,
   validateApiKey,
   isApiKeyValid,
   logApiKeyStatus,
-  ensureAuthenticatedWithApiKey
+  constantTimeApiKeyEqual
 };
