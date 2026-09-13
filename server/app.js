@@ -6,7 +6,7 @@ const fs = require("fs").promises;
 
 const config = require("./config");
 const { initializeRedis } = require("./services/redis");
-const { initializeAuth } = require("./services/auth");
+const { initializeAuthWithRetry } = require("./services/auth");
 const { database } = require("./services/database");
 const { validateMasterKey } = require("./services/tokenEncryption");
 const { createLoggingMiddleware } = require("./middleware/logging");
@@ -203,7 +203,7 @@ async function main() {
   // Initialize OIDC client
   let authClients = { issuer: null, client: null };
   try {
-    authClients = await initializeAuth();
+    authClients = await initializeAuthWithRetry();
     if (authClients.client) {
       console.log("🔐 OIDC client initialized successfully");
     }

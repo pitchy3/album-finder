@@ -7,6 +7,13 @@ const { errorDetails, safeUrl } = require('../utils/oidcDiagnostics');
 
 let issuer = null;
 let client = null;
+let oidcRecoveryPromise = null;
+let oidcInitializationGeneration = 0;
+let oidcRecoveryRetryAt = 0;
+
+const STARTUP_RETRY_DELAYS_MS = [1000, 3000, 10000];
+const OIDC_RECOVERY_COOLDOWN_MS = 10000;
+const sleep = (delayMs) => new Promise(resolve => setTimeout(resolve, delayMs));
 
 /**
  * Initialize authentication based on configured type
@@ -27,33 +34,97 @@ async function initializeAuth() {
 }
 
 /**
+ * Initialize authentication during startup, retrying transient OIDC failures.
+ * The retry schedule is deliberately bounded so an unavailable identity
+ * provider can delay, but never prevent, application startup.
+ */
+async function initializeAuthWithRetry({ retryDelays = STARTUP_RETRY_DELAYS_MS, wait = sleep } = {}) {
+  let result = await initializeAuth();
+
+  if (!config.auth.enabled || config.auth.type !== 'oidc' || result.client) {
+    return result;
+  }
+
+  for (const delayMs of retryDelays) {
+    console.warn(`OIDC initialization unavailable; retrying in ${delayMs}ms`);
+    await wait(delayMs);
+    result = await initializeAuth();
+    if (result.client) {
+      return result;
+    }
+  }
+
+  console.warn('OIDC initialization retries exhausted; continuing startup without an OIDC client');
+  return result;
+}
+
+/**
+ * Lazily recover a missing OIDC client. All callers share the same in-flight
+ * discovery attempt, preventing a login burst from amplifying an outage.
+ */
+async function recoverOIDCClient() {
+  if (client) return client;
+  if (!config.auth.enabled || config.auth.type !== 'oidc') return null;
+  if (Date.now() < oidcRecoveryRetryAt) return null;
+
+  if (!oidcRecoveryPromise) {
+    oidcRecoveryPromise = initializeOIDC()
+      .then(result => {
+        if (!result.client) {
+          oidcRecoveryRetryAt = Date.now() + OIDC_RECOVERY_COOLDOWN_MS;
+        } else {
+          oidcRecoveryRetryAt = 0;
+        }
+        return result.client;
+      })
+      .finally(() => {
+        oidcRecoveryPromise = null;
+      });
+  }
+
+  return oidcRecoveryPromise;
+}
+
+/**
  * Initialize OIDC client
  */
 async function initializeOIDC() {
+  // Capture one coherent configuration and give this attempt an ordering token.
+  // A configuration reinitialization that starts later must not be overwritten
+  // by an older discovery completing out of order.
+  const initializationGeneration = ++oidcInitializationGeneration;
+  const oidcConfig = {
+    issuerUrl: config.oidc.issuerUrl,
+    clientId: config.oidc.clientId,
+    clientSecret: config.oidc.clientSecret
+  };
   const discoveryStartedAt = Date.now();
   try {
-    console.log(`Initializing OIDC with issuer: ${config.oidc.issuerUrl}`);
-    const newIssuer = await Issuer.discover(config.oidc.issuerUrl);
+    console.log(`Initializing OIDC with issuer: ${oidcConfig.issuerUrl}`);
+    const newIssuer = await Issuer.discover(oidcConfig.issuerUrl);
     
     const newClient = new newIssuer.Client({
-      client_id: config.oidc.clientId,
-      client_secret: config.oidc.clientSecret,
+      client_id: oidcConfig.clientId,
+      client_secret: oidcConfig.clientSecret,
 	  token_endpoint_auth_method: 'client_secret_basic',
     });
 
     // Only publish the replacement after discovery and client construction have
     // both succeeded. This keeps a working client available during retries.
-    issuer = newIssuer;
-    client = newClient;
+    if (initializationGeneration === oidcInitializationGeneration) {
+      issuer = newIssuer;
+      client = newClient;
+      oidcRecoveryRetryAt = 0;
+    }
     
     console.log("✅ OIDC authentication enabled and client initialized");
     return { issuer, client };
   } catch (err) {
-    const secrets = [config.oidc.clientSecret];
+    const secrets = [oidcConfig.clientSecret];
     console.error('❌ Failed to initialize OIDC client:', {
       timestamp: new Date().toISOString(),
       elapsedMs: Date.now() - discoveryStartedAt,
-      issuerUrl: safeUrl(config.oidc.issuerUrl, secrets),
+      issuerUrl: safeUrl(oidcConfig.issuerUrl, secrets),
       ...errorDetails(err, secrets)
     });
     return { issuer: null, client: null };
@@ -74,6 +145,10 @@ async function initializeBasicAuth() {
 async function reinitializeAuth() {
   console.log("🔄 Reinitializing authentication with new configuration...");
 
+  // Invalidate any discovery started for the previous configuration. The
+  // stale attempt may finish, but initializeOIDC will no longer publish it.
+  oidcInitializationGeneration++;
+
   if (config.auth.enabled) {
     try {
       const result = await initializeAuth();
@@ -85,6 +160,7 @@ async function reinitializeAuth() {
 
       issuer = result.issuer;
       client = result.client;
+      oidcRecoveryRetryAt = 0;
       console.log(`✅ Authentication reinitialized: ${config.auth.type}`);
       return true;
     } catch (error) {
@@ -94,6 +170,7 @@ async function reinitializeAuth() {
   } else {
     issuer = null;
     client = null;
+    oidcRecoveryRetryAt = 0;
     console.log("🔓 Authentication disabled");
     return true;
   }
@@ -315,6 +392,8 @@ function isAuthReady() {
 
 module.exports = {
   initializeAuth,
+  initializeAuthWithRetry,
+  recoverOIDCClient,
   reinitializeAuth,
   getClient,
   getIssuer,

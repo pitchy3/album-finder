@@ -32,6 +32,8 @@ jest.mock('../services/redis', () => {
 // Mock authentication service
 jest.mock('../services/auth', () => ({
   initializeAuth: jest.fn().mockResolvedValue({ issuer: null, client: null }),
+  initializeAuthWithRetry: jest.fn().mockResolvedValue({ issuer: null, client: null }),
+  recoverOIDCClient: jest.fn().mockResolvedValue(null),
   reinitializeAuth: jest.fn().mockResolvedValue(true),
   getClient: jest.fn(() => null),
   getIssuer: jest.fn(() => null),
