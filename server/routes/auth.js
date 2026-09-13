@@ -21,7 +21,15 @@ function safeOAuthError(value) {
 }
 
 function callbackDiagnostics(error, req) {
-  const secrets = [config.session.secret, config.oidc?.clientSecret, req?.query?.code, req?.headers?.authorization, req?.headers?.cookie];
+  const secrets = [
+    config.session.secret,
+    config.oidc?.clientSecret,
+    req?.query?.code,
+    req?.headers?.authorization,
+    req?.headers?.cookie,
+    req?.session?.codeVerifier,
+    req?.session?.nonce
+  ];
   return {
     timestamp: new Date().toISOString(),
     sessionId: req.sessionID || null,
@@ -218,26 +226,14 @@ function createAuthRoutes() {
           const logoutUrl = new URL(endSessionEndpoint);
           if (idToken) logoutUrl.searchParams.set("id_token_hint", idToken);
           else if (config.oidc.clientId) logoutUrl.searchParams.set("client_id", config.oidc.clientId);
-          logoutUrl.searchParams.set("post_logout_redirect_uri", `https://${config.domain}/`);
           providerLogoutUrl = logoutUrl.toString();
         } catch {}
       }
     }
-    req.session.destroy(() => {
-      res.clearCookie("connect.sid");
-      res.clearCookie("albumfinder.sid");
-      res.clearCookie("__Host-albumfinder.sid");
-      if (providerLogoutUrl && config.auth.type === 'oidc') return res.redirect(providerLogoutUrl);
-      res.redirect("/");
-    });
-  });
 
-  router.get("/debug", (req, res) => {
-    const client = getClient();
-    res.json({
-      authEnabled: config.auth.enabled, authType: config.auth.type,
-      clientAvailable: !!client, sessionExists: !!req.session,
-      userLoggedIn: !!(req.session && req.session.user), userAuthType: req.session?.user?.claims?.authType
+    req.session.destroy(() => {
+      if (providerLogoutUrl) return res.redirect(providerLogoutUrl);
+      res.redirect('/');
     });
   });
 
