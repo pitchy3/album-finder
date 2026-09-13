@@ -38,6 +38,14 @@ describe('Auth Middleware', () => {
       config.auth.enabled = true;
     });
 
+    it('should call next for a request authenticated by API key', () => {
+      req.session = undefined;
+      req.apiKeyAuthenticated = true;
+      ensureAuthenticated(req, res, next);
+      expect(next).toHaveBeenCalledTimes(1);
+      expect(res.status).not.toHaveBeenCalled();
+    });
+
     it('should call next if user is authenticated', () => {
       req.session.user = { claims: { sub: 'user-123' } };
       ensureAuthenticated(req, res, next);
@@ -53,6 +61,15 @@ describe('Auth Middleware', () => {
         error: 'Authentication required',
         loginUrl: '/auth/login'
       });
+    });
+
+    it('should detect API requests from originalUrl', () => {
+      req.path = '/test';
+      req.originalUrl = '/api/test?x=1';
+      ensureAuthenticated(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.redirect).not.toHaveBeenCalled();
     });
 
     it('should redirect to login for unauthenticated page requests', () => {
