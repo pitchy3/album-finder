@@ -67,6 +67,16 @@ function requireOidcSession(req) {
   if (!req.session.user.tokens.refresh_token) throw new Error('No refresh token available');
 }
 
+function withRefreshFlightOwnership(error, isOwner) {
+  const wrapped = new Error(error?.message || 'OIDC token refresh failed', { cause: error });
+  wrapped.name = error?.name || wrapped.name;
+  for (const key of ['code', 'errno', 'error', 'statusCode', 'status', 'response']) {
+    if (error?.[key] !== undefined) wrapped[key] = error[key];
+  }
+  wrapped.refreshFlightOwner = isOwner;
+  return wrapped;
+}
+
 async function performSharedRefresh(req) {
   requireOidcSession(req);
   const client = getClient();
@@ -75,40 +85,32 @@ async function performSharedRefresh(req) {
   const originalTokens = req.session.user.tokens;
   const refreshToken = decryptToken(originalTokens.refresh_token, config.session.secret);
   const flight = refreshOncePerSession(req.sessionID, async () => {
-    try {
-      const tokenSet = await client.refresh(refreshToken);
-      const refreshedTokens = {
-        access_token: encryptToken(tokenSet.access_token, config.session.secret),
-        id_token: tokenSet.id_token ? encryptToken(tokenSet.id_token, config.session.secret) : originalTokens.id_token,
-        refresh_token: tokenSet.refresh_token
-          ? encryptToken(tokenSet.refresh_token, config.session.secret)
-          : originalTokens.refresh_token,
-        expires_at: tokenSet.expires_at
-      };
-      req.session.user.tokens = refreshedTokens;
-      if (tokenSet.claims) {
-        req.session.user.claims = { ...req.session.user.claims, ...tokenSet.claims() };
-      }
-      await new Promise((resolve, reject) => {
-        req.session.save(err => {
-          if (err) {
-            err.code = 'SESSION_SAVE_FAILED';
-            reject(err);
-          } else resolve();
-        });
-      });
-      return {
-        tokenSet,
-        tokens: { ...refreshedTokens },
-        claims: { ...req.session.user.claims }
-      };
-    } catch (error) {
-      // Ownership belongs to the request that created the shared refresh promise.
-      // Tag the rejection here, inside the owner callback, so waiters cannot race
-      // to overwrite ownership metadata on the same Error object.
-      error.refreshFlightOwner = true;
-      throw error;
+    const tokenSet = await client.refresh(refreshToken);
+    const refreshedTokens = {
+      access_token: encryptToken(tokenSet.access_token, config.session.secret),
+      id_token: tokenSet.id_token ? encryptToken(tokenSet.id_token, config.session.secret) : originalTokens.id_token,
+      refresh_token: tokenSet.refresh_token
+        ? encryptToken(tokenSet.refresh_token, config.session.secret)
+        : originalTokens.refresh_token,
+      expires_at: tokenSet.expires_at
+    };
+    req.session.user.tokens = refreshedTokens;
+    if (tokenSet.claims) {
+      req.session.user.claims = { ...req.session.user.claims, ...tokenSet.claims() };
     }
+    await new Promise((resolve, reject) => {
+      req.session.save(err => {
+        if (err) {
+          err.code = 'SESSION_SAVE_FAILED';
+          reject(err);
+        } else resolve();
+      });
+    });
+    return {
+      tokenSet,
+      tokens: { ...refreshedTokens },
+      claims: { ...req.session.user.claims }
+    };
   });
 
   try {
@@ -119,10 +121,7 @@ async function performSharedRefresh(req) {
     }
     return { ...refreshed, isOwner: flight.isOwner, client, originalTokens, refreshToken };
   } catch (error) {
-    if (!flight.isOwner) {
-      error.refreshFlightOwner = false;
-    }
-    throw error;
+    throw withRefreshFlightOwnership(error, flight.isOwner);
   }
 }
 
