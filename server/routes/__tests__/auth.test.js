@@ -29,8 +29,9 @@ jest.mock('../../services/database', () => ({
   }
 }));
 
-const { getClient, recoverOIDCClient, validateBasicAuthPassword } = require('../../services/auth');
+const { getClient, getIssuer, recoverOIDCClient, validateBasicAuthPassword } = require('../../services/auth');
 const { database } = require('../../services/database');
+const { decryptToken } = require('../../services/tokenEncryption');
 
 // Mock token encryption to skip real crypto validation
 jest.mock('../../services/tokenEncryption', () => ({
@@ -96,6 +97,11 @@ describe('Authentication Routes', () => {
 
     // Mock getClient to return our mock client
 	getClient.mockReturnValue(mockClient);
+	getIssuer.mockReturnValue({
+      metadata: {
+        end_session_endpoint: 'https://logout.example.com/oidc/end-session'
+      }
+    });
 	recoverOIDCClient.mockResolvedValue(null);
 
     // Setup Express app
@@ -108,6 +114,15 @@ describe('Authentication Routes', () => {
       saveUninitialized: false,
       cookie: { secure: false }
     }));
+
+    // Seed an authenticated session without exercising the callback flow.
+    app.post('/test/oidc-session', (req, res) => {
+      req.session.user = {
+        claims: { sub: 'user-123', preferred_username: 'testuser', authType: 'oidc' },
+        tokens: req.body
+      };
+      req.session.save(() => res.sendStatus(204));
+    });
     
     // Mount auth routes
     app.use('/auth', authRoutes(mockClient));
@@ -499,6 +514,10 @@ describe('Authentication Routes', () => {
   });
 
   describe('POST /auth/logout', () => {
+    async function loginWithTokens(agent, tokens = {}) {
+      await agent.post('/test/oidc-session').send(tokens).expect(204);
+    }
+
     it('should destroy session and redirect', async () => {
       const agent = request.agent(app);
       
@@ -544,9 +563,64 @@ describe('Authentication Routes', () => {
       mockClient.revoke.mockRejectedValue(new Error('Revocation failed'));
 
       const agent = request.agent(app);
+      await loginWithTokens(agent, { refresh_token: 'enc(refresh-secret)' });
       const response = await agent.post('/auth/logout');
 
       expect(response.status).toBe(302);
+      expect(response.headers.location).toContain('https://logout.example.com/oidc/end-session');
+
+      const status = await agent.get('/auth/debug');
+      expect(status.body.userLoggedIn).toBe(false);
+    });
+
+    it('revokes the decrypted refresh token', async () => {
+      const agent = request.agent(app);
+      await loginWithTokens(agent, { refresh_token: 'enc(refresh-secret)' });
+
+      await agent.post('/auth/logout').expect(302);
+
+      expect(decryptToken).toHaveBeenCalledWith('enc(refresh-secret)', config.session.secret);
+      expect(mockClient.revoke).toHaveBeenCalledWith('refresh-secret');
+    });
+
+    it('uses discovered provider logout metadata and the decrypted ID token', async () => {
+      const agent = request.agent(app);
+      await loginWithTokens(agent, { id_token: 'enc(id-secret)' });
+
+      const response = await agent.post('/auth/logout').expect(302);
+      const logoutUrl = new URL(response.headers.location);
+
+      expect(logoutUrl.origin + logoutUrl.pathname)
+        .toBe('https://logout.example.com/oidc/end-session');
+      expect(logoutUrl.searchParams.get('id_token_hint')).toBe('id-secret');
+      expect(logoutUrl.searchParams.get('post_logout_redirect_uri')).toBe('https://app.example.com/');
+      expect(response.headers.location).not.toContain('/protocol/openid-connect/logout');
+    });
+
+    it('performs local logout when provider logout metadata is missing', async () => {
+      getIssuer.mockReturnValue(null);
+      const agent = request.agent(app);
+      await loginWithTokens(agent, { id_token: 'enc(id-secret)' });
+
+      const response = await agent.post('/auth/logout').expect(302);
+
+      expect(response.headers.location).toBe('/');
+      const status = await agent.get('/auth/debug');
+      expect(status.body.userLoggedIn).toBe(false);
+    });
+
+    it('does not include decrypted tokens in provider failure logs', async () => {
+      mockClient.revoke.mockRejectedValue(new Error('provider echoed refresh-secret'));
+      const agent = request.agent(app);
+      await loginWithTokens(agent, { refresh_token: 'enc(refresh-secret)' });
+
+      await agent.post('/auth/logout').expect(302);
+
+      const loggedOutput = [console.log, console.warn, console.error]
+        .flatMap(logger => logger.mock.calls.flat())
+        .map(String)
+        .join(' ');
+      expect(loggedOutput).not.toContain('refresh-secret');
     });
   });
 
