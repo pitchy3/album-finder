@@ -2,9 +2,9 @@
 const express = require("express");
 const { generators } = require("../config/openidClient");
 const config = require("../config");
-const { getClient, recoverOIDCClient, validateBasicAuthPassword } = require("../services/auth");
+const { getClient, getIssuer, recoverOIDCClient, validateBasicAuthPassword } = require("../services/auth");
 const { database } = require("../services/database");
-const { encryptToken } = require("../services/tokenEncryption");
+const { encryptToken, decryptToken } = require("../services/tokenEncryption");
 const { 
   authLimiter, 
   checkProgressiveLockout, 
@@ -400,19 +400,64 @@ function createAuthRoutes() {
       });
     }
     
-    // For OIDC, try to revoke tokens
+    // Capture everything needed for provider logout before destroying the local
+    // session. Provider operations are deliberately best-effort: none of them
+    // may prevent local logout.
+    const tokens = req.session?.user?.tokens;
+    let providerLogoutUrl = null;
+
     if (authType === 'oidc') {
-      const tokens = req.session?.user?.tokens;
       const client = getClient();
-      
-      if (tokens?.refresh_token && client?.revoke) {
+      let refreshToken = null;
+      let idToken = null;
+
+      if (tokens?.refresh_token) {
         try {
-          await client.revoke(tokens.refresh_token);
+          refreshToken = decryptToken(tokens.refresh_token, config.session.secret);
+        } catch (err) {
+          console.warn("⚠️ Unable to prepare refresh token for revocation");
+        }
+      }
+
+      if (refreshToken && typeof client?.revoke === 'function') {
+        try {
+          await client.revoke(refreshToken);
 		  if (debug) {
             console.log("✅ Refresh token revoked at provider");
 		  }
         } catch (err) {
-          console.warn("⚠️ Token revocation failed:", err.message);
+          console.warn("⚠️ Token revocation failed");
+        }
+      }
+
+      if (tokens?.id_token) {
+        try {
+          idToken = decryptToken(tokens.id_token, config.session.secret);
+        } catch (err) {
+          console.warn("⚠️ Unable to prepare ID token for provider logout");
+        }
+      }
+
+      const endSessionEndpoint = getIssuer()?.metadata?.end_session_endpoint
+        || client?.issuer?.metadata?.end_session_endpoint;
+
+      if (endSessionEndpoint) {
+        try {
+          const logoutUrl = new URL(endSessionEndpoint);
+          if (idToken) {
+            logoutUrl.searchParams.set("id_token_hint", idToken);
+          } else if (config.oidc.clientId) {
+            // RP-Initiated Logout providers need a client identifier to
+            // validate the registered post-logout redirect when no ID token
+            // hint is available (for example, refresh-token-only sessions).
+            logoutUrl.searchParams.set("client_id", config.oidc.clientId);
+          } else {
+            throw new Error("OIDC logout requires an ID token or client ID");
+          }
+          logoutUrl.searchParams.set("post_logout_redirect_uri", `https://${config.domain}/`);
+          providerLogoutUrl = logoutUrl.toString();
+        } catch (err) {
+          console.warn("⚠️ Unable to create provider logout URL");
         }
       }
     }
@@ -426,15 +471,8 @@ function createAuthRoutes() {
       res.clearCookie("albumfinder.sid");
       res.clearCookie("__Host-albumfinder.sid");
       
-      // For OIDC, redirect to provider logout if available
-      if (authType === 'oidc' && config.auth.type === 'oidc') {
-        const tokens = req.session?.user?.tokens;
-        if (tokens?.id_token) {
-          const logoutUrl = new URL(`${config.oidc.issuerUrl}/protocol/openid-connect/logout`);
-          logoutUrl.searchParams.set("id_token_hint", tokens.id_token);
-          logoutUrl.searchParams.set("post_logout_redirect_uri", `https://${config.domain}/`);
-          return res.redirect(logoutUrl.toString());
-        }
+      if (providerLogoutUrl && config.auth.type === 'oidc') {
+        return res.redirect(providerLogoutUrl);
       }
       
       res.redirect("/");
