@@ -103,12 +103,19 @@ async function performSharedRefresh(req) {
     };
   });
 
-  const refreshed = await flight.promise;
-  if (!flight.isOwner) {
-    req.session.user.tokens = { ...refreshed.tokens };
-    req.session.user.claims = { ...refreshed.claims };
+  try {
+    const refreshed = await flight.promise;
+    if (!flight.isOwner) {
+      req.session.user.tokens = { ...refreshed.tokens };
+      req.session.user.claims = { ...refreshed.claims };
+    }
+    return { ...refreshed, isOwner: flight.isOwner, client, originalTokens, refreshToken };
+  } catch (error) {
+    // Preserve single-flight ownership information on rejection so only the
+    // owner performs shared failure side effects (audit/session destruction).
+    error.refreshFlightOwner = flight.isOwner;
+    throw error;
   }
-  return { ...refreshed, isOwner: flight.isOwner, client, originalTokens, refreshToken };
 }
 
 async function refreshTokenMiddleware(req, res, next) {
@@ -144,6 +151,9 @@ async function refreshTokenMiddleware(req, res, next) {
     if (debug) console.log('✅ Session updated with refreshed tokens');
     return next();
   } catch (error) {
+    if (typeof error.refreshFlightOwner === 'boolean') {
+      ownsRefreshFlight = error.refreshFlightOwner;
+    }
     const secrets = [config.session.secret, config.oidc?.clientSecret, tokens.access_token, tokens.refresh_token, decryptedRefreshToken];
     const failureDetails = {
       timestamp: new Date().toISOString(), elapsedMs: Date.now() - started,
