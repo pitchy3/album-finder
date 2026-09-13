@@ -1,5 +1,5 @@
 # Multi-stage build for client/server architecture
-FROM node:18-slim AS base
+FROM node:22-slim AS base
 # Install system dependencies including build tools for native modules
 RUN apt-get update && apt-get install -y \
     curl \

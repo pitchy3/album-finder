@@ -178,7 +178,7 @@ The init container will automatically fix volume permissions before the applicat
 - Context API for state management
 
 **Backend**
-- Node.js 18+ with Express
+- Node.js 22 LTS or newer with Express
 - SQLite for activity logging and audit trails
 - Redis for session storage and caching
 - NodeCache for in-memory caching layer
