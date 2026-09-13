@@ -280,5 +280,50 @@ describe('Auth Service - Actual Implementation', () => {
       expect(getClient()).toBeNull();
       expect(getIssuer()).toBeNull();
     });
+
+    it('throttles lazy discovery attempts after a failure', async () => {
+      delete require.cache[require.resolve('../auth')];
+      const { recoverOIDCClient } = require('../auth');
+      oidcConfig();
+      const now = jest.spyOn(Date, 'now').mockReturnValue(1000);
+      Issuer.discover.mockRejectedValue(new Error('outage'));
+
+      await expect(recoverOIDCClient()).resolves.toBeNull();
+      await expect(recoverOIDCClient()).resolves.toBeNull();
+      expect(Issuer.discover).toHaveBeenCalledTimes(1);
+
+      now.mockReturnValue(11000);
+      await expect(recoverOIDCClient()).resolves.toBeNull();
+      expect(Issuer.discover).toHaveBeenCalledTimes(2);
+      now.mockRestore();
+    });
+
+    it('does not let stale recovery overwrite a newer configuration', async () => {
+      delete require.cache[require.resolve('../auth')];
+      const { recoverOIDCClient, reinitializeAuth, getClient, getIssuer } = require('../auth');
+      oidcConfig();
+      let finishOldDiscovery;
+      const oldDiscovery = new Promise(resolve => { finishOldDiscovery = resolve; });
+      const oldClient = { name: 'old recovery' };
+      const newClient = { name: 'new configuration' };
+      const oldIssuer = mockIssuer(oldClient);
+      const newIssuer = mockIssuer(newClient);
+      Issuer.discover.mockReturnValueOnce(oldDiscovery).mockResolvedValueOnce(newIssuer);
+
+      const recovery = recoverOIDCClient();
+      config.oidc.issuerUrl = 'https://new-auth.example.com';
+      config.oidc.clientId = 'new-client';
+      config.oidc.clientSecret = 'new-secret';
+      await expect(reinitializeAuth()).resolves.toBe(true);
+      finishOldDiscovery(oldIssuer);
+
+      await expect(recovery).resolves.toBe(newClient);
+      expect(oldIssuer.Client).toHaveBeenCalledWith(expect.objectContaining({
+        client_id: 'test-client',
+        client_secret: 'test-secret'
+      }));
+      expect(getIssuer()).toBe(newIssuer);
+      expect(getClient()).toBe(newClient);
+    });
   });
 });
