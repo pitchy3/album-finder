@@ -565,9 +565,13 @@ describe('Authentication Routes', () => {
       const agent = request.agent(app);
       await loginWithTokens(agent, { refresh_token: 'enc(refresh-secret)' });
       const response = await agent.post('/auth/logout');
+      const logoutUrl = new URL(response.headers.location);
 
       expect(response.status).toBe(302);
-      expect(response.headers.location).toContain('https://logout.example.com/oidc/end-session');
+      expect(logoutUrl.origin + logoutUrl.pathname)
+        .toBe('https://logout.example.com/oidc/end-session');
+      expect(logoutUrl.searchParams.get('client_id')).toBe('test-client');
+      expect(logoutUrl.searchParams.get('post_logout_redirect_uri')).toBe('https://app.example.com/');
 
       const status = await agent.get('/auth/debug');
       expect(status.body.userLoggedIn).toBe(false);

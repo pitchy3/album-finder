@@ -446,6 +446,13 @@ function createAuthRoutes() {
           const logoutUrl = new URL(endSessionEndpoint);
           if (idToken) {
             logoutUrl.searchParams.set("id_token_hint", idToken);
+          } else if (config.oidc.clientId) {
+            // RP-Initiated Logout providers need a client identifier to
+            // validate the registered post-logout redirect when no ID token
+            // hint is available (for example, refresh-token-only sessions).
+            logoutUrl.searchParams.set("client_id", config.oidc.clientId);
+          } else {
+            throw new Error("OIDC logout requires an ID token or client ID");
           }
           logoutUrl.searchParams.set("post_logout_redirect_uri", `https://${config.domain}/`);
           providerLogoutUrl = logoutUrl.toString();
