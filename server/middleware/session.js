@@ -56,9 +56,9 @@ function validateSessionSecret(secret, nodeEnv) {
       console.error("\nThen set it in your .env file:");
       console.error("   SESSION_SECRET=<generated-secret>");
       console.error("=".repeat(80) + "\n");
-	  if (process.env.NODE_ENV !== 'test') {
+      if (process.env.NODE_ENV !== 'test') {
         process.exit(1);
-	  }
+      }
     } else {
       console.warn("\n⚠️  Session secret validation warnings:");
       errors.forEach(err => console.warn(`   • ${err}`));
@@ -77,8 +77,6 @@ function displaySecurityWarnings(cookieSecure, isProduction, redisAvailable) {
   if (process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID !== undefined) {
     return;
   }
-  
-  const warnings = [];
   
   // Critical: HTTP in production
   if (isProduction && !cookieSecure) {
@@ -101,12 +99,10 @@ function displaySecurityWarnings(cookieSecure, isProduction, redisAvailable) {
     console.error("Starting in 30 seconds... Press Ctrl+C to cancel and fix configuration");
     console.error("=".repeat(80) + "\n");
     
-    // Give time to cancel
     const timer = setTimeout(() => {
       console.warn("⚠️  Proceeding with INSECURE session cookies - sessions are NOT protected!");
     }, 30000);
     
-    // Allow process to exit during wait
     process.on('SIGINT', () => {
       clearTimeout(timer);
       console.log("\n\n✓ Cancelled. Fix your configuration before running in production.");
@@ -180,38 +176,18 @@ function configureSession(app) {
   const sessionConfig = {
     secret: config.session.secret,
     resave: false,
-    
-    // Changed: Don't save empty sessions (security best practice)
     saveUninitialized: false,
-    
-    // Keep session alive on activity
     rolling: true,
-    
-    // Cookie name with __Host- prefix for secure cookies
     name: cookieName,
-    
     cookie: {
-      // Secure flag
       secure: cookieSecure,
-      
-      // Prevent JavaScript access (XSS protection)
       httpOnly: true,
-      
-      // Session duration: 24 hours
       maxAge: 24 * 60 * 60 * 1000,
-      
-      // ALWAYS use strict for maximum CSRF protection
       sameSite: 'strict',
-      
-      // __Host- prefix requires these
       domain: undefined,
       path: '/'
     },
-    
-    // Generate cryptographically strong session IDs
     genid: () => crypto.randomBytes(32).toString('hex'),
-    
-    // Proxy trust
     proxy: config.server.trustProxy
   };
 
@@ -220,8 +196,8 @@ function configureSession(app) {
     sessionConfig.store = new RedisStore({
       client: redisClient,
       prefix: 'albumfinder:sess:',
-      ttl: 24 * 60 * 60, // 24 hours in seconds
-      disableTouch: false, // Update TTL on access
+      ttl: 24 * 60 * 60,
+      disableTouch: false,
       disableTTL: false
     });
     console.log("✅ Using Redis session store");
@@ -233,36 +209,11 @@ function configureSession(app) {
     }
   }
 
-  // Apply session middleware
+  // Apply session middleware. Login routes explicitly call req.session.regenerate()
+  // before storing an authenticated user, so do not wrap req.session.save(). The
+  // previous wrapper changed express-session semantics and could throw when save
+  // was called without a callback.
   app.use(session(sessionConfig));
-  
-  // Add session security middleware
-  app.use((req, res, next) => {
-    // Regenerate session ID on privilege escalation (login)
-    if (req.session && !req.session.regenerated && req.session.user) {
-      req.session.regenerated = true;
-    }
-    
-    // Add security headers for session cookies
-    if (req.session) {
-      // Prevent session fixation by regenerating on login
-      const originalLogin = req.session.save;
-      req.session.save = function(callback) {
-        originalLogin.call(this, (err) => {
-          if (err) return callback(err);
-          
-          // Additional security: clear old session data on save
-          if (this.user && !this.loginVerified) {
-            this.loginVerified = true;
-          }
-          
-          if (callback) callback();
-        });
-      };
-    }
-    
-    next();
-  });
   
   // Session debugging in development
   if (!isProduction) {
