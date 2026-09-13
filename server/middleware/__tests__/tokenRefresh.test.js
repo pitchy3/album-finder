@@ -131,16 +131,7 @@ describe('Token Refresh Middleware', () => {
     });
 
     it('should skip if token not expiring soon', async () => {
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 299;
-
-      await refreshTokenMiddleware(req, res, next);
-
-      expect(next).toHaveBeenCalled();
-      expect(mockClient.refresh).not.toHaveBeenCalled();
-    });
-
-    it('should not immediately refresh a freshly-issued 300-second token', async () => {
-      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 300;
+      req.session.user.tokens.expires_at = Math.floor(Date.now() / 1000) + 600;
 
       await refreshTokenMiddleware(req, res, next);
 
@@ -155,6 +146,116 @@ describe('Token Refresh Middleware', () => {
 
       expect(next).toHaveBeenCalled();
       expect(mockClient.refresh).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Authentik 300-second access token regression', () => {
+    const issuedAt = 2000000000;
+
+    beforeEach(() => {
+      jest.spyOn(Date, 'now').mockReturnValue(issuedAt * 1000);
+      req.session.user.tokens = {
+        access_token: 'encrypted:login-access-token',
+        id_token: 'encrypted:login-id-token',
+        // Authentik keeps this token valid for 30 days in production.
+        refresh_token: 'encrypted:authentik-30-day-refresh-token',
+        expires_at: issuedAt + 300
+      };
+      mockClient.refresh.mockResolvedValue({
+        access_token: 'refreshed-access-token',
+        id_token: 'refreshed-id-token',
+        refresh_token: 'authentik-30-day-refresh-token',
+        expires_at: issuedAt + 300
+      });
+    });
+
+    afterEach(() => {
+      Date.now.mockRestore();
+    });
+
+    it('does not refresh the login session immediately after a 300-second token is issued', async () => {
+      await refreshTokenMiddleware(req, res, next);
+
+      expect(req.session.user.tokens.expires_at).toBe(issuedAt + 300);
+      expect(mockClient.refresh).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not refresh with approximately 299 seconds remaining', async () => {
+      Date.now.mockReturnValue((issuedAt + 1) * 1000);
+
+      await refreshTokenMiddleware(req, res, next);
+
+      expect(mockClient.refresh).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledTimes(1);
+    });
+
+    it('begins refreshing only after entering the 60-second refresh window', async () => {
+      Date.now.mockReturnValue((issuedAt + 239) * 1000);
+      await refreshTokenMiddleware(req, res, next);
+      expect(mockClient.refresh).not.toHaveBeenCalled();
+
+      Date.now.mockReturnValue((issuedAt + 240) * 1000);
+      await refreshTokenMiddleware(req, res, next);
+
+      expect(mockClient.refresh).toHaveBeenCalledTimes(1);
+      expect(mockClient.refresh).toHaveBeenCalledWith('authentik-30-day-refresh-token');
+    });
+
+    it('does not refresh again on the next request after receiving another 300-second token', async () => {
+      Date.now.mockReturnValue((issuedAt + 270) * 1000);
+      mockClient.refresh.mockResolvedValue({
+        access_token: 'refreshed-access-token',
+        id_token: 'refreshed-id-token',
+        refresh_token: 'authentik-30-day-refresh-token',
+        expires_at: issuedAt + 570
+      });
+
+      await refreshTokenMiddleware(req, res, next);
+      await refreshTokenMiddleware(req, res, next);
+
+      expect(req.session.user.tokens.expires_at).toBe(issuedAt + 570);
+      expect(mockClient.refresh).toHaveBeenCalledTimes(1);
+      expect(next).toHaveBeenCalledTimes(2);
+    });
+
+    it('coalesces parallel requests into one refresh call', async () => {
+      Date.now.mockReturnValue((issuedAt + 270) * 1000);
+      let resolveRefresh;
+      mockClient.refresh.mockReturnValue(new Promise((resolve) => {
+        resolveRefresh = resolve;
+      }));
+      const parallelReq = {
+        ...req,
+        session: {
+          ...req.session,
+          user: {
+            ...req.session.user,
+            claims: { ...req.session.user.claims },
+            tokens: { ...req.session.user.tokens }
+          },
+          save: jest.fn((callback) => callback())
+        }
+      };
+      const parallelNext = jest.fn();
+
+      const firstRequest = refreshTokenMiddleware(req, res, next);
+      const secondRequest = refreshTokenMiddleware(parallelReq, res, parallelNext);
+      await Promise.resolve();
+
+      expect(mockClient.refresh).toHaveBeenCalledTimes(1);
+
+      resolveRefresh({
+        access_token: 'refreshed-access-token',
+        id_token: 'refreshed-id-token',
+        refresh_token: 'authentik-30-day-refresh-token',
+        expires_at: issuedAt + 570
+      });
+      await Promise.all([firstRequest, secondRequest]);
+
+      expect(mockClient.refresh).toHaveBeenCalledTimes(1);
+      expect(next).toHaveBeenCalledTimes(1);
+      expect(parallelNext).toHaveBeenCalledTimes(1);
     });
   });
 
