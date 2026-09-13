@@ -68,11 +68,12 @@ function requireOidcSession(req) {
 }
 
 function withRefreshFlightOwnership(error, isOwner) {
-  const wrapped = new Error(error?.message || 'OIDC token refresh failed', { cause: error });
+  const wrapped = new Error(error?.message || 'OIDC token refresh failed');
   wrapped.name = error?.name || wrapped.name;
   for (const key of ['code', 'errno', 'error', 'statusCode', 'status', 'response']) {
     if (error?.[key] !== undefined) wrapped[key] = error[key];
   }
+  if (error?.cause !== undefined) wrapped.cause = error.cause;
   wrapped.refreshFlightOwner = isOwner;
   return wrapped;
 }
