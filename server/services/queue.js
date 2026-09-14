@@ -18,25 +18,34 @@ class RequestQueue {
         resolve,
         reject,
         timestamp: Date.now(),
-        timeout: setTimeout(() => {
-          reject(new Error('Request timeout'));
-          this.remove(request);
-        }, timeout)
+        timeoutId: null,
+        settled: false
       };
+
+      request.timeoutId = setTimeout(() => {
+        if (request.settled) return;
+
+        request.settled = true;
+        const removedFromQueue = this.removeFromQueue(request);
+        reject(new Error('Request timeout'));
+
+        if (removedFromQueue) {
+          setImmediate(() => this.process());
+        }
+      }, timeout);
 
       this.queue.push(request);
       this.process();
     });
   }
 
-  remove(request) {
+  removeFromQueue(request) {
     const index = this.queue.indexOf(request);
     if (index > -1) {
       this.queue.splice(index, 1);
+      return true;
     }
-    if (request.timeout) {
-      clearTimeout(request.timeout);
-    }
+    return false;
   }
 
   async process() {
@@ -64,7 +73,7 @@ class RequestQueue {
         break;
       }
 
-      this.remove(nextRequest);
+      this.removeFromQueue(nextRequest);
       this.activeRequests.set(nextRequest.userId, (this.activeRequests.get(nextRequest.userId) || 0) + 1);
       this.processRequest(nextRequest);
     }
@@ -75,12 +84,19 @@ class RequestQueue {
   async processRequest(request) {
     try {
       const result = await request.requestFn();
-      clearTimeout(request.timeout);
-      request.resolve(result);
+      if (!request.settled) {
+        request.settled = true;
+        clearTimeout(request.timeoutId);
+        request.resolve(result);
+      }
     } catch (error) {
-      clearTimeout(request.timeout);
-      request.reject(error);
+      if (!request.settled) {
+        request.settled = true;
+        clearTimeout(request.timeoutId);
+        request.reject(error);
+      }
     } finally {
+      clearTimeout(request.timeoutId);
       const count = this.activeRequests.get(request.userId) || 1;
       if (count <= 1) {
         this.activeRequests.delete(request.userId);
