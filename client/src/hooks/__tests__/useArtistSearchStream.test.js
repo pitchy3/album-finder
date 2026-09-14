@@ -105,6 +105,26 @@ describe('useArtistSearchStream album addition state', () => {
     expect(result.current.results).toEqual([]);
   });
 
+  it('exposes a warning when the catalog falls back to Lidarr', () => {
+    const { result } = renderHook(() => useArtistSearchStream());
+
+    act(() => {
+      result.current.searchArtistReleases('Test Artist');
+    });
+
+    const stream = MockEventSource.instances[0];
+    act(() => {
+      stream.emit('complete', {
+        total: 1,
+        source: 'lidarr-fallback',
+        degraded: true
+      });
+    });
+
+    expect(result.current.warning).toContain('MusicBrainz is temporarily unavailable');
+    expect(result.current.loading).toBe(false);
+  });
+
   it('restores retryable state when artist creation fails', () => {
     const { result } = renderHook(() => useArtistSearchStream());
 
