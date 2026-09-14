@@ -64,7 +64,11 @@ describe('addToLidarr', () => {
 
     expect(result).toEqual({
       success: false,
-      error: 'Album was not added'
+      error: 'Album was not added',
+      data: {
+        success: false,
+        message: 'Album was not added'
+      }
     });
     expect(document.body).toHaveTextContent('Failed to add album to Lidarr');
     expect(document.body).not.toHaveTextContent('Album Added Successfully');
