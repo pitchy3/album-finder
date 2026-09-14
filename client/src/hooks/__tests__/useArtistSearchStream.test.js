@@ -88,6 +88,23 @@ describe('useArtistSearchStream album addition state', () => {
     });
   });
 
+  it('preserves an artist created before the album addition fails', () => {
+    const { result } = renderHook(() => useArtistSearchStream());
+
+    act(() => {
+      result.current.beginArtistAlbumAdd('album-mbid', true);
+      result.current.failArtistAlbumAdd('album-mbid', { id: 5 }, '/music');
+    });
+
+    expect(result.current.artistStatus).toMatchObject({
+      artistInLidarr: true,
+      creationState: 'ready',
+      lidarrArtistId: 5,
+      rootFolder: '/music'
+    });
+    expect(result.current.results).toEqual([]);
+  });
+
   it('restores retryable state when artist creation fails', () => {
     const { result } = renderHook(() => useArtistSearchStream());
 
