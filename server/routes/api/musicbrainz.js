@@ -35,11 +35,15 @@ function getLidarrServices() {
 async function processBatch(releases, artistName, lidarrAlbumsMap, categories) {
   console.log(`📄 Processing batch of ${releases.length} releases...`);
   
-  let coverArtResults = [];
-  
-  if (lidarrAlbumsMap.size === 0) {
-    // Get cover art for all albums in parallel - only if we don't already have it in the lidarrAlbumsMap data
-    const coverArtPromises = releases.map(async (release) => {
+  // Prefer Lidarr's cover when the album exists there; otherwise fetch the
+  // MusicBrainz release-group cover. A partially populated Lidarr artist must
+  // not suppress artwork for albums that are only in MusicBrainz.
+  const coverArtPromises = releases.map(async (release) => {
+    const lidarrInfo = lidarrAlbumsMap.get(release.id || release.foreignAlbumId);
+    if (lidarrInfo?.coverUrl) {
+      return lidarrInfo.coverUrl;
+    }
+
       try {
         const url = `https://coverartarchive.org/release-group/${release.id}`;
         const coverResponse = await fetch(url);
@@ -61,11 +65,10 @@ async function processBatch(releases, artistName, lidarrAlbumsMap, categories) {
         // Silently fail - just no cover art
       }
       return null;
-    });
-    
-    coverArtResults = await Promise.all(coverArtPromises);
-    console.log(`✅ Fetched cover art for batch (${coverArtResults.filter(Boolean).length}/${releases.length} found)`);
-  }
+  });
+
+  const coverArtResults = await Promise.all(coverArtPromises);
+  console.log(`✅ Resolved cover art for batch (${coverArtResults.filter(Boolean).length}/${releases.length} found)`);
     
   // Process results with instant Lidarr status lookup (no API calls!)
   const processedResults = releases
@@ -127,9 +130,7 @@ async function processBatch(releases, artistName, lidarrAlbumsMap, categories) {
       }
 	  
 	  // Determine cover URL source
-      const coverUrl = lidarrAlbumsMap.size === 0 
-        ? (coverArtResults && coverArtResults[index]) 
-        : lidarrInfo.coverUrl;
+      const coverUrl = lidarrInfo.coverUrl || coverArtResults[index] || null;
       
       // Handle artist credit for both formats
       let artistCredit;
@@ -502,112 +503,62 @@ router.get("/release-group/stream", ensureAuthenticated, async (req, res) => {
       lidarrArtistId,
       albumsInLidarr: lidarrAlbumsMap.size,
       message: artistInLidarr 
-        ? `Artist monitored with ${lidarrAlbumsMap.size} albums in Lidarr` 
-        : 'Artist not monitored'
+        ? `Artist exists with ${lidarrAlbumsMap.size} albums in Lidarr`
+        : 'Artist does not exist in Lidarr'
     });
     
-    // STEP 3: Get release groups (from Lidarr if available, otherwise MusicBrainz)
+    // STEP 3: MusicBrainz is the discovery catalog. Lidarr is only a status
+    // overlay, so a stale or partial Lidarr discography cannot hide releases.
     let allProcessedReleases = [];
-    
-    if (artistInLidarr && lidarrAlbumsMap.size > 0) {
-      // Artist is in Lidarr - use Lidarr data directly (no MusicBrainz calls needed!)
-      console.log(`✅ Using Lidarr data for ${lidarrAlbumsMap.size} albums (skipping MusicBrainz)`);
-      
-      // Convert Lidarr albums to the expected format
-      const lidarrReleases = Array.from(lidarrAlbumsMap.entries()).map(([mbid, albumInfo]) => ({
-        id: mbid,
-        title: albumInfo.title,
-        'first-release-date': albumInfo.releaseDate || null,
-        'albumType': albumInfo.albumType || 'Album',
-        'secondaryTypes': albumInfo.secondaryTypes || [],
-        'artist-credit': [{ name: artistName }]
-      }));
-      
-      // Apply category filtering if needed
-      let filteredReleases = lidarrReleases;
-      if (categories && categories !== 'all') {
-        const allowedCategories = categories.split(',').map(c => c.trim().toLowerCase());
-        console.log(`🔍 Filtering ${lidarrReleases.length} Lidarr albums by categories:`, allowedCategories);
-        
-        // For Lidarr data, we may not have primary-type, so only filter if we can determine type
-        // Otherwise include everything since it's already curated in Lidarr
-        filteredReleases = lidarrReleases; // Keep all for now since Lidarr data is already curated
+    let allReleases = [];
+    let offset = 0;
+    const batchSize = 100;
+
+    console.log(`📡 Fetching MusicBrainz catalog with ${lidarrAlbumsMap.size} Lidarr status overlays`);
+
+    while (allReleases.length < searchLimit) {
+      const currentLimit = Math.min(batchSize, searchLimit - allReleases.length);
+      const url = `https://musicbrainz.org/ws/2/release-group?artist=${artistMbid}&limit=${currentLimit}&offset=${offset}&fmt=json`;
+
+      console.log(`📡 Fetching batch at offset ${offset}`);
+      const response = await rateLimitedFetch(url);
+
+      if (!response.ok) {
+        console.error('❌ MusicBrainz request failed:', response.status);
+        break;
       }
-      
-      // Process in batches for consistent streaming experience
-      const batchSize = 100;
-      for (let i = 0; i < filteredReleases.length; i += batchSize) {
-        const batch = filteredReleases.slice(i, i + batchSize);
-        const processed = await processBatch(batch, artistName, lidarrAlbumsMap, categories);
-        
-        allProcessedReleases = allProcessedReleases.concat(processed);
-        
-        sendEvent('batch', {
-          releases: processed,
-          offset: allProcessedReleases.length,
-          total: allProcessedReleases.length,
-          hasMore: i + batchSize < filteredReleases.length,
-          batchNumber: Math.floor(i / batchSize) + 1,
-          source: 'lidarr'
-        });
-      }
-      
-      console.log(`✅ Processed ${allProcessedReleases.length} albums from Lidarr`);
-      
-    } else {
-      // Artist not in Lidarr - fetch from MusicBrainz
-      console.log(`📡 Artist not in Lidarr, fetching from MusicBrainz`);
-      
-      let allReleases = [];
-      let offset = 0;
-      const batchSize = 100;
-      
-      while (allReleases.length < searchLimit) {
-        const currentLimit = Math.min(batchSize, searchLimit - allReleases.length);
-        const url = `https://musicbrainz.org/ws/2/release-group?artist=${artistMbid}&limit=${currentLimit}&offset=${offset}&fmt=json`;
-        
-        console.log(`📡 Fetching batch at offset ${offset}`);
-        const response = await rateLimitedFetch(url);
-        
-        if (!response.ok) {
-          console.error('❌ MusicBrainz request failed:', response.status);
-          break;
-        }
-        
-        const data = await response.json();
-        const releases = data['release-groups'] || [];
-        
-        if (releases.length === 0) break;
-        
-        allReleases = allReleases.concat(releases);
-        
-        // Process and send this batch
-        const processed = await processBatch(releases, artistName, lidarrAlbumsMap, categories);
-        allProcessedReleases = allProcessedReleases.concat(processed);
-        
-        sendEvent('batch', { 
-          releases: processed, 
-          offset: allProcessedReleases.length, 
-          total: allProcessedReleases.length,
-          hasMore: releases.length === currentLimit,
-          batchNumber: Math.floor(offset / batchSize) + 1,
-          source: 'musicbrainz'
-        });
-        
-        if (releases.length < currentLimit) break;
-        
-        offset += batchSize;
-        
-        // Rate limiting delay
-        if (allReleases.length < searchLimit) {
-          await new Promise(resolve => setTimeout(resolve, 1100));
-        }
+
+      const data = await response.json();
+      const releases = data['release-groups'] || [];
+
+      if (releases.length === 0) break;
+
+      allReleases = allReleases.concat(releases);
+
+      const processed = await processBatch(releases, artistName, lidarrAlbumsMap, categories);
+      allProcessedReleases = allProcessedReleases.concat(processed);
+
+      sendEvent('batch', {
+        releases: processed,
+        offset: allProcessedReleases.length,
+        total: allProcessedReleases.length,
+        hasMore: releases.length === currentLimit,
+        batchNumber: Math.floor(offset / batchSize) + 1,
+        source: 'musicbrainz'
+      });
+
+      if (releases.length < currentLimit) break;
+
+      offset += batchSize;
+
+      if (allReleases.length < searchLimit) {
+        await new Promise(resolve => setTimeout(resolve, 1100));
       }
     }
     
     sendEvent('complete', { 
       total: allProcessedReleases.length,
-      source: artistInLidarr ? 'lidarr' : 'musicbrainz'
+      source: 'musicbrainz'
     });
     
   } catch (error) {
