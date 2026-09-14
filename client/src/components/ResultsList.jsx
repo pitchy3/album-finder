@@ -21,6 +21,7 @@ export default function ResultsList({ results, onAddToLidarr }) {
           index={index}
           onAddToLidarr={onAddToLidarr}
           artistInLidarr={album.artistInLidarr || album.inLidarr || false}
+          artistCreationState={album.artistCreationState || 'ready'}
         />
       ))}
     </div>
