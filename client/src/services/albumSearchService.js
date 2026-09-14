@@ -77,6 +77,7 @@ async function processRecordings(recordings, artist, track) {
               mbid: releaseGroup.id,
               title: releaseGroup.title,
               artist: releaseGroup["artist-credit"]?.[0]?.artist?.name || artist,
+              artistMbid: releaseGroup["artist-credit"]?.[0]?.artist?.id || null,
               score: confidence,
               releaseType: releaseGroup["primary-type"]?.toLowerCase() || 'unknown'
             });
@@ -187,6 +188,7 @@ async function fallbackReleaseGroupSearch(track, artist, foundAlbums) {
         mbid: rgId,
         title: rg.title,
         artist: rg["artist-credit"]?.[0]?.artist?.name || artist,
+        artistMbid: rg["artist-credit"]?.[0]?.artist?.id || null,
         score: confidence,
         releaseType: rg["primary-type"]?.toLowerCase() || 'unknown'
       });

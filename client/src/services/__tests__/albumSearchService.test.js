@@ -31,7 +31,7 @@ describe('Album Search Service', () => {
           title: 'Test Album',
           'primary-type': 'Album',
           'artist-credit': [{
-            artist: { name: 'Test Artist' }
+            artist: { id: 'artist-mbid', name: 'Test Artist' }
           }]
         }
       })
@@ -48,7 +48,10 @@ describe('Album Search Service', () => {
     const results = await findAlbum('Test Song', 'Test Artist');
 
     expect(results).toHaveLength(1);
-    expect(results[0].title).toBe('Test Album');
+    expect(results[0]).toMatchObject({
+      title: 'Test Album',
+      artistMbid: 'artist-mbid'
+    });
   });
 
   it('should prioritize albums over other types', async () => {

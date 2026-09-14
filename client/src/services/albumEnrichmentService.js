@@ -3,6 +3,7 @@ import { secureApiCall } from '../services/apiService.js';
 
 export async function enrichAlbumsWithMetadata(albums) {
   console.log("🎨 Fetching cover art and Lidarr info in parallel for", albums.length, "releases");
+  const artistStatusRequests = new Map();
   
   const albumsWithCovers = await Promise.allSettled(
     albums.map(async (album, index) => {
@@ -12,9 +13,14 @@ export async function enrichAlbumsWithMetadata(albums) {
       // Create promises for parallel execution
       const coverPromise = fetchCoverArt(album);
       const lidarrPromise = checkLidarrStatus(album);
+      const artistStatusPromise = checkArtistLidarrStatus(album, artistStatusRequests);
 
-      // Wait for both promises to complete
-      const [coverUrl, lidarrData] = await Promise.all([coverPromise, lidarrPromise]);
+      // Wait for all enrichment requests to complete
+      const [coverUrl, lidarrData, artistStatus] = await Promise.all([
+        coverPromise,
+        lidarrPromise,
+        artistStatusPromise
+      ]);
       
       albumData.coverUrl = coverUrl;
       
@@ -35,6 +41,11 @@ export async function enrichAlbumsWithMetadata(albums) {
         albumData.inLibrary = !!lidarrData;
       }
 
+      // Album membership and artist membership are different. A song search
+      // can return a new album by an artist who already has a fixed root path.
+      albumData.artistInLidarr = albumData.inLidarr || artistStatus.found;
+      albumData.lidarrArtistId = artistStatus.artistId || null;
+
       console.log(`✅ Finished processing release ${index + 1}:`, {
         title: albumData.title,
         inLidarr: albumData.inLidarr,
@@ -53,6 +64,47 @@ export async function enrichAlbumsWithMetadata(albums) {
 
   console.log("🎨 All releases processed successfully:", processedAlbums);
   return processedAlbums;
+}
+
+async function checkArtistLidarrStatus(album, requests) {
+  const artistMbid = album.artistMbid?.trim();
+  const artistName = album.artist?.trim();
+  if (!artistMbid && !artistName) {
+    return { found: false, artistId: null };
+  }
+
+  const cacheKey = artistMbid
+    ? `mbid:${artistMbid.toLocaleLowerCase()}`
+    : `name:${artistName.toLocaleLowerCase()}`;
+  if (!requests.has(cacheKey)) {
+    requests.set(cacheKey, fetchArtistLidarrStatus({ artistMbid, artistName }));
+  }
+
+  return requests.get(cacheKey);
+}
+
+async function fetchArtistLidarrStatus({ artistMbid, artistName }) {
+  const identity = artistMbid || artistName;
+
+  try {
+    const query = artistMbid
+      ? `mbid=${encodeURIComponent(artistMbid)}`
+      : `name=${encodeURIComponent(artistName)}`;
+    const response = await secureApiCall(`/api/lidarr/artist-status?${query}`);
+
+    if (!response.ok) {
+      return { found: false, artistId: null };
+    }
+
+    const status = await response.json();
+    return {
+      found: status.found === true,
+      artistId: status.artistId || null
+    };
+  } catch (error) {
+    console.error(`📚 Lidarr artist status error for ${identity}:`, error);
+    return { found: false, artistId: null };
+  }
 }
 
 async function fetchCoverArt(album) {
