@@ -525,7 +525,50 @@ router.get("/release-group/stream", ensureAuthenticated, async (req, res) => {
 
       if (!response.ok) {
         console.error('❌ MusicBrainz request failed:', response.status);
-        break;
+
+        // If discovery is unavailable before it yields anything, preserve the
+        // useful catalog we already have from Lidarr. Never report a clean
+        // MusicBrainz completion for a failed or truncated request.
+        if (allReleases.length === 0 && lidarrAlbumsMap.size > 0) {
+          const lidarrReleases = Array.from(lidarrAlbumsMap.entries())
+            .map(([mbid, albumInfo]) => ({
+              id: mbid,
+              title: albumInfo.title,
+              'first-release-date': albumInfo.releaseDate || null,
+              'primary-type': albumInfo.albumType || 'Album',
+              'secondary-types': albumInfo.secondaryTypes || [],
+              'artist-credit': [{ name: artistName }]
+            }));
+
+          const processed = await processBatch(
+            lidarrReleases,
+            artistName,
+            lidarrAlbumsMap,
+            categories
+          );
+          allProcessedReleases = processed;
+
+          sendEvent('batch', {
+            releases: processed,
+            offset: processed.length,
+            total: processed.length,
+            hasMore: false,
+            batchNumber: 1,
+            source: 'lidarr-fallback'
+          });
+          sendEvent('complete', {
+            total: processed.length,
+            source: 'lidarr-fallback',
+            degraded: true
+          });
+          return;
+        }
+
+        sendEvent('error', {
+          message: `MusicBrainz catalog request failed (HTTP ${response.status})`,
+          partialResults: allProcessedReleases.length
+        });
+        return;
       }
 
       const data = await response.json();
