@@ -1,6 +1,6 @@
 {
   "name": "album-finder-scalable",
-  "version": "2.0.0",
+  "version": "3.3.0",
   "description": "Scalable multi-user Album Finder with MusicBrainz and Lidarr integration",
   "main": "scalable_server.js",
   "scripts": {
