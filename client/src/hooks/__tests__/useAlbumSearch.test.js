@@ -82,6 +82,106 @@ describe('useAlbumSearch', () => {
     });
   });
 
+  it('shares artist creation state across song-search sibling albums', async () => {
+    fetch.mockImplementation(url => {
+      if (url.includes('/api/musicbrainz/recording')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            recordings: [{
+              title: 'Test Song',
+              'artist-credit': [{
+                artist: { id: 'artist-mbid', name: 'Test Artist' }
+              }],
+              releases: [{ id: 'rel-1' }, { id: 'rel-2' }]
+            }]
+          })
+        });
+      }
+
+      if (url.includes('/api/musicbrainz/release/rel-')) {
+        const suffix = url.includes('rel-1') ? '1' : '2';
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            'release-group': {
+              id: `album-${suffix}`,
+              title: `Album ${suffix}`,
+              'primary-type': 'Album'
+            }
+          })
+        });
+      }
+
+      if (url.includes('/api/musicbrainz/release-group')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ 'release-groups': [] })
+        });
+      }
+
+      if (url.includes('/api/coverart/')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ images: [] })
+        });
+      }
+
+      if (url.includes('/api/lidarr/lookup')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => []
+        });
+      }
+
+      if (url.includes('/api/lidarr/artist-status')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ found: false, artistId: null })
+        });
+      }
+
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const { result } = renderHook(() => useAlbumSearch());
+
+    await act(async () => {
+      await result.current.searchAlbums('Test Song', 'Test Artist');
+    });
+
+    expect(result.current.results).toHaveLength(2);
+    const first = result.current.results[0];
+
+    act(() => {
+      result.current.beginAlbumAdd(first.mbid, {
+        artistMbid: 'artist-mbid',
+        artistName: 'Test Artist',
+        creatingArtist: true
+      });
+    });
+
+    expect(result.current.results.every(album =>
+      album.artistCreationState === 'creating'
+    )).toBe(true);
+
+    act(() => {
+      result.current.completeAlbumAdd(first.mbid, {
+        state: 'queued',
+        artistId: 42
+      }, {
+        artistMbid: 'artist-mbid',
+        artistName: 'Test Artist'
+      });
+    });
+
+    expect(result.current.results.every(album =>
+      album.artistInLidarr &&
+      album.artistCreationState === 'ready' &&
+      album.lidarrArtistId === 42
+    )).toBe(true);
+  });
+
   it('should handle search errors', async () => {
     fetch.mockRejectedValueOnce(new Error('Network error'));
 

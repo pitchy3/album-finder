@@ -46,7 +46,7 @@ async function processRecordings(recordings, artist, track) {
       for (const [relIndex, release] of recording.releases.entries()) {
         try {
           console.log(`💿 Processing release ${relIndex + 1}:`, release.title);
-          const releaseUrl = `/api/musicbrainz/release/${release.id}?inc=release-groups`;
+          const releaseUrl = `/api/musicbrainz/release/${release.id}?inc=release-groups%2Bartist-credits`;
           const releaseRes = await fetch(releaseUrl);
           
           if (!releaseRes.ok) {
@@ -76,8 +76,19 @@ async function processRecordings(recordings, artist, track) {
             foundAlbums.push({
               mbid: releaseGroup.id,
               title: releaseGroup.title,
-              artist: releaseGroup["artist-credit"]?.[0]?.artist?.name || artist,
-              artistMbid: releaseGroup["artist-credit"]?.[0]?.artist?.id || null,
+              artist:
+                releaseGroup?.["artist-credit"]?.[0]?.artist?.name ||
+                releaseDetail?.["artist-credit"]?.[0]?.artist?.name ||
+                release?.["artist-credit"]?.[0]?.artist?.name ||
+                recording?.["artist-credit"]?.[0]?.artist?.name ||
+                releaseGroup?.["artist-credit"]?.[0]?.name ||
+                artist,
+              artistMbid:
+                releaseGroup?.["artist-credit"]?.[0]?.artist?.id ||
+                releaseDetail?.["artist-credit"]?.[0]?.artist?.id ||
+                release?.["artist-credit"]?.[0]?.artist?.id ||
+                recording?.["artist-credit"]?.[0]?.artist?.id ||
+                null,
               score: confidence,
               releaseType: releaseGroup["primary-type"]?.toLowerCase() || 'unknown'
             });

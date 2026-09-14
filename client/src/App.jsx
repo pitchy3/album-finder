@@ -172,7 +172,11 @@ function AppContent() {
     if (isArtistSearch) {
       beginArtistAlbumAdd(album.mbid, creatingArtist);
     } else {
-      beginAlbumAdd(album.mbid);
+      beginAlbumAdd(album.mbid, {
+        artistMbid: album.artistMbid,
+        artistName: album.artist,
+        creatingArtist: !album.artistInLidarr && !album.inLidarr
+      });
     }
 
     const result = await addToLidarr(album, rootFolder);
@@ -181,12 +185,18 @@ function AppContent() {
       if (isArtistSearch) {
         completeArtistAlbumAdd(album.mbid, result.data, rootFolder);
       } else {
-        completeAlbumAdd(album.mbid, result.data);
+        completeAlbumAdd(album.mbid, result.data, {
+          artistMbid: album.artistMbid,
+          artistName: album.artist
+        });
       }
     } else if (isArtistSearch) {
       failArtistAlbumAdd(album.mbid, result.data, rootFolder);
     } else {
-      failAlbumAdd(album.mbid);
+      failAlbumAdd(album.mbid, result.data, {
+        artistMbid: album.artistMbid,
+        artistName: album.artist
+      });
     }
   };
 

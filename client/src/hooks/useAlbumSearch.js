@@ -28,20 +28,51 @@ export function useAlbumSearch() {
     }
   };
 
-  const beginAlbumAdd = (mbid) => {
-    setResults(prev => prev.map(album => 
-      album.mbid === mbid ? { ...album, addState: 'adding' } : album
-    ));
+  const isSameArtist = (album, { artistMbid, artistName } = {}) => {
+    if (artistMbid) {
+      return album.artistMbid === artistMbid;
+    }
+
+    const normalizedName = artistName?.trim().toLocaleLowerCase();
+    return normalizedName && album.artist?.trim().toLocaleLowerCase() === normalizedName;
   };
 
-  const completeAlbumAdd = (mbid, response = {}) => {
+  const beginAlbumAdd = (mbid, artist = {}) => {
+    setResults(prev => prev.map(album => {
+      if (album.mbid === mbid) {
+        return {
+          ...album,
+          addState: 'adding',
+          artistCreationState: artist.creatingArtist ? 'creating' : album.artistCreationState
+        };
+      }
+
+      if (artist.creatingArtist && isSameArtist(album, artist)) {
+        return { ...album, artistCreationState: 'creating' };
+      }
+
+      return album;
+    }));
+  };
+
+  const completeAlbumAdd = (mbid, response = {}, artist = {}) => {
     const percentComplete = response.percentComplete ?? 0;
     const complete = response.state === 'complete' || percentComplete === 100;
 
-    setResults(prev => prev.map(album =>
-      album.mbid === mbid
+    setResults(prev => prev.map(album => {
+      const sameArtist = isSameArtist(album, artist);
+      const artistState = sameArtist
+        ? {
+            artistInLidarr: true,
+            lidarrArtistId: response.artistId ?? response.id ?? album.lidarrArtistId ?? null,
+            artistCreationState: 'ready'
+          }
+        : {};
+
+      return album.mbid === mbid
         ? {
             ...album,
+            ...artistState,
             inLidarr: true,
             inLibrary: true,
             artistInLidarr: true,
@@ -50,14 +81,28 @@ export function useAlbumSearch() {
             percentComplete,
             addState: complete ? 'complete' : 'queued'
           }
-        : album
-    ));
+        : { ...album, ...artistState };
+    }));
   };
 
-  const failAlbumAdd = (mbid) => {
-    setResults(prev => prev.map(album =>
-      album.mbid === mbid ? { ...album, addState: 'error' } : album
-    ));
+  const failAlbumAdd = (mbid, response = {}, artist = {}) => {
+    const artistId = response?.artistId ?? response?.id ?? null;
+    const artistWasCreated = artistId !== null;
+
+    setResults(prev => prev.map(album => {
+      const sameArtist = isSameArtist(album, artist);
+      const artistState = sameArtist
+        ? {
+            artistInLidarr: artistWasCreated ? true : album.artistInLidarr,
+            lidarrArtistId: artistWasCreated ? artistId : album.lidarrArtistId,
+            artistCreationState: artistWasCreated ? 'ready' : 'error'
+          }
+        : {};
+
+      return album.mbid === mbid
+        ? { ...album, ...artistState, addState: 'error' }
+        : { ...album, ...artistState };
+    }));
   };
 
   return {
