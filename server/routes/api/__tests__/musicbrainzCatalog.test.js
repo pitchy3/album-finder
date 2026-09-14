@@ -67,6 +67,77 @@ describe('MusicBrainz catalog with Lidarr status overlay', () => {
     global.fetch.mockReset();
   });
 
+  it('falls back to the Lidarr catalog when the initial MusicBrainz request fails', async () => {
+    global.fetch.mockImplementation(url => {
+      if (url.includes('/ws/2/artist/')) {
+        return Promise.resolve(jsonResponse({
+          artists: [{ id: 'artist-mbid', name: 'Test Artist' }]
+        }));
+      }
+
+      if (url.includes('/ws/2/release-group?')) {
+        return Promise.resolve(jsonResponse({}, 503));
+      }
+
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    const response = await request(app)
+      .get('/api/musicbrainz/release-group/stream')
+      .query({ artist: 'Test Artist', limit: 50 })
+      .timeout(5000);
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('event: batch');
+    expect(response.text).toContain('Known Album');
+    expect(response.text).toContain('"source":"lidarr-fallback"');
+    expect(response.text).toContain('"degraded":true');
+    expect(response.text).not.toContain('event: error');
+  });
+
+  it('emits an error instead of clean completion when a later catalog page fails', async () => {
+    let catalogRequests = 0;
+    const releases = Array.from({ length: 100 }, (_, index) => ({
+      id: index === 0 ? 'known-album' : `album-${index}`,
+      title: `Album ${index}`,
+      'primary-type': 'Album',
+      'artist-credit': [{ name: 'Test Artist' }]
+    }));
+
+    global.fetch.mockImplementation(url => {
+      if (url.includes('/ws/2/artist/')) {
+        return Promise.resolve(jsonResponse({
+          artists: [{ id: 'artist-mbid', name: 'Test Artist' }]
+        }));
+      }
+
+      if (url.includes('/ws/2/release-group?')) {
+        catalogRequests += 1;
+        return Promise.resolve(catalogRequests === 1
+          ? jsonResponse({ 'release-groups': releases })
+          : jsonResponse({}, 503));
+      }
+
+      if (url.includes('coverartarchive.org/release-group/')) {
+        return Promise.resolve(jsonResponse({}, 404));
+      }
+
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    const response = await request(app)
+      .get('/api/musicbrainz/release-group/stream')
+      .query({ artist: 'Test Artist', limit: 101 })
+      .timeout(5000);
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('event: batch');
+    expect(response.text).toContain('event: error');
+    expect(response.text).toContain('MusicBrainz catalog request failed (HTTP 503)');
+    expect(response.text).toContain('"partialResults":100');
+    expect(response.text).not.toContain('event: complete');
+  });
+
   it('keeps MusicBrainz-only releases visible for an existing artist', async () => {
     global.fetch.mockImplementation(url => {
       if (url.includes('/ws/2/artist/')) {
