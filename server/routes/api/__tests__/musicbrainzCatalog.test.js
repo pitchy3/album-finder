@@ -160,12 +160,21 @@ describe('MusicBrainz catalog with Lidarr status overlay', () => {
               title: 'Discoverable Album',
               'primary-type': 'Album',
               'artist-credit': [{ name: 'Test Artist' }]
+            },
+            {
+              id: 'broadcast-album',
+              title: 'Radio Session',
+              'primary-type': 'Broadcast',
+              'artist-credit': [{ name: 'Test Artist' }]
             }
           ]
         }));
       }
 
-      if (url.includes('coverartarchive.org/release-group/missing-album')) {
+      if (
+        url.includes('coverartarchive.org/release-group/missing-album') ||
+        url.includes('coverartarchive.org/release-group/broadcast-album')
+      ) {
         return Promise.resolve(jsonResponse({}, 404));
       }
 
@@ -185,6 +194,8 @@ describe('MusicBrainz catalog with Lidarr status overlay', () => {
     expect(response.text).toContain('"mbid":"known-album"');
     expect(response.text).toContain('"inLidarr":true');
     expect(response.text).toContain('"mbid":"missing-album"');
+    expect(response.text).toContain('"mbid":"broadcast-album"');
+    expect(response.text).toContain('"releaseType":"other"');
     expect(global.fetch).not.toHaveBeenCalledWith(
       expect.stringContaining('coverartarchive.org/release-group/known-album')
     );
