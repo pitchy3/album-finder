@@ -27,14 +27,14 @@ jest.mock('../../services/queue', () => ({
       activeRequests: 3
     }))
   },
-  getUserId: jest.fn(() => 'test-user')
+  getAuthenticatedUser: jest.fn((req) => req.authUser || req.session?.user || null),
+  getUserId: jest.fn((req) => (req.authUser || req.session?.user)?.claims?.sub || 'test-user')
 }));
 
 jest.mock('../../services/redis', () => ({
   isConnected: jest.fn(() => true)
 }));
 
-// Mock timezone with all required functions
 jest.mock('../../utils/timezone', () => {
   const actualDate = new Date('2024-01-01T12:00:00Z');
   return {
@@ -51,7 +51,7 @@ jest.mock('../../utils/timezone', () => {
       if (date instanceof Date) return date.toISOString();
       return actualDate.toISOString();
     }),
-    formatDisplay: jest.fn((date, options) => {
+    formatDisplay: jest.fn((date) => {
       if (typeof date === 'string') return date;
       if (date instanceof Date) return date.toISOString();
       return actualDate.toISOString();
@@ -69,29 +69,27 @@ describe('API Routes', () => {
 
   beforeEach(() => {
     jest.resetModules();
-    
-    // Set config before requiring routes
+
     const config = require('../../config');
     config.auth.enabled = true;
-    
-    // Clear console to reduce noise
+
     jest.spyOn(console, 'log').mockImplementation(() => {});
     jest.spyOn(console, 'warn').mockImplementation(() => {});
     jest.spyOn(console, 'error').mockImplementation(() => {});
-    
+
     apiRoutes = require('../api');
-    
+
     app = express();
     app.use(express.json());
     app.use((req, res, next) => {
-      req.session = { 
-        user: { 
-          claims: { 
+      req.session = {
+        user: {
+          claims: {
             sub: 'test-user',
             preferred_username: 'testuser',
             email: 'test@example.com'
-          } 
-        } 
+          }
+        }
       };
       next();
     });
@@ -107,7 +105,7 @@ describe('API Routes', () => {
   describe('GET /api/auth/user', () => {
     it('should return logged in status when authenticated', async () => {
       const response = await request(app).get('/api/auth/user');
-      
+
       expect(response.status).toBe(200);
       expect(response.body.loggedIn).toBe(true);
       expect(response.body.authEnabled).toBe(true);
@@ -124,7 +122,7 @@ describe('API Routes', () => {
       testApp.use('/api', apiRoutes);
 
       const response = await request(testApp).get('/api/auth/user');
-      
+
       expect(response.status).toBe(200);
       expect(response.body.loggedIn).toBe(false);
     });
@@ -134,11 +132,10 @@ describe('API Routes', () => {
       config.auth.enabled = false;
 
       const response = await request(app).get('/api/auth/user');
-      
+
       expect(response.status).toBe(200);
       expect(response.body.authEnabled).toBe(false);
-      
-      // Restore
+
       config.auth.enabled = true;
     });
   });
@@ -146,19 +143,16 @@ describe('API Routes', () => {
   describe('GET /api/timezone-info', () => {
     it('should return timezone information', async () => {
       const response = await request(app).get('/api/timezone-info');
-      
+
       expect(response.status).toBe(200);
-      expect(response.body).toMatchObject({
-        timezone: 'UTC',
-        offset: '+00:00'
-      });
+      expect(response.body).toMatchObject({ timezone: 'UTC', offset: '+00:00' });
     });
   });
 
   describe('GET /api/me', () => {
     it('should return current user info', async () => {
       const response = await request(app).get('/api/me');
-      
+
       expect(response.status).toBe(200);
       expect(response.body.user).toBeDefined();
     });
@@ -167,14 +161,12 @@ describe('API Routes', () => {
   describe('GET /api/debug', () => {
     it('should return debug information', async () => {
       const response = await request(app).get('/api/debug');
-      
+
       expect(response.status).toBe(200);
       expect(response.body).toMatchObject({
         status: 'Server is running',
         authEnabled: expect.any(Boolean),
-        redis: expect.objectContaining({
-          connected: true
-        }),
+        redis: expect.objectContaining({ connected: true }),
         cache: expect.any(Object),
         queue: expect.any(Object)
       });
@@ -184,39 +176,27 @@ describe('API Routes', () => {
   describe('GET /api/stats', () => {
     it('should return system statistics or handle gracefully', async () => {
       const response = await request(app).get('/api/stats');
-      
-      // The stats endpoint may fail if certain dependencies aren't mocked
-      // We'll accept either success or a clean error
+
       if (response.status === 200) {
         expect(response.body).toMatchObject({
           user: 'test-user',
           cache: expect.any(Object),
           queue: expect.any(Object)
         });
-        
-        // If server stats are present, verify structure
+
         if (response.body.server) {
-          expect(response.body.server).toMatchObject({
-            uptime: expect.any(Number)
-          });
+          expect(response.body.server).toMatchObject({ uptime: expect.any(Number) });
         }
       } else {
-        // If it fails, make sure it fails gracefully
         expect(response.status).toBeGreaterThanOrEqual(400);
-        // Response body exists but may not have error field
         expect(response.body).toBeDefined();
       }
     });
 
     it('should handle stats request without crashing', async () => {
-      // This test just verifies the endpoint doesn't crash
       const response = await request(app).get('/api/stats');
-      
-      // Should return some status code (not undefined)
       expect(response.status).toBeDefined();
       expect(typeof response.status).toBe('number');
-      
-      // Should have some response (even if error)
       expect(response).toBeDefined();
     });
   });
@@ -224,8 +204,6 @@ describe('API Routes', () => {
   describe('Swagger UI', () => {
     it('should handle OpenAPI spec endpoint', async () => {
       const response = await request(app).get('/api');
-      
-      // Should return 200 or 404, but not crash
       expect([200, 404]).toContain(response.status);
     });
   });
@@ -233,18 +211,13 @@ describe('API Routes', () => {
   describe('Error handling', () => {
     it('should handle timezone info errors gracefully', async () => {
       const tz = require('../../utils/timezone');
-      const originalGetInfo = tz.getTimezoneInfo;
-      
       tz.getTimezoneInfo.mockImplementationOnce(() => {
         throw new Error('Timezone error');
       });
 
       const response = await request(app).get('/api/timezone-info');
-      
       expect(response.status).toBe(500);
-      
-      // Restore
-      tz.getTimezoneInfo = originalGetInfo;
+      expect(response.body).toEqual({ error: 'Failed to get timezone information' });
     });
   });
 });
