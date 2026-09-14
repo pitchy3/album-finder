@@ -72,18 +72,23 @@ async function processRecordings(recordings, artist, track) {
             albumSet.add(releaseGroup.id);
             
             const confidence = calculateConfidence(releaseGroup, artist, track);
-            const creditedArtist =
-              releaseGroup?.["artist-credit"]?.[0]?.artist ||
-              releaseDetail?.["artist-credit"]?.[0]?.artist ||
-              release?.["artist-credit"]?.[0]?.artist ||
-              recording?.["artist-credit"]?.[0]?.artist ||
-              null;
             
             foundAlbums.push({
               mbid: releaseGroup.id,
               title: releaseGroup.title,
-              artist: creditedArtist?.name || releaseGroup["artist-credit"]?.[0]?.name || artist,
-              artistMbid: creditedArtist?.id || null,
+              artist:
+                releaseGroup?.["artist-credit"]?.[0]?.artist?.name ||
+                releaseDetail?.["artist-credit"]?.[0]?.artist?.name ||
+                release?.["artist-credit"]?.[0]?.artist?.name ||
+                recording?.["artist-credit"]?.[0]?.artist?.name ||
+                releaseGroup?.["artist-credit"]?.[0]?.name ||
+                artist,
+              artistMbid:
+                releaseGroup?.["artist-credit"]?.[0]?.artist?.id ||
+                releaseDetail?.["artist-credit"]?.[0]?.artist?.id ||
+                release?.["artist-credit"]?.[0]?.artist?.id ||
+                recording?.["artist-credit"]?.[0]?.artist?.id ||
+                null,
               score: confidence,
               releaseType: releaseGroup["primary-type"]?.toLowerCase() || 'unknown'
             });
