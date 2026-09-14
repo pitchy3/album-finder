@@ -10,7 +10,8 @@ export default function AlbumCard({
   index, 
   onAddToLidarr, 
   showMatchScore = true,
-  artistInLidarr = false
+  artistInLidarr = false,
+  artistCreationState = 'ready'
   }) {
   const { preferences } = usePreferences();
   const [showRootFolderModal, setShowRootFolderModal] = useState(false);
@@ -46,7 +47,7 @@ export default function AlbumCard({
   
   const handleAddClick = () => {  
     // Check if album is already in Lidarr
-    if (isFullyDownloaded) {
+    if (album.inLidarr || album.addState === 'adding' || artistCreationState === 'creating') {
       return; // Button should be disabled, but extra safety
     }
     
@@ -71,18 +72,19 @@ export default function AlbumCard({
   };
   
   const getButtonState = () => {
-	
-    if (!album.inLidarr) {
+    if (album.addState === 'adding') {
       return {
-        text: '➕ Add to Lidarr',
-        disabled: false,
-        className: 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 hover:shadow-lg'
+        text: '⏳ Adding to Lidarr…',
+        disabled: true,
+        className: preferences.darkMode
+          ? 'bg-yellow-700 text-yellow-300 cursor-not-allowed'
+          : 'bg-yellow-200 text-yellow-800 cursor-not-allowed'
       };
     }
-    
-    if (false) {
+
+    if (artistCreationState === 'creating' && !album.inLidarr) {
       return {
-        text: '⏳ Added to Lidarr (Downloading...)',
+        text: '⏳ Adding artist to Lidarr…',
         disabled: true,
         className: preferences.darkMode
           ? 'bg-yellow-700 text-yellow-300 cursor-not-allowed'
@@ -90,7 +92,7 @@ export default function AlbumCard({
       };
     }
     
-    if (album.inLidarr && album.fullyAvailable && album.percentComplete===100) {
+    if (isFullyDownloaded || album.addState === 'complete') {
       return {
         text: '✅ In Lidarr (Complete)',
         disabled: true,
@@ -99,9 +101,21 @@ export default function AlbumCard({
           : 'bg-gray-200 text-gray-500 cursor-not-allowed'
       };
     }
-    
+    if (album.inLidarr) {
+      const isDownloading = album.percentComplete > 0 && album.percentComplete < 100;
+      return {
+        text: isDownloading
+          ? `⬇ Downloading – ${Math.round(album.percentComplete)}%`
+          : '🔎 In Lidarr (Search queued)',
+        disabled: true,
+        className: preferences.darkMode
+          ? 'bg-blue-900/50 text-blue-300 cursor-not-allowed'
+          : 'bg-blue-100 text-blue-800 cursor-not-allowed'
+      };
+    }
+
     return {
-      text: '➕ Add to Lidarr',
+      text: album.addState === 'error' ? '↻ Retry adding to Lidarr' : '➕ Add to Lidarr',
       disabled: false,
       className: 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 hover:shadow-lg'
     };

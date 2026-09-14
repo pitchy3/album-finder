@@ -172,6 +172,7 @@ export default function ArtistResultsList({ results, onAddToLidarr, progress, ar
                     onAddToLidarr={onAddToLidarr}
                     showMatchScore={false}
                     artistInLidarr={artistStatus?.artistInLidarr || false}
+                    artistCreationState={artistStatus?.creationState || 'ready'}
                   />
                 ))}
               </div>
