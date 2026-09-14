@@ -4,7 +4,6 @@
  * @module services/lidarr/ArtistService
  */
 
-const lidarrConfig = require('../../config/lidarr');
 const config = require('../../config');
 
 class ArtistService {
@@ -59,99 +58,47 @@ class ArtistService {
   }
 
   /**
-   * Add new artist to Lidarr
-   * @param {Object} artistInfo - Artist information from lookup
-   * @param {string} artistInfo.foreignArtistId - MusicBrainz Artist ID
-   * @param {string} artistInfo.artistName - Artist name
+   * Configure a lookup artist for Lidarr's native album-add endpoint.
+   * Album Finder monitors only the selected album, not the whole artist.
+   *
+   * @param {Object} artistInfo - Artist resource nested in an album lookup
    * @param {Object} options - Addition options
-   * @param {string} options.customRootFolder - Custom root folder path (overrides default)
-   * @param {boolean} options.monitored - Whether artist should be monitored
-   * @param {string} options.monitorNewItems - Monitor new items setting
-   * @param {boolean} options.searchForMissingAlbums - Whether to search immediately
-   * @returns {Promise<Object>} Added artist object
+   * @param {string|null} options.customRootFolder - Selected root folder
+   * @returns {Promise<Object>} Artist resource configured for addition
    */
-  async add(artistInfo, options = {}) {
-    const {
-      customRootFolder = null,
-      monitored = true,
-      monitorNewItems = 'none',
-      searchForMissingAlbums = false
-    } = options;
+  async prepareForAlbumAddition(artistInfo, options = {}) {
+    const rootFolderPath = options.customRootFolder || config.lidarr.rootFolder;
+    const rootFolders = await this.client.get('rootfolder');
+    const selectedRoot = Array.isArray(rootFolders)
+      ? rootFolders.find(folder => folder.path === rootFolderPath)
+      : null;
 
-    const rootFolderPath = customRootFolder || config.lidarr.rootFolder;
+    let metadataProfileId = selectedRoot?.defaultMetadataProfileId;
 
-    const artistData = {
-      foreignArtistId: artistInfo.foreignArtistId,
-      artistName: artistInfo.artistName,
-      qualityProfileId: parseInt(config.lidarr.qualityProfileId, 10),
-      metadataProfileId: 1,
+    if (!metadataProfileId) {
+      const metadataProfiles = await this.client.get('metadataProfile');
+      const noneProfile = Array.isArray(metadataProfiles)
+        ? metadataProfiles.find(profile => profile.name?.toLowerCase() === 'none')
+        : null;
+      metadataProfileId = noneProfile?.id || metadataProfiles?.[0]?.id;
+    }
+
+    if (!metadataProfileId) {
+      throw new Error('Lidarr has no metadata profile available for the new artist');
+    }
+
+    return {
+      ...artistInfo,
       rootFolderPath,
-      monitored,
-      monitorNewItems,
+      qualityProfileId: parseInt(config.lidarr.qualityProfileId, 10),
+      metadataProfileId,
+      monitored: false,
+      monitorNewItems: 'none',
       addOptions: {
-        monitor: 'None',
-        searchForMissingAlbums
+        monitor: 'none',
+        searchForMissingAlbums: false
       }
     };
-
-    return this.client.post('artist', artistData);
-  }
-
-  /**
-   * Trigger artist metadata refresh
-   * Forces Lidarr to update artist information from MusicBrainz
-   * 
-   * @param {number|number[]} artistIds - Single ID or array of artist IDs
-   * @returns {Promise<boolean>} True if refresh triggered successfully
-   */
-  async triggerRefresh(artistIds) {
-    const ids = Array.isArray(artistIds) ? artistIds : [artistIds];
-    
-    try {
-      await this.client.post('command', {
-        name: 'RefreshArtist',
-        artistIds: ids
-      }, lidarrConfig.timeouts.refresh);
-      
-      return true;
-    } catch (error) {
-      console.error('Artist refresh failed:', error.message);
-      return false;
-    }
-  }
-
-  /**
-   * Poll for album to appear in artist's discography after refresh
-   * Uses smart polling with configurable interval and max attempts
-   * 
-   * @param {number} artistId - Lidarr artist ID
-   * @param {string} targetMbid - MusicBrainz Release Group ID to wait for
-   * @param {AlbumService} albumService - Album service instance for checking discography
-   * @returns {Promise<Object|null>} Album object when found, or null if timeout
-   */
-  async waitForAlbumRefresh(artistId, targetMbid, albumService) {
-    const startTime = Date.now();
-    const { interval, maxAttempts } = lidarrConfig.polling;
-
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const albums = await albumService.getByArtistId(artistId);
-      const found = albumService.findInDiscography(albums, targetMbid);
-
-      if (found) {
-        const elapsed = Date.now() - startTime;
-        console.log(`✅ Album appeared after ${elapsed}ms (${attempt + 1} attempts)`);
-        return found;
-      }
-
-      // Don't wait after last attempt
-      if (attempt < maxAttempts - 1) {
-        await new Promise(resolve => setTimeout(resolve, interval));
-      }
-    }
-
-    const elapsed = Date.now() - startTime;
-    console.warn(`⏱️ Album not found after ${elapsed}ms (${maxAttempts} attempts)`);
-    return null;
   }
 
   /**

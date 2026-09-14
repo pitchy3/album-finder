@@ -43,6 +43,17 @@ describe('Cache Service', () => {
       expect(result).toBeNull();
     });
 
+    it('should clear all entries matching a prefix', () => {
+      cache.set('lidarr:{"id":1}', 'album');
+      cache.set('lidarr-artist-status:{"id":1}', 'artist');
+      cache.set('musicbrainz:{"id":1}', 'release');
+
+      expect(cache.clearByPrefix('lidarr')).toBe(2);
+      expect(cache.get('lidarr:{"id":1}')).toBeNull();
+      expect(cache.get('lidarr-artist-status:{"id":1}')).toBeNull();
+      expect(cache.get('musicbrainz:{"id":1}')).toBe('release');
+    });
+
     it('should track hit/miss statistics', () => {
       cache.set('test-key', 'value');
       cache.get('test-key'); // hit

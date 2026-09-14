@@ -113,179 +113,78 @@ describe('ArtistService', () => {
     });
   });
 
-  describe('add', () => {
-    it('should add artist with default options', async () => {
+  describe('prepareForAlbumAddition', () => {
+    it('should use root-folder defaults and monitor only the selected album', async () => {
       const artistInfo = {
         foreignArtistId: 'mbid-123',
         artistName: 'Test Artist'
       };
 
-      mockClient.post.mockResolvedValueOnce({
-        id: 1,
-        ...artistInfo
-      });
+      mockClient.get.mockResolvedValueOnce([{
+        path: '/music',
+        defaultMetadataProfileId: 7
+      }]);
 
-      const result = await artistService.add(artistInfo);
+      const result = await artistService.prepareForAlbumAddition(artistInfo);
 
-      expect(result.id).toBe(1);
-      expect(mockClient.post).toHaveBeenCalledWith('artist', expect.objectContaining({
+      expect(result).toMatchObject({
         foreignArtistId: 'mbid-123',
         artistName: 'Test Artist',
         qualityProfileId: 1,
-        metadataProfileId: 1,
+        metadataProfileId: 7,
         rootFolderPath: '/music',
-        monitored: true,
-        monitorNewItems: 'none'
-      }));
+        monitored: false,
+        monitorNewItems: 'none',
+        addOptions: {
+          monitor: 'none',
+          searchForMissingAlbums: false
+        }
+      });
     });
 
-    it('should add artist with custom root folder', async () => {
-      const artistInfo = {
+    it('should use the selected custom root folder', async () => {
+      mockClient.get.mockResolvedValueOnce([
+        { path: '/music', defaultMetadataProfileId: 1 },
+        { path: '/custom/music', defaultMetadataProfileId: 9 }
+      ]);
+
+      const result = await artistService.prepareForAlbumAddition({
         foreignArtistId: 'mbid-123',
         artistName: 'Test Artist'
-      };
-
-      mockClient.post.mockResolvedValueOnce({ id: 1 });
-
-      await artistService.add(artistInfo, {
+      }, {
         customRootFolder: '/custom/music'
       });
 
-      expect(mockClient.post).toHaveBeenCalledWith('artist', expect.objectContaining({
-        rootFolderPath: '/custom/music'
-      }));
+      expect(result.rootFolderPath).toBe('/custom/music');
+      expect(result.metadataProfileId).toBe(9);
     });
 
-    it('should add artist with custom options', async () => {
-      const artistInfo = {
+    it('should fall back to Lidarr metadata profiles when the root has no default', async () => {
+      mockClient.get
+        .mockResolvedValueOnce([{ path: '/music' }])
+        .mockResolvedValueOnce([
+          { id: 3, name: 'Standard' },
+          { id: 4, name: 'None' }
+        ]);
+
+      const result = await artistService.prepareForAlbumAddition({
         foreignArtistId: 'mbid-123',
         artistName: 'Test Artist'
-      };
-
-      mockClient.post.mockResolvedValueOnce({ id: 1 });
-
-      await artistService.add(artistInfo, {
-        monitored: false,
-        monitorNewItems: 'all',
-        searchForMissingAlbums: true
       });
 
-      expect(mockClient.post).toHaveBeenCalledWith('artist', expect.objectContaining({
-        monitored: false,
-        monitorNewItems: 'all',
-        addOptions: expect.objectContaining({
-          searchForMissingAlbums: true
-        })
-      }));
-    });
-  });
-
-  describe('triggerRefresh', () => {
-    it('should trigger refresh for single artist', async () => {
-      mockClient.post.mockResolvedValueOnce({ id: 1 });
-
-      const result = await artistService.triggerRefresh(123);
-
-      expect(result).toBe(true);
-      expect(mockClient.post).toHaveBeenCalledWith(
-        'command',
-        {
-          name: 'RefreshArtist',
-          artistIds: [123]
-        },
-        expect.any(Number) // timeout
-      );
+      expect(result.metadataProfileId).toBe(4);
+      expect(mockClient.get).toHaveBeenNthCalledWith(2, 'metadataProfile');
     });
 
-    it('should trigger refresh for multiple artists', async () => {
-      mockClient.post.mockResolvedValueOnce({ id: 1 });
+    it('should fail clearly when Lidarr has no metadata profile', async () => {
+      mockClient.get
+        .mockResolvedValueOnce([{ path: '/music' }])
+        .mockResolvedValueOnce([]);
 
-      const result = await artistService.triggerRefresh([123, 456]);
-
-      expect(result).toBe(true);
-      expect(mockClient.post).toHaveBeenCalledWith(
-        'command',
-        {
-          name: 'RefreshArtist',
-          artistIds: [123, 456]
-        },
-        expect.any(Number)
-      );
-    });
-
-    it('should return false on error', async () => {
-      mockClient.post.mockRejectedValueOnce(new Error('Refresh failed'));
-
-      const result = await artistService.triggerRefresh(123);
-
-      expect(result).toBe(false);
-    });
-  });
-
-  describe('waitForAlbumRefresh', () => {
-    it('should find album immediately', async () => {
-      const mockAlbumService = {
-        getByArtistId: jest.fn().mockResolvedValue([
-          { id: 1, foreignAlbumId: 'mbid-1' },
-          { id: 2, foreignAlbumId: 'target-mbid' }
-        ]),
-        findInDiscography: jest.fn().mockReturnValue({ id: 2, foreignAlbumId: 'target-mbid' })
-      };
-
-      const result = await artistService.waitForAlbumRefresh(1, 'target-mbid', mockAlbumService);
-
-      expect(result).toEqual({ id: 2, foreignAlbumId: 'target-mbid' });
-      expect(mockAlbumService.getByArtistId).toHaveBeenCalledTimes(1);
-    });
-
-    it('should poll until album appears', async () => {
-      jest.useFakeTimers();
-      
-      const mockAlbumService = {
-        getByArtistId: jest.fn()
-          .mockResolvedValueOnce([]) // First call: not found
-          .mockResolvedValueOnce([]) // Second call: not found
-          .mockResolvedValue([{ id: 2, foreignAlbumId: 'target-mbid' }]), // Third call: found
-        findInDiscography: jest.fn()
-          .mockReturnValueOnce(null)
-          .mockReturnValueOnce(null)
-          .mockReturnValue({ id: 2, foreignAlbumId: 'target-mbid' })
-      };
-
-      const promise = artistService.waitForAlbumRefresh(1, 'target-mbid', mockAlbumService);
-
-      // Advance timers to trigger polling
-      await jest.advanceTimersByTimeAsync(1000); // First poll
-      await jest.advanceTimersByTimeAsync(1000); // Second poll
-
-      const result = await promise;
-
-      expect(result).toEqual({ id: 2, foreignAlbumId: 'target-mbid' });
-      expect(mockAlbumService.getByArtistId).toHaveBeenCalledTimes(3);
-
-      jest.useRealTimers();
-    });
-
-    it('should return null after max attempts', async () => {
-      jest.useFakeTimers();
-      
-      const mockAlbumService = {
-        getByArtistId: jest.fn().mockResolvedValue([]),
-        findInDiscography: jest.fn().mockReturnValue(null)
-      };
-
-      const promise = artistService.waitForAlbumRefresh(1, 'target-mbid', mockAlbumService);
-
-      // Advance timers past max attempts (30 attempts * 1000ms)
-      for (let i = 0; i < 30; i++) {
-        await jest.advanceTimersByTimeAsync(1000);
-      }
-
-      const result = await promise;
-
-      expect(result).toBeNull();
-
-      jest.useRealTimers();
+      await expect(artistService.prepareForAlbumAddition({
+        foreignArtistId: 'mbid-123',
+        artistName: 'Test Artist'
+      })).rejects.toThrow('no metadata profile');
     });
   });
 

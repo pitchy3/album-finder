@@ -100,6 +100,16 @@ class ScalableCache {
     return this.cache.del(key);
   }
 
+  clearByPrefix(prefix) {
+    const keys = this.cache.keys().filter(key => key.startsWith(prefix));
+
+    if (keys.length === 0) {
+      return 0;
+    }
+
+    return this.cache.del(keys);
+  }
+
   getStats() {
     return {
       keys: this.cache.keys().length,
