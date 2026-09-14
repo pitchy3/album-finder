@@ -51,7 +51,8 @@ function AppContent() {
   const { 
     loading: artistLoading, 
     results: artistResults, 
-    error: artistError, 
+    error: artistError,
+    warning: artistWarning,
     progress: artistProgress,
     artistStatus,
     searchArtistReleases,
@@ -375,6 +376,7 @@ function AppContent() {
                   onAddToLidarr={handleAddToLidarr}
                   progress={artistProgress}
                   artistStatus={artistStatus}
+                  warning={artistWarning}
                   loading={artistLoading}
                 />
               )}

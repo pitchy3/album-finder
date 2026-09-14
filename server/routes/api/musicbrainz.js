@@ -83,37 +83,16 @@ async function processBatch(releases, artistName, lidarrAlbumsMap, categories) {
         secondaryTypes: []
       };
 
-      // Determine release type - handle both MusicBrainz and Lidarr formats
-      let releaseType;
-      
-      if (release['primary-type']) {
-        // MusicBrainz format
-        releaseType = release['primary-type'].toLowerCase();
-      } else if (lidarrInfo.albumType) {
-        // Lidarr format from our map - map their types to our types
-        const lidarrType = lidarrInfo.albumType.toLowerCase();
-        const typeMap = {
-          'album': 'album',
-          'ep': 'ep',
-          'single': 'single',
-          'broadcast': 'other',
-          'other': 'other'
-        };
-        releaseType = typeMap[lidarrType] || 'other';
-      } else if (release.albumType) {
-        // Fallback: Direct from release object (shouldn't happen but safe)
-        const lidarrType = release.albumType.toLowerCase();
-        const typeMap = {
-          'album': 'album',
-          'ep': 'ep',
-          'single': 'single',
-          'broadcast': 'other',
-          'other': 'other'
-        };
-        releaseType = typeMap[lidarrType] || 'other';
-      } else {
-        releaseType = 'unknown';
-      }
+      // Normalize every non-album/EP/single primary type into the
+      // user-facing "Other Releases" category.
+      const rawReleaseType =
+        release['primary-type'] ||
+        lidarrInfo.albumType ||
+        release.albumType;
+      const normalizedReleaseType = rawReleaseType?.toLowerCase();
+      const releaseType = ['album', 'ep', 'single'].includes(normalizedReleaseType)
+        ? normalizedReleaseType
+        : 'other';
 	  
       // Apply category filtering
       if (categories && categories !== 'all') {

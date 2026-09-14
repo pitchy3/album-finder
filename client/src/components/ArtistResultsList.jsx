@@ -3,7 +3,7 @@ import { useState } from 'react';
 import AlbumCard from './AlbumCard.jsx';
 import { usePreferences } from "../contexts/PreferencesContext.jsx";
 
-export default function ArtistResultsList({ results, onAddToLidarr, progress, artistStatus, loading }) {
+export default function ArtistResultsList({ results, onAddToLidarr, progress, artistStatus, warning, loading }) {
   const { preferences } = usePreferences();
   
   // Track which sections are expanded (all expanded by default)
@@ -11,7 +11,7 @@ export default function ArtistResultsList({ results, onAddToLidarr, progress, ar
     album: true,
     ep: true,
     single: true,
-    unknown: true
+    other: true
   });
 
   // Toggle section expansion
@@ -36,13 +36,23 @@ export default function ArtistResultsList({ results, onAddToLidarr, progress, ar
     'album': '💿 Albums',
     'ep': '🎵 EPs',
     'single': '🎤 Singles',
-    'unknown': '❓ Other Releases'
+    'other': '❓ Other Releases'
   };
 
-  const typeOrder = ['album', 'ep', 'single', 'unknown'];
+  const typeOrder = ['album', 'ep', 'single', 'other'];
 
   return (
     <div className="space-y-6">
+      {warning && (
+        <div className={`rounded-xl p-4 border ${
+          preferences.darkMode
+            ? 'bg-yellow-900/30 border-yellow-700 text-yellow-200'
+            : 'bg-yellow-50 border-yellow-300 text-yellow-800'
+        }`} role="status">
+          {warning}
+        </div>
+      )}
+
       {/* Progress indicator */}
       {loading && (
         <div className={`rounded-xl p-4 ${
