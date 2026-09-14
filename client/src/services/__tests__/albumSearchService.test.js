@@ -31,7 +31,7 @@ describe('Album Search Service', () => {
           title: 'Test Album',
           'primary-type': 'Album',
           'artist-credit': [{
-            artist: { id: 'artist-mbid', name: 'Test Artist' }
+            artist: { name: 'Test Artist' }
           }]
         }
       })
@@ -47,6 +47,7 @@ describe('Album Search Service', () => {
 
     const results = await findAlbum('Test Song', 'Test Artist');
 
+    expect(fetch.mock.calls[1][0]).toContain('inc=release-groups%2Bartist-credits');
     expect(results).toHaveLength(1);
     expect(results[0]).toMatchObject({
       title: 'Test Album',
