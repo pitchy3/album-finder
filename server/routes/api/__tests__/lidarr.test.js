@@ -158,4 +158,97 @@ describe('Lidarr API Routes', () => {
       expect(response.body).toBeDefined();
     });
   });
+
+  describe('POST /api/lidarr/add', () => {
+    it('adds a selected album through Lidarr and lets Lidarr create the artist', async () => {
+      global.fetch.mockImplementation((url, options = {}) => {
+        if (url.includes('/album/lookup')) {
+          return Promise.resolve(jsonResponse([{
+            title: 'Test Album',
+            foreignAlbumId: 'album-mbid',
+            artist: {
+              id: 0,
+              artistName: 'Test Artist',
+              foreignArtistId: 'artist-mbid'
+            }
+          }]));
+        }
+
+        if (url.includes('/album?') && options.method === 'GET') {
+          return Promise.resolve(jsonResponse([]));
+        }
+
+        if (url.includes('/artist?') && options.method === 'GET') {
+          return Promise.resolve(jsonResponse([]));
+        }
+
+        if (url.includes('/rootfolder?')) {
+          return Promise.resolve(jsonResponse([{
+            path: '/music',
+            defaultMetadataProfileId: 3
+          }]));
+        }
+
+        if (url.includes('/album?') && options.method === 'POST') {
+          const body = JSON.parse(options.body);
+          expect(body).toMatchObject({
+            monitored: true,
+            addOptions: { searchForNewAlbum: true },
+            artist: {
+              rootFolderPath: '/music',
+              qualityProfileId: 1,
+              metadataProfileId: 3,
+              monitored: false,
+              addOptions: { monitor: 'none' }
+            }
+          });
+
+          return Promise.resolve(jsonResponse({
+            id: 10,
+            title: 'Test Album',
+            foreignAlbumId: 'album-mbid',
+            artist: {
+              id: 5,
+              artistName: 'Test Artist',
+              foreignArtistId: 'artist-mbid',
+              monitored: false
+            }
+          }, 201));
+        }
+
+        throw new Error(`Unexpected request: ${options.method || 'GET'} ${url}`);
+      });
+
+      const response = await request(app)
+        .post('/api/lidarr/add')
+        .send({
+          mbid: 'album-mbid',
+          title: 'Test Album',
+          artist: 'Test Artist',
+          rootFolder: '/music'
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({
+        success: true,
+        state: 'queued',
+        artistCreated: true,
+        artistId: 5,
+        albumId: 10,
+        searchRequested: true
+      });
+      expect(require('../../../services/cache').cache.clearByPrefix)
+        .toHaveBeenCalledWith('lidarr');
+    });
+  });
 });
+
+function jsonResponse(data, status = 200) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    statusText: status === 201 ? 'Created' : 'OK',
+    json: jest.fn().mockResolvedValue(data),
+    text: jest.fn().mockResolvedValue(JSON.stringify(data))
+  };
+}

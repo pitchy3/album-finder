@@ -154,6 +154,42 @@ describe('AlbumService', () => {
     });
   });
 
+  describe('findInLibraryStrict', () => {
+    it('returns an enriched matching album', async () => {
+      mockClient.get.mockResolvedValueOnce([{
+        id: 1,
+        foreignAlbumId: 'mbid-123',
+        statistics: { percentOfTracks: 50 }
+      }]);
+
+      const result = await albumService.findInLibraryStrict('mbid-123');
+
+      expect(result).toMatchObject({
+        inLibrary: true,
+        percentComplete: 50
+      });
+    });
+
+    it('propagates read errors used for mutation safety', async () => {
+      mockClient.get.mockRejectedValueOnce(new Error('Lidarr unavailable'));
+
+      await expect(albumService.findInLibraryStrict('mbid-123'))
+        .rejects.toThrow('Lidarr unavailable');
+    });
+  });
+
+  describe('add', () => {
+    it('posts an album resource to the native Lidarr endpoint', async () => {
+      const album = { foreignAlbumId: 'mbid-123', monitored: true };
+      mockClient.post.mockResolvedValueOnce({ id: 12, ...album });
+
+      const result = await albumService.add(album);
+
+      expect(mockClient.post).toHaveBeenCalledWith('album', album);
+      expect(result.id).toBe(12);
+    });
+  });
+
   describe('updateMonitoring', () => {
     it('should update album monitoring status', async () => {
       const album = { id: 1, title: 'Test', monitored: false };
@@ -206,6 +242,15 @@ describe('AlbumService', () => {
       const result = await albumService.triggerSearch(123);
 
       expect(result).toBe(false);
+    });
+  });
+
+  describe('triggerSearchStrict', () => {
+    it('propagates command failures', async () => {
+      mockClient.post.mockRejectedValueOnce(new Error('command rejected'));
+
+      await expect(albumService.triggerSearchStrict(123))
+        .rejects.toThrow('command rejected');
     });
   });
 

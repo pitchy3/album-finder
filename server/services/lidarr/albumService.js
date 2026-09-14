@@ -91,6 +91,38 @@ class AlbumService {
   }
 
   /**
+   * Search for an album in the library without suppressing Lidarr errors.
+   * This is used before mutations so a temporary read failure cannot turn
+   * into a duplicate add attempt.
+   *
+   * @param {string} mbid - MusicBrainz Release Group ID
+   * @returns {Promise<Object|null>} Album data if found in the library
+   */
+  async findInLibraryStrict(mbid) {
+    const results = await this.client.get('album', {
+      foreignAlbumId: encodeURIComponent(mbid)
+    });
+
+    if (!Array.isArray(results) || results.length === 0) {
+      return null;
+    }
+
+    return this.enrichAlbumStatus(results[0]);
+  }
+
+  /**
+   * Add a selected album through Lidarr's native album endpoint. Lidarr will
+   * create the nested artist when necessary and perform its refresh/search
+   * workflow asynchronously.
+   *
+   * @param {Object} album - Album lookup resource configured for addition
+   * @returns {Promise<Object>} Added album resource
+   */
+  async add(album) {
+    return this.client.post('album', album);
+  }
+
+  /**
    * Update album monitoring status
    * @param {Object} album - Album object to update
    * @param {boolean} monitored - Whether album should be monitored
@@ -119,6 +151,25 @@ class AlbumService {
       console.error('Album search trigger failed:', error.message);
       return false;
     }
+  }
+
+  /**
+   * Trigger an album search and propagate Lidarr errors to the caller.
+   * Mutation workflows use this variant so a failed search cannot be
+   * reported as a successful add.
+   *
+   * @param {number|number[]} albumIds - Single ID or array of album IDs
+   * @returns {Promise<boolean>} True after Lidarr accepts the command
+   */
+  async triggerSearchStrict(albumIds) {
+    const ids = Array.isArray(albumIds) ? albumIds : [albumIds];
+
+    await this.client.post('command', {
+      name: 'AlbumSearch',
+      albumIds: ids
+    });
+
+    return true;
   }
 
   /**

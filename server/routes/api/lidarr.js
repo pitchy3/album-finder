@@ -33,6 +33,27 @@ const router = express.Router();
 
 // Initialize services (singleton pattern)
 let lidarrClient, albumService, artistService;
+const artistAdditionLocks = new Map();
+
+async function withArtistAdditionLock(artistMbid, operation) {
+  const previous = artistAdditionLocks.get(artistMbid) || Promise.resolve();
+  let release;
+  const current = new Promise(resolve => {
+    release = resolve;
+  });
+
+  artistAdditionLocks.set(artistMbid, current);
+  await previous;
+
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (artistAdditionLocks.get(artistMbid) === current) {
+      artistAdditionLocks.delete(artistMbid);
+    }
+  }
+}
 
 /**
  * Get or initialize service instances
@@ -133,18 +154,28 @@ router.post("/add", ensureAuthenticated, async (req, res) => {
     const artistInfo = album.artist;
     const requestData = { mbid, title, artist, rootFolder };
 
-    // Step 2: Check if artist already exists in Lidarr
-    const existingArtist = await artistService.findByMbid(artistInfo.foreignArtistId);
+    return withArtistAdditionLock(artistInfo.foreignArtistId, async () => {
+      // Recheck mutable Lidarr state inside the per-artist lock. This makes
+      // simultaneous requests idempotent instead of racing artist creation.
+      const [libraryAlbum, existingArtist] = await Promise.all([
+        album.id ? Promise.resolve(album) : albumService.findInLibraryStrict(mbid),
+        artistService.findByMbid(artistInfo.foreignArtistId)
+      ]);
 
-    // Step 3: Route to appropriate handler
-    if (existingArtist) {
-      if (rootFolder) {
-        console.log(`⚠️  Ignoring custom root folder - artist already exists in: ${existingArtist.path || 'unknown'}`);
+      let result;
+      if (libraryAlbum) {
+        const libraryArtist = existingArtist || libraryAlbum.artist || artistInfo;
+        result = await orchestrator.monitorAndSearchAlbum(libraryAlbum, libraryArtist, requestData);
+      } else {
+        if (existingArtist && rootFolder) {
+          console.log(`⚠️  Ignoring custom root folder - artist already exists in: ${existingArtist.path || 'unknown'}`);
+        }
+        result = await orchestrator.addAlbum(album, existingArtist, requestData);
       }
-      return orchestrator.handleExistingArtist(existingArtist, mbid, requestData);
-    } else {
-      return orchestrator.handleNewArtist(artistInfo, mbid, requestData);
-    }
+
+      cache.clearByPrefix('lidarr');
+      return result;
+    });
   });
 });
 

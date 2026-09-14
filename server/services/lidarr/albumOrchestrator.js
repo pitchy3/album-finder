@@ -23,87 +23,69 @@ class AlbumOrchestrator {
   }
 
   /**
-   * Handle album addition for existing artist
-   * Checks if album exists in discography, refreshes if needed
-   * 
-   * @param {Object} artist - Existing artist object from Lidarr
-   * @param {string} targetMbid - MusicBrainz Release Group ID
+   * Add a selected album using Lidarr's native album-add workflow. This
+   * returns as soon as Lidarr accepts the album; metadata refresh and search
+   * continue inside Lidarr.
+   *
+   * @param {Object} album - Album lookup resource
+   * @param {Object|null} existingArtist - Existing Lidarr artist, if any
    * @param {Object} requestData - Original request data for logging
-   * @returns {Promise<Object>} Operation result
+   * @returns {Promise<Object>} Accepted operation result
    */
-  async handleExistingArtist(artist, targetMbid, requestData) {
-    console.log(`📀 Processing album for existing artist: ${artist.artistName}`);
-    
-    // Get artist's albums
-    const albums = await this.albumService.getByArtistId(artist.id);
-    let targetAlbum = this.albumService.findInDiscography(albums, targetMbid);
-
-    // If not found, try refreshing artist metadata
-    if (!targetAlbum) {
-      console.log(`🔄 Album not found, triggering artist refresh for ${artist.artistName}`);
-      
-      await this.artistService.triggerRefresh(artist.id);
-      targetAlbum = await this.artistService.waitForAlbumRefresh(
-        artist.id, 
-        targetMbid, 
-        this.albumService
-      );
-
-      if (!targetAlbum) {
-        return this.handleAlbumNotFound(artist, requestData);
-      }
-    }
-
-    // Monitor and search for album
-    return this.monitorAndSearchAlbum(targetAlbum, artist, requestData);
-  }
-
-  /**
-   * Handle album addition for new artist
-   * Adds artist to Lidarr, refreshes metadata, then adds album
-   * 
-   * @param {Object} artistInfo - Artist information from album lookup
-   * @param {string} targetMbid - MusicBrainz Release Group ID
-   * @param {Object} requestData - Original request data for logging
-   * @returns {Promise<Object>} Operation result
-   */
-  async handleNewArtist(artistInfo, targetMbid, requestData) {
-    const { rootFolder } = requestData;
-
-    console.log(`➕ Adding new artist: ${artistInfo.artistName}`);
-    
-    // Add artist
-    const addedArtist = await this.artistService.add(artistInfo, {
-      customRootFolder: rootFolder
-    });
-
-    // Log artist addition
-    const artistData = LidarrLogger.buildArtistData(addedArtist, {
-      qualityProfileId: parseInt(config.lidarr.qualityProfileId, 10),
-      rootFolder: rootFolder || config.lidarr.rootFolder
-    });
-    
-    await this.logger.logArtist(artistData, { 
-      success: true, 
-      requestData 
-    });
-
-    console.log(`🔄 Refreshing artist metadata to fetch discography`);
-    
-    // Trigger refresh and wait for album to appear
-    await this.artistService.triggerRefresh(addedArtist.id);
-    const targetAlbum = await this.artistService.waitForAlbumRefresh(
-      addedArtist.id,
-      targetMbid,
-      this.albumService
+  async addAlbum(album, existingArtist, requestData) {
+    const artistCreated = !existingArtist;
+    const artist = existingArtist || await this.artistService.prepareForAlbumAddition(
+      album.artist,
+      { customRootFolder: requestData.rootFolder }
     );
 
-    if (!targetAlbum) {
-      return this.handleAlbumNotFound(addedArtist, requestData);
+    const albumToAdd = {
+      ...album,
+      artist,
+      monitored: true,
+      addOptions: {
+        ...(album.addOptions || {}),
+        searchForNewAlbum: true
+      }
+    };
+
+    console.log(`➕ Adding album through Lidarr's native album endpoint: ${album.title}`);
+    const addedAlbum = await this.albumService.add(albumToAdd);
+    const addedArtist = addedAlbum.artist || existingArtist || artist;
+
+    if (artistCreated) {
+      await this.safeLog('artist', LidarrLogger.buildArtistData(addedArtist, {
+        artistName: artist.artistName,
+        artistMbid: artist.foreignArtistId,
+        qualityProfileId: parseInt(config.lidarr.qualityProfileId, 10),
+        rootFolder: requestData.rootFolder || config.lidarr.rootFolder,
+        monitored: false
+      }), requestData);
     }
 
-    // Monitor and search for album
-    return this.monitorAndSearchAlbum(targetAlbum, addedArtist, requestData);
+    await this.safeLog('album', LidarrLogger.buildAlbumData(addedAlbum, addedArtist, {
+      albumTitle: requestData.title,
+      albumMbid: requestData.mbid,
+      artistName: requestData.artist,
+      monitored: true,
+      searchTriggered: true
+    }), requestData);
+
+    return {
+      success: true,
+      state: 'queued',
+      id: addedArtist.id,
+      artistId: addedArtist.id,
+      artistCreated,
+      title: addedAlbum.title || requestData.title,
+      artist: addedArtist.artistName || requestData.artist,
+      albumId: addedAlbum.id,
+      monitored: true,
+      searchTriggered: true,
+      searchRequested: true,
+      percentComplete: 0,
+      message: `\"${addedAlbum.title || requestData.title}\" by \"${addedArtist.artistName || requestData.artist}\" added and search queued`
+    };
   }
 
   /**
@@ -126,7 +108,7 @@ class AlbumOrchestrator {
     // Trigger search if not complete
     const percentComplete = album.statistics?.percentOfTracks || 0;
     const searchTriggered = percentComplete < 100 
-      ? await this.albumService.triggerSearch(album.id)
+      ? await this.albumService.triggerSearchStrict(album.id)
       : false;
 
     if (searchTriggered) {
@@ -141,10 +123,7 @@ class AlbumOrchestrator {
       searchTriggered
     });
 
-    await this.logger.logAlbum(albumData, {
-      success: true,
-      requestData
-    });
+    await this.safeLog('album', albumData, requestData);
 
     // Return success response
     const statusMsg = searchTriggered
@@ -154,7 +133,11 @@ class AlbumOrchestrator {
         : 'added successfully';
 
     return {
+      success: true,
+      state: percentComplete === 100 ? 'complete' : 'queued',
       id: artist.id,
+      artistId: artist.id,
+      artistCreated: false,
       title: album.title,
       artist: artist.artistName,
       message: `"${album.title}" by "${artist.artistName}" ${statusMsg}`,
@@ -165,42 +148,18 @@ class AlbumOrchestrator {
     };
   }
 
-  /**
-   * Handle case where album not found in artist's discography after refresh
-   * Logs failure and returns helpful error message
-   * 
-   * @param {Object} artist - Artist object from Lidarr
-   * @param {Object} requestData - Original request data for logging
-   * @returns {Promise<Object>} Failure response
-   */
-  async handleAlbumNotFound(artist, requestData) {
-    console.warn(`⚠️ Album "${requestData.title}" not found in ${artist.artistName}'s discography`);
-    
-    const albumData = LidarrLogger.buildAlbumData(null, artist, {
-      albumTitle: requestData.title,
-      albumMbid: requestData.mbid,
-      monitored: false,
-      searchTriggered: false
-    });
-
-    await this.logger.logAlbum(albumData, {
-      success: false,
-      error: new Error('Album not found in artist discography after refresh'),
-      requestData
-    });
-
-    return {
-      id: artist.id,
-      title: requestData.title,
-      artist: artist.artistName,
-      message: `Artist "${artist.artistName}" exists but album "${requestData.title}" not found in their discography. This may happen if:\n` +
-               `• The album is not in MusicBrainz\n` +
-               `• The album has different metadata\n` +
-               `• The album is a compilation or various artists release\n\n` +
-               `Try refreshing the artist manually in Lidarr or add the album directly through Lidarr's interface.`,
-      success: false
-    };
+  async safeLog(type, data, requestData) {
+    try {
+      if (type === 'artist') {
+        await this.logger.logArtist(data, { success: true, requestData });
+      } else {
+        await this.logger.logAlbum(data, { success: true, requestData });
+      }
+    } catch (error) {
+      console.warn(`Failed to record ${type} addition log:`, error.message);
+    }
   }
+
 }
 
 module.exports = { AlbumOrchestrator };
