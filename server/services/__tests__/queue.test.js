@@ -5,9 +5,17 @@ jest.spyOn(console, 'warn').mockImplementation(() => {});
 jest.spyOn(console, 'log').mockImplementation(() => {});
 
 describe('Queue Service', () => {
+  let originalMaxConcurrent;
+
   beforeEach(() => {
     requestQueue.queue = [];
     requestQueue.activeRequests.clear();
+    originalMaxConcurrent = requestQueue.maxConcurrent;
+  });
+
+  afterEach(() => {
+    requestQueue.maxConcurrent = originalMaxConcurrent;
+    jest.useRealTimers();
   });
 
   describe('getUserId', () => {
@@ -69,6 +77,46 @@ describe('Queue Service', () => {
       expect(requestQueue.getStats().queueLength).toBeGreaterThan(0);
 
       await Promise.all(promises);
+    });
+
+    it('should time out a request while it is actively executing', async () => {
+      jest.useFakeTimers();
+      let finishRequest;
+      const work = new Promise(resolve => {
+        finishRequest = resolve;
+      });
+
+      const pending = requestQueue.add('user1', () => work, 50);
+      const rejection = expect(pending).rejects.toThrow('Request timeout');
+
+      await jest.advanceTimersByTimeAsync(50);
+      await rejection;
+
+      finishRequest('late result');
+      await jest.runAllTimersAsync();
+    });
+
+    it('should remove timed-out queued work without executing it', async () => {
+      jest.useFakeTimers();
+      requestQueue.maxConcurrent = 1;
+
+      let finishActive;
+      const activeWork = new Promise(resolve => {
+        finishActive = resolve;
+      });
+      const active = requestQueue.add('user1', () => activeWork, 1000);
+      const queuedFn = jest.fn().mockResolvedValue('should not run');
+      const queued = requestQueue.add('user2', queuedFn, 25);
+      const rejection = expect(queued).rejects.toThrow('Request timeout');
+
+      await jest.advanceTimersByTimeAsync(25);
+      await rejection;
+      expect(queuedFn).not.toHaveBeenCalled();
+      expect(requestQueue.getStats().queueLength).toBe(0);
+
+      finishActive('done');
+      await expect(active).resolves.toBe('done');
+      await jest.runAllTimersAsync();
     });
   });
 });
