@@ -184,7 +184,7 @@ function AppContent() {
         completeAlbumAdd(album.mbid, result.data);
       }
     } else if (isArtistSearch) {
-      failArtistAlbumAdd(album.mbid);
+      failArtistAlbumAdd(album.mbid, result.data, rootFolder);
     } else {
       failAlbumAdd(album.mbid);
     }
