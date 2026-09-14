@@ -6,6 +6,7 @@ export function useArtistSearchStream() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState([]);
   const [error, setError] = useState(null);
+  const [warning, setWarning] = useState(null);
   const [progress, setProgress] = useState({ loaded: 0, total: 0, hasMore: false });
   const [artistStatus, setArtistStatus] = useState(null);
   const eventSourceRef = useRef(null);
@@ -17,6 +18,7 @@ export function useArtistSearchStream() {
     // Reset state
     setLoading(true);
     setError(null);
+    setWarning(null);
     setResults([]);
     setProgress({ loaded: 0, total: 0, hasMore: true });
     setArtistStatus(null);
@@ -101,6 +103,10 @@ export function useArtistSearchStream() {
         console.log("✅ Stream complete:", data);
         setLoading(false);
         setProgress(prev => ({ ...prev, hasMore: false }));
+        setWarning(data.degraded
+          ? 'MusicBrainz is temporarily unavailable. Showing albums currently known to Lidarr; additional releases may be missing.'
+          : null
+        );
         eventSource.close();
       });
 
@@ -257,6 +263,7 @@ export function useArtistSearchStream() {
     loading,
     results,
     error,
+    warning,
     progress,
     artistStatus,
     searchArtistReleases,
