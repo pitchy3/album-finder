@@ -72,12 +72,12 @@ async function processRecordings(recordings, artist, track) {
             albumSet.add(releaseGroup.id);
             
             const confidence = calculateConfidence(releaseGroup, artist, track);
-            const creditedArtist = [
-              releaseGroup,
-              releaseDetail,
-              release,
-              recording
-            ].map(item => item?.["artist-credit"]?.[0]?.artist).find(Boolean);
+            const creditedArtist =
+              releaseGroup?.["artist-credit"]?.[0]?.artist ||
+              releaseDetail?.["artist-credit"]?.[0]?.artist ||
+              release?.["artist-credit"]?.[0]?.artist ||
+              recording?.["artist-credit"]?.[0]?.artist ||
+              null;
             
             foundAlbums.push({
               mbid: releaseGroup.id,
