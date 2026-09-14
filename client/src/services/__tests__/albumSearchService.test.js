@@ -15,6 +15,9 @@ describe('Album Search Service', () => {
       json: async () => ({
         recordings: [{
           title: 'Test Song',
+          'artist-credit': [{
+            artist: { id: 'artist-mbid', name: 'Test Artist' }
+          }],
           releases: [{
             id: 'rel-1'
           }]
