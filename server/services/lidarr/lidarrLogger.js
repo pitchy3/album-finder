@@ -6,7 +6,7 @@
  */
 
 const { database } = require('../database');
-const { getUsername } = require('../queue');
+const { getAuthenticatedUser, getUsername } = require('../queue');
 
 class LidarrLogger {
   /**
@@ -14,9 +14,8 @@ class LidarrLogger {
    * @param {Object} req - Express request object
    */
   constructor(req) {
-    const userInfo = req.session?.user?.claims;
-    
-    // Extract common fields once
+    const userInfo = getAuthenticatedUser(req)?.claims;
+
     this.baseData = {
       userId: getUsername(req),
       username: userInfo?.preferred_username || userInfo?.name || null,
@@ -26,14 +25,6 @@ class LidarrLogger {
     };
   }
 
-  /**
-   * Log album addition attempt
-   * @param {Object} albumData - Album-specific data
-   * @param {Object} options - Logging options
-   * @param {boolean} options.success - Whether operation succeeded
-   * @param {Error} options.error - Error object if failed
-   * @param {Object} options.requestData - Original request data for context
-   */
   async logAlbum(albumData, options = {}) {
     const {
       success = true,
@@ -51,14 +42,6 @@ class LidarrLogger {
     });
   }
 
-  /**
-   * Log artist addition attempt
-   * @param {Object} artistData - Artist-specific data
-   * @param {Object} options - Logging options
-   * @param {boolean} options.success - Whether operation succeeded
-   * @param {Error} options.error - Error object if failed
-   * @param {Object} options.requestData - Original request data for context
-   */
   async logArtist(artistData, options = {}) {
     const {
       success = true,
@@ -75,15 +58,6 @@ class LidarrLogger {
     });
   }
 
-  /**
-   * Build album data object from various sources
-   * Handles merging data from album, artist, and override options
-   * 
-   * @param {Object} album - Album object from Lidarr
-   * @param {Object} artist - Artist object from Lidarr
-   * @param {Object} options - Override values
-   * @returns {Object} Normalized album data for database
-   */
   static buildAlbumData(album, artist, options = {}) {
     return {
       albumTitle: album?.title || options.albumTitle || null,
@@ -99,13 +73,6 @@ class LidarrLogger {
     };
   }
 
-  /**
-   * Build artist data object from artist and override options
-   * 
-   * @param {Object} artist - Artist object from Lidarr
-   * @param {Object} options - Override values
-   * @returns {Object} Normalized artist data for database
-   */
   static buildArtistData(artist, options = {}) {
     return {
       artistName: artist?.artistName || options.artistName || null,

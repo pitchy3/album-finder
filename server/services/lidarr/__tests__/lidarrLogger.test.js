@@ -5,7 +5,6 @@
 
 const { LidarrLogger } = require('../lidarrLogger');
 
-// Mock database - must be defined before jest.mock
 jest.mock('../../../services/database', () => ({
   database: {
     logAlbumAddition: jest.fn().mockResolvedValue(undefined),
@@ -13,9 +12,12 @@ jest.mock('../../../services/database', () => ({
   }
 }));
 
-// Mock queue service
 jest.mock('../../../services/queue', () => ({
-  getUsername: jest.fn((req) => req.session?.user?.claims?.sub || 'anonymous')
+  getAuthenticatedUser: jest.fn((req) => req.authUser || req.session?.user || null),
+  getUsername: jest.fn((req) => {
+    const claims = (req.authUser || req.session?.user)?.claims;
+    return claims?.preferred_username || claims?.name || claims?.sub || req.ip || 'anonymous';
+  })
 }));
 
 describe('LidarrLogger', () => {
@@ -24,9 +26,8 @@ describe('LidarrLogger', () => {
   let mockDatabase;
 
   beforeEach(() => {
-    // Get reference to mocked database
     mockDatabase = require('../../../services/database').database;
-    
+
     mockReq = {
       session: {
         user: {
@@ -55,7 +56,7 @@ describe('LidarrLogger', () => {
 
   describe('constructor', () => {
     it('should extract user info from request', () => {
-      expect(logger.baseData.userId).toBe('user-123');
+      expect(logger.baseData.userId).toBe('testuser');
       expect(logger.baseData.username).toBe('testuser');
       expect(logger.baseData.email).toBe('test@example.com');
       expect(logger.baseData.ipAddress).toBe('192.168.1.100');
@@ -65,45 +66,57 @@ describe('LidarrLogger', () => {
     it('should use preferred_username over name', () => {
       mockReq.session.user.claims.preferred_username = 'preferred';
       mockReq.session.user.claims.name = 'regular';
-      
+
       const logger2 = new LidarrLogger(mockReq);
-      
       expect(logger2.baseData.username).toBe('preferred');
     });
 
     it('should fall back to name if preferred_username missing', () => {
       delete mockReq.session.user.claims.preferred_username;
       mockReq.session.user.claims.name = 'regular';
-      
+
       const logger2 = new LidarrLogger(mockReq);
-      
       expect(logger2.baseData.username).toBe('regular');
     });
 
     it('should handle missing user session', () => {
       mockReq.session = {};
-      
+
       const logger2 = new LidarrLogger(mockReq);
-      
       expect(logger2.baseData.username).toBeNull();
+      expect(logger2.baseData.email).toBeNull();
+    });
+
+    it('should handle request-scoped API key identity', () => {
+      mockReq.session = {};
+      mockReq.authUser = {
+        claims: {
+          sub: 'api-key-user',
+          preferred_username: 'api-key-user',
+          name: 'API Key User',
+          authType: 'apikey'
+        }
+      };
+
+      const logger2 = new LidarrLogger(mockReq);
+      expect(logger2.baseData.userId).toBe('api-key-user');
+      expect(logger2.baseData.username).toBe('api-key-user');
       expect(logger2.baseData.email).toBeNull();
     });
 
     it('should handle missing IP address', () => {
       delete mockReq.ip;
       delete mockReq.connection.remoteAddress;
-      
+
       const logger2 = new LidarrLogger(mockReq);
-      
       expect(logger2.baseData.ipAddress).toBeUndefined();
     });
 
     it('should use fallback IP from connection', () => {
       delete mockReq.ip;
       mockReq.connection.remoteAddress = '10.0.0.1';
-      
+
       const logger2 = new LidarrLogger(mockReq);
-      
       expect(logger2.baseData.ipAddress).toBe('10.0.0.1');
     });
   });
@@ -164,7 +177,6 @@ describe('LidarrLogger', () => {
 
     it('should default success to true', async () => {
       await logger.logAlbum({ albumTitle: 'Test' });
-
       expect(mockDatabase.logAlbumAddition).toHaveBeenCalledWith(
         expect.objectContaining({ success: true })
       );
@@ -172,7 +184,6 @@ describe('LidarrLogger', () => {
 
     it('should handle empty options', async () => {
       await logger.logAlbum({ albumTitle: 'Test' }, {});
-
       expect(mockDatabase.logAlbumAddition).toHaveBeenCalled();
     });
   });
@@ -294,19 +305,16 @@ describe('LidarrLogger', () => {
       const artist = {};
 
       const result = LidarrLogger.buildAlbumData(album, artist);
-
       expect(result.lidarrArtistId).toBe(5);
     });
 
     it('should default monitored to true when undefined', () => {
       const result = LidarrLogger.buildAlbumData({}, {});
-
       expect(result.monitored).toBe(true);
     });
 
     it('should default searchTriggered to false', () => {
       const result = LidarrLogger.buildAlbumData({}, {});
-
       expect(result.searchTriggered).toBe(false);
     });
   });
@@ -357,7 +365,6 @@ describe('LidarrLogger', () => {
 
     it('should default monitored to true', () => {
       const result = LidarrLogger.buildArtistData({});
-
       expect(result.monitored).toBe(true);
     });
   });
