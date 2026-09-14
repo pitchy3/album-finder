@@ -11,7 +11,7 @@ export default function ArtistResultsList({ results, onAddToLidarr, progress, ar
     album: true,
     ep: true,
     single: true,
-    unknown: true
+    other: true
   });
 
   // Toggle section expansion
