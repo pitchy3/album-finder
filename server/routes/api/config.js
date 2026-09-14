@@ -393,43 +393,127 @@ router.post("/lidarr", ensureAuthenticated, validate(schemas.lidarrConfig), asyn
   }
 });
 
-router.post("/lidarr/test", async (req, res) => {
-  try {
-    const { url, apiKey } = req.body;
-    if (!url || !apiKey) return res.status(400).json({ error: "URL and API key are required" });
-    const cleanUrl = url.replace(/\/$/, "");
-    const statusResponse = await fetch(`${cleanUrl}/api/v1/system/status`, { headers: { 'X-Api-Key': apiKey } });
-    if (!statusResponse.ok) {
-      if (statusResponse.status === 401) return res.status(400).json({ error: "Invalid API key" });
-      return res.status(400).json({ error: `Lidarr returned ${statusResponse.status}: ${statusResponse.statusText}` });
-    }
-    const profilesResponse = await fetch(`${cleanUrl}/api/v1/qualityprofile`, { headers: { 'X-Api-Key': apiKey } });
-    if (!profilesResponse.ok) return res.status(400).json({ error: "Unable to fetch quality profiles" });
-    const profiles = await profilesResponse.json();
-    res.json({ success: true, profiles });
-  } catch (error) {
-    const message = error.code === 'ENOTFOUND' || error.cause?.message?.includes('ENOTFOUND')
-      ? 'Host not found'
-      : error.message;
-    res.status(400).json({ error: message });
-  }
-});
+router.post("/lidarr/test",
+  ensureAuthenticated,
+  validate(schemas.lidarrTest),
+  async (req, res) => {
+    try {
+      const { url, apiKey, useSavedApiKey } = req.body;
+      let testUrl = url;
+      let testApiKey = apiKey;
 
-router.post("/lidarr/rootfolders", async (req, res) => {
+      if (useSavedApiKey) {
+        const stored = await loadConfig();
+        const saved = stored.lidarr || {};
+        if (!saved.url || !saved.apiKey) {
+          return res.status(400).json({ error: "No saved Lidarr configuration found" });
+        }
+        testUrl = url || saved.url;
+        testApiKey = saved.apiKey;
+      }
+
+      if (!testUrl || !testApiKey) {
+        return res.status(400).json({ error: "URL and API key are required" });
+      }
+
+      const cleanUrl = testUrl.replace(/\/$/, "");
+      const statusResponse = await fetch(`${cleanUrl}/api/v1/system/status`, {
+        headers: { 'X-Api-Key': testApiKey },
+        timeout: 10000
+      });
+      if (!statusResponse.ok) {
+        if (statusResponse.status === 401) return res.status(400).json({ error: "Invalid API key" });
+        if (statusResponse.status === 404) return res.status(400).json({ error: "Lidarr API not found" });
+        return res.status(400).json({ error: `Connection failed: ${statusResponse.status}` });
+      }
+
+      const statusData = await statusResponse.json();
+      const profilesResponse = await fetch(`${cleanUrl}/api/v1/qualityprofile`, {
+        headers: { 'X-Api-Key': testApiKey },
+        timeout: 10000
+      });
+      if (!profilesResponse.ok) {
+        return res.json({
+          success: true,
+          version: statusData.version,
+          profiles: [],
+          message: "Connection successful but could not load quality profiles"
+        });
+      }
+      const profiles = await profilesResponse.json();
+      res.json({
+        success: true,
+        version: statusData.version,
+        profiles: profiles.map(p => ({ id: p.id, name: p.name }))
+      });
+    } catch (error) {
+      console.error("❌ Lidarr connection test failed:", error);
+      if (error.code === 'ECONNREFUSED') return res.status(400).json({ error: "Connection refused" });
+      if (error.code === 'ENOTFOUND' || error.cause?.message?.includes('ENOTFOUND')) {
+        return res.status(400).json({ error: "Host not found" });
+      }
+      return res.status(500).json({ error: `Connection test failed: ${error.message}` });
+    }
+  }
+);
+
+router.post("/lidarr/rootfolders", ensureAuthenticated, async (req, res) => {
   try {
-    let { url, apiKey, useSavedApiKey } = req.body;
+    const { url, apiKey, useSavedApiKey } = req.body;
+    let testUrl = url;
+    let testApiKey = apiKey;
+    let defaultRootFolder = config.lidarr.rootFolder;
+
     if (useSavedApiKey) {
       const stored = await loadConfig();
-      apiKey = stored.lidarr?.apiKey;
+      const saved = stored.lidarr || {};
+      if (!saved.url || !saved.apiKey) {
+        return res.status(400).json({ error: "No saved Lidarr configuration found" });
+      }
+      testUrl = url || saved.url;
+      testApiKey = saved.apiKey;
+      defaultRootFolder = saved.rootFolder || defaultRootFolder;
     }
-    if (!url || !apiKey) return res.status(400).json({ error: "URL and API key are required" });
-    const cleanUrl = url.replace(/\/$/, "");
-    const response = await fetch(`${cleanUrl}/api/v1/rootfolder`, { headers: { 'X-Api-Key': apiKey } });
-    if (!response.ok) return res.status(400).json({ error: `Lidarr returned ${response.status}` });
+
+    if (!testUrl || !testApiKey) {
+      return res.status(400).json({ error: "URL and API key are required" });
+    }
+
+    try {
+      new URL(testUrl);
+    } catch {
+      return res.status(400).json({ error: "Invalid URL format" });
+    }
+
+    const cleanUrl = testUrl.replace(/\/$/, "");
+    const response = await fetch(`${cleanUrl}/api/v1/rootfolder`, {
+      headers: { 'X-Api-Key': testApiKey },
+      timeout: 10000
+    });
+    if (!response.ok) {
+      return res.status(400).json({ error: "Failed to get root folders from Lidarr" });
+    }
+
     const rootFolders = await response.json();
-    res.json({ success: true, rootFolders });
+    const enhancedFolders = rootFolders
+      .map(rf => ({
+        id: rf.id,
+        path: rf.path,
+        accessible: rf.accessible,
+        freeSpace: rf.freeSpace,
+        totalSpace: rf.totalSpace,
+        isDefault: rf.path === defaultRootFolder
+      }))
+      .sort((a, b) => {
+        if (a.isDefault && !b.isDefault) return -1;
+        if (!a.isDefault && b.isDefault) return 1;
+        return a.path.localeCompare(b.path);
+      });
+
+    res.json({ rootFolders: enhancedFolders });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error("❌ Error getting root folders:", error);
+    res.status(500).json({ error: "Failed to get root folders" });
   }
 });
 
