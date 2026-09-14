@@ -171,14 +171,86 @@ export function useArtistSearchStream() {
     }
   };
 
-  const updateArtistAlbumLidarrStatus = (mbid, inLidarr) => {
+  const beginArtistAlbumAdd = (mbid, creatingArtist = false) => {
     setResults(prev =>
       prev.map(album =>
         album.mbid === mbid
-          ? { ...album, inLidarr, fullyAvailable: inLidarr }
+          ? { ...album, addState: 'adding' }
           : album
       )
     );
+
+    if (creatingArtist) {
+      setArtistStatus(prev => ({
+        ...(prev || {}),
+        artistInLidarr: false,
+        creationState: 'creating',
+        message: 'Adding artist to Lidarr…'
+      }));
+    }
+  };
+
+  const completeArtistAlbumAdd = (mbid, response = {}, rootFolder = null) => {
+    const percentComplete = response.percentComplete ?? 0;
+    const complete = response.state === 'complete' || percentComplete === 100;
+
+    setResults(prev =>
+      prev.map(album =>
+        album.mbid === mbid
+          ? {
+              ...album,
+              inLidarr: true,
+              inLibrary: true,
+              monitored: response.monitored ?? true,
+              fullyAvailable: complete,
+              percentComplete,
+              addState: complete ? 'complete' : 'queued'
+            }
+          : album
+      )
+    );
+
+    setArtistStatus(prev => ({
+      ...(prev || {}),
+      artistInLidarr: true,
+      creationState: 'ready',
+      lidarrArtistId: response.artistId ?? response.id ?? prev?.lidarrArtistId ?? null,
+      rootFolder: rootFolder ?? prev?.rootFolder ?? null,
+      message: 'Artist exists in Lidarr'
+    }));
+  };
+
+  const failArtistAlbumAdd = (mbid, response = {}, rootFolder = null) => {
+    setResults(prev =>
+      prev.map(album =>
+        album.mbid === mbid ? { ...album, addState: 'error' } : album
+      )
+    );
+
+    setArtistStatus(prev => {
+      if (prev?.creationState !== 'creating') {
+        return prev;
+      }
+
+      const artistId = response?.artistId ?? response?.id ?? null;
+      if (artistId !== null) {
+        return {
+          ...prev,
+          artistInLidarr: true,
+          creationState: 'ready',
+          lidarrArtistId: artistId,
+          rootFolder: rootFolder ?? prev?.rootFolder ?? null,
+          message: 'Artist exists in Lidarr; album was not added'
+        };
+      }
+
+      return {
+        ...prev,
+        artistInLidarr: false,
+        creationState: 'error',
+        message: 'Artist was not added to Lidarr'
+      };
+    });
   };
 
   return {
@@ -189,6 +261,8 @@ export function useArtistSearchStream() {
     artistStatus,
     searchArtistReleases,
     cancelSearch,
-    updateArtistAlbumLidarrStatus
+    beginArtistAlbumAdd,
+    completeArtistAlbumAdd,
+    failArtistAlbumAdd
   };
 }

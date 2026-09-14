@@ -65,6 +65,21 @@ describe('useAlbumSearch', () => {
     });
 
     expect(result.current.results.length).toBeGreaterThan(0);
+
+    const mbid = result.current.results[0].mbid;
+    act(() => result.current.beginAlbumAdd(mbid));
+    expect(result.current.results[0].addState).toBe('adding');
+
+    act(() => result.current.completeAlbumAdd(mbid, {
+      state: 'queued',
+      monitored: true,
+      percentComplete: 0
+    }));
+    expect(result.current.results[0]).toMatchObject({
+      inLidarr: true,
+      fullyAvailable: false,
+      addState: 'queued'
+    });
   });
 
   it('should handle search errors', async () => {
@@ -81,28 +96,11 @@ describe('useAlbumSearch', () => {
     });
   });
 
-  it('should update album Lidarr status', async () => {
+  it('should expose lifecycle actions for album additions', async () => {
     const { result } = renderHook(() => useAlbumSearch());
-    
-    // Manually set the results state by accessing the internal implementation
-    // This simulates having search results
-    act(() => {
-      // We need to trigger a search first or manually set results
-      // Since we can't directly set internal state, we'll use rerender pattern
-      Object.defineProperty(result.current, 'results', {
-        value: [{ mbid: 'album-1', title: 'Album 1', inLidarr: false }],
-        writable: true
-      });
-    });
 
-    // Now update the status
-    act(() => {
-      result.current.updateAlbumLidarrStatus('album-1', true);
-    });
-
-    // The update function should modify the results array
-    // Since we're testing the hook in isolation, we need to verify the function exists
-    expect(result.current.updateAlbumLidarrStatus).toBeDefined();
-    expect(typeof result.current.updateAlbumLidarrStatus).toBe('function');
+    expect(result.current.beginAlbumAdd).toBeTypeOf('function');
+    expect(result.current.completeAlbumAdd).toBeTypeOf('function');
+    expect(result.current.failAlbumAdd).toBeTypeOf('function');
   });
 });

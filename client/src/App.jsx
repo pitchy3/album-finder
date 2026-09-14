@@ -39,7 +39,15 @@ function AppContent() {
   const { preferences } = usePreferences();
   
   const authStatus = useAuth();
-  const { loading: songLoading, results: songResults, error: songError, searchAlbums, updateAlbumLidarrStatus } = useAlbumSearch();
+  const {
+    loading: songLoading,
+    results: songResults,
+    error: songError,
+    searchAlbums,
+    beginAlbumAdd,
+    completeAlbumAdd,
+    failAlbumAdd
+  } = useAlbumSearch();
   const { 
     loading: artistLoading, 
     results: artistResults, 
@@ -48,7 +56,9 @@ function AppContent() {
     artistStatus,
     searchArtistReleases,
     cancelSearch: cancelArtistSearch,
-    updateArtistAlbumLidarrStatus 
+    beginArtistAlbumAdd,
+    completeArtistAlbumAdd,
+    failArtistAlbumAdd
   } = useArtistSearchStream();
 
   const checkLidarrConfig = async () => {
@@ -156,16 +166,27 @@ function AppContent() {
     if (lidarrConfigured === null) {
       await checkLidarrConfig();
     }
-    
-	// Pass root folder to service
+    const isArtistSearch = searchMode === 'artist';
+    const creatingArtist = isArtistSearch && !artistStatus?.artistInLidarr;
+
+    if (isArtistSearch) {
+      beginArtistAlbumAdd(album.mbid, creatingArtist);
+    } else {
+      beginAlbumAdd(album.mbid);
+    }
+
     const result = await addToLidarr(album, rootFolder);
 
     if (result.success) {
-      if (searchMode === "song") {
-        updateAlbumLidarrStatus(album.mbid, true);
+      if (isArtistSearch) {
+        completeArtistAlbumAdd(album.mbid, result.data, rootFolder);
       } else {
-        updateArtistAlbumLidarrStatus(album.mbid, true);
+        completeAlbumAdd(album.mbid, result.data);
       }
+    } else if (isArtistSearch) {
+      failArtistAlbumAdd(album.mbid, result.data, rootFolder);
+    } else {
+      failAlbumAdd(album.mbid);
     }
   };
 

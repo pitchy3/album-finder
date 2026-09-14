@@ -103,6 +103,52 @@ describe('AlbumCard', () => {
     expect(button).toBeDisabled();
   });
 
+  it('should show and disable the pending state while an album is being added', () => {
+    renderComponent({ ...mockAlbum, addState: 'adding' });
+
+    expect(screen.getByText('⏳ Adding to Lidarr…')).toBeDisabled();
+  });
+
+  it('should disable sibling albums while a new artist is being created', () => {
+    renderComponent(mockAlbum, { artistCreationState: 'creating' });
+
+    const button = screen.getByText('⏳ Adding artist to Lidarr…');
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(mockOnAddToLidarr).not.toHaveBeenCalled();
+  });
+
+  it('should not offer to add an album that is queued in Lidarr', () => {
+    renderComponent({
+      ...mockAlbum,
+      inLidarr: true,
+      addState: 'queued'
+    });
+
+    expect(screen.getByText('🔎 In Lidarr (Search queued)')).toBeDisabled();
+    expect(screen.queryByText('➕ Add to Lidarr')).not.toBeInTheDocument();
+  });
+
+  it('should show download progress separately from library membership', () => {
+    renderComponent({
+      ...mockAlbum,
+      inLidarr: true,
+      percentComplete: 42
+    });
+
+    expect(screen.getByText('⬇ Downloading – 42%')).toBeDisabled();
+  });
+
+  it('should allow retry after an add failure', () => {
+    renderComponent({ ...mockAlbum, addState: 'error' }, { artistInLidarr: true });
+
+    fireEvent.click(screen.getByText('↻ Retry adding to Lidarr'));
+    expect(mockOnAddToLidarr).toHaveBeenCalledWith(
+      expect.objectContaining({ mbid: 'album-123' }),
+      null
+    );
+  });
+
   it('should link to MusicBrainz', () => {
     renderComponent();
     

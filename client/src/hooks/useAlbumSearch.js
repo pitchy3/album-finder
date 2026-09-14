@@ -28,9 +28,35 @@ export function useAlbumSearch() {
     }
   };
 
-  const updateAlbumLidarrStatus = (mbid, inLidarr) => {
+  const beginAlbumAdd = (mbid) => {
     setResults(prev => prev.map(album => 
-      album.mbid === mbid ? { ...album, inLidarr } : album
+      album.mbid === mbid ? { ...album, addState: 'adding' } : album
+    ));
+  };
+
+  const completeAlbumAdd = (mbid, response = {}) => {
+    const percentComplete = response.percentComplete ?? 0;
+    const complete = response.state === 'complete' || percentComplete === 100;
+
+    setResults(prev => prev.map(album =>
+      album.mbid === mbid
+        ? {
+            ...album,
+            inLidarr: true,
+            inLibrary: true,
+            artistInLidarr: true,
+            monitored: response.monitored ?? true,
+            fullyAvailable: complete,
+            percentComplete,
+            addState: complete ? 'complete' : 'queued'
+          }
+        : album
+    ));
+  };
+
+  const failAlbumAdd = (mbid) => {
+    setResults(prev => prev.map(album =>
+      album.mbid === mbid ? { ...album, addState: 'error' } : album
     ));
   };
 
@@ -39,6 +65,8 @@ export function useAlbumSearch() {
     results,
     error,
     searchAlbums,
-    updateAlbumLidarrStatus
+    beginAlbumAdd,
+    completeAlbumAdd,
+    failAlbumAdd
   };
 }
