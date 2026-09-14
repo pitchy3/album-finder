@@ -67,24 +67,30 @@ export async function enrichAlbumsWithMetadata(albums) {
 }
 
 async function checkArtistLidarrStatus(album, requests) {
+  const artistMbid = album.artistMbid?.trim();
   const artistName = album.artist?.trim();
-  if (!artistName) {
+  if (!artistMbid && !artistName) {
     return { found: false, artistId: null };
   }
 
-  const cacheKey = artistName.toLocaleLowerCase();
+  const cacheKey = artistMbid
+    ? `mbid:${artistMbid.toLocaleLowerCase()}`
+    : `name:${artistName.toLocaleLowerCase()}`;
   if (!requests.has(cacheKey)) {
-    requests.set(cacheKey, fetchArtistLidarrStatus(artistName));
+    requests.set(cacheKey, fetchArtistLidarrStatus({ artistMbid, artistName }));
   }
 
   return requests.get(cacheKey);
 }
 
-async function fetchArtistLidarrStatus(artistName) {
+async function fetchArtistLidarrStatus({ artistMbid, artistName }) {
+  const identity = artistMbid || artistName;
+
   try {
-    const response = await secureApiCall(
-      `/api/lidarr/artist-status?name=${encodeURIComponent(artistName)}`
-    );
+    const query = artistMbid
+      ? `mbid=${encodeURIComponent(artistMbid)}`
+      : `name=${encodeURIComponent(artistName)}`;
+    const response = await secureApiCall(`/api/lidarr/artist-status?${query}`);
 
     if (!response.ok) {
       return { found: false, artistId: null };
@@ -96,7 +102,7 @@ async function fetchArtistLidarrStatus(artistName) {
       artistId: status.artistId || null
     };
   } catch (error) {
-    console.error(`📚 Lidarr artist status error for ${artistName}:`, error);
+    console.error(`📚 Lidarr artist status error for ${identity}:`, error);
     return { found: false, artistId: null };
   }
 }
