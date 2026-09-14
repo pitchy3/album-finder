@@ -87,7 +87,7 @@ export async function addToLidarr(album, rootFolder = null) {
         `${r.status} ${r.statusText}\n${details}`,
         true
       );
-      return { success: false, error: details };
+      return { success: false, error: details, data };
     }
 
     console.log("✅ Add to Lidarr successful:", data);
