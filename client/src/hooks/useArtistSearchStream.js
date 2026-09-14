@@ -220,22 +220,37 @@ export function useArtistSearchStream() {
     }));
   };
 
-  const failArtistAlbumAdd = (mbid) => {
+  const failArtistAlbumAdd = (mbid, response = {}, rootFolder = null) => {
     setResults(prev =>
       prev.map(album =>
         album.mbid === mbid ? { ...album, addState: 'error' } : album
       )
     );
 
-    setArtistStatus(prev => prev?.creationState === 'creating'
-      ? {
+    setArtistStatus(prev => {
+      if (prev?.creationState !== 'creating') {
+        return prev;
+      }
+
+      const artistId = response?.artistId ?? response?.id ?? null;
+      if (artistId !== null) {
+        return {
           ...prev,
-          artistInLidarr: false,
-          creationState: 'error',
-          message: 'Artist was not added to Lidarr'
-        }
-      : prev
-    );
+          artistInLidarr: true,
+          creationState: 'ready',
+          lidarrArtistId: artistId,
+          rootFolder: rootFolder ?? prev?.rootFolder ?? null,
+          message: 'Artist exists in Lidarr; album was not added'
+        };
+      }
+
+      return {
+        ...prev,
+        artistInLidarr: false,
+        creationState: 'error',
+        message: 'Artist was not added to Lidarr'
+      };
+    });
   };
 
   return {
