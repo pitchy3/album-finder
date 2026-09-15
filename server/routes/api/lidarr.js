@@ -176,7 +176,7 @@ router.post("/add", ensureAuthenticated, async (req, res) => {
       }
 
       cache.clearByPrefix('lidarr');
-      albumReconciler.enqueue({
+      await albumReconciler.enqueue({
         artistMbid: artistInfo.foreignArtistId,
         artistId: result.artistId,
         albumMbid: mbid,
