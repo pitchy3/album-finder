@@ -1,4 +1,6 @@
 const lidarrConfig = require('../../config/lidarr');
+const { database } = require('../database');
+const { cache } = require('../cache');
 
 /**
  * Reasserts Album Finder's desired per-album state after Lidarr's asynchronous
@@ -13,16 +15,28 @@ class AlbumReconciler {
     this.stablePasses = options.stablePasses ?? lidarrConfig.reconciliation.stablePasses;
     this.retentionMs = options.retentionMs ?? lidarrConfig.reconciliation.retentionMs;
     this.artists = new Map();
+    this.store = options.store || database;
+    this.cache = options.cache || cache;
+    this.ready = this.restorePendingJobs();
   }
 
-  enqueue({ artistMbid, artistId, albumMbid, searchAlreadyTriggered = false }) {
+  async enqueue({ artistMbid, artistId, albumMbid, searchAlreadyTriggered = false }) {
     if (!artistMbid || !albumMbid) {
       throw new Error('Artist and album MusicBrainz IDs are required for reconciliation');
     }
 
+    await this.ready;
+    await this.store.saveAlbumReconciliationJob({
+      artistMbid, artistId, albumMbid, searchTriggered: searchAlreadyTriggered
+    });
+    this.addDesired({ artistMbid, artistId, albumMbid, searchAlreadyTriggered });
+  }
+
+  addDesired({ artistMbid, artistId, albumMbid, searchAlreadyTriggered = false }) {
     let state = this.artists.get(artistMbid);
     if (!state) {
       state = {
+        artistMbid,
         artistId,
         albums: new Map(),
         generation: 0,
@@ -49,7 +63,20 @@ class AlbumReconciler {
       state.promise = this.run(artistMbid, state);
     }
 
-    return state.promise;
+  }
+
+  async restorePendingJobs() {
+    const jobs = await this.store.getAlbumReconciliationJobs();
+    jobs.forEach(job => this.addDesired({
+      artistMbid: job.artist_mbid,
+      artistId: job.artist_id,
+      albumMbid: job.album_mbid,
+      searchAlreadyTriggered: Boolean(job.search_triggered)
+    }));
+  }
+
+  waitFor(artistMbid) {
+    return this.artists.get(artistMbid)?.promise || Promise.resolve();
   }
 
   async run(artistMbid, state) {
@@ -76,10 +103,15 @@ class AlbumReconciler {
           continue;
         }
 
+        const reconciledAlbumMbids = [...state.albums.keys()];
         const reconciled = await this.reconcileAlbums(state);
         stableCount = reconciled && generation === state.generation ? stableCount + 1 : 0;
 
         if (stableCount >= this.stablePasses) {
+          await Promise.all(reconciledAlbumMbids.map(albumMbid =>
+            this.store.deleteAlbumReconciliationJob(artistMbid, albumMbid)
+          ));
+          this.cache.clearByPrefix('lidarr');
           completed = true;
           return;
         }
@@ -121,6 +153,7 @@ class AlbumReconciler {
 
         if (!album.monitored) {
           await this.albumService.updateMonitoring(album, true);
+          this.cache.clearByPrefix('lidarr');
         }
 
         album = await this.albumService.findInLibraryStrict(albumMbid);
@@ -133,6 +166,12 @@ class AlbumReconciler {
         if (!desired.searchTriggered && percentComplete < 100) {
           await this.albumService.triggerSearchStrict(album.id);
           desired.searchTriggered = true;
+          await this.store.saveAlbumReconciliationJob({
+            artistMbid: state.artistMbid,
+            artistId: state.artistId,
+            albumMbid,
+            searchTriggered: true
+          });
         }
       } catch (error) {
         allMonitored = false;
