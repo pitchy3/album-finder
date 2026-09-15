@@ -33,6 +33,15 @@ describe('Database Service', () => {
       expect(jobs).toHaveLength(1);
       expect(jobs[0].search_triggered).toBe(1);
 
+      await database.saveAlbumReconciliationJob({
+        artistMbid: 'artist-mbid', artistId: 1, albumMbid: 'album-mbid',
+        searchTriggered: false, forceSearch: true, activityId: 42
+      });
+      const resetJobs = await database.getAlbumReconciliationJobs();
+      expect(resetJobs).toHaveLength(1);
+      expect(resetJobs[0].search_triggered).toBe(0);
+      expect(resetJobs[0].activity_id).toBe(42);
+
       await database.deleteAlbumReconciliationJob('artist-mbid', 'album-mbid');
       await expect(database.getAlbumReconciliationJobs()).resolves.toEqual([]);
     });
@@ -97,6 +106,22 @@ describe('Database Service', () => {
       const logs = await database.all('SELECT * FROM album_additions');
       expect(logs).toHaveLength(1);
       expect(logs[0].album_title).toBe('Test Album');
+      expect(logs[0].operation_state).toBe('accepted');
+    });
+
+    it('updates an album addition after reconciliation', async () => {
+      const result = await database.logAlbumAddition({ albumTitle: 'Test Album' });
+      await database.updateAlbumAdditionState(result.lastID, {
+        operationState: 'search_queued',
+        monitored: true,
+        searchTriggered: true,
+        success: true
+      });
+
+      const log = await database.get('SELECT * FROM album_additions WHERE id = ?', [result.lastID]);
+      expect(log).toEqual(expect.objectContaining({
+        operation_state: 'search_queued', monitored: 1, search_triggered: 1, success: 1
+      }));
     });
   });
 

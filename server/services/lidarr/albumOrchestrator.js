@@ -65,12 +65,13 @@ class AlbumOrchestrator {
       }), requestData);
     }
 
-    await this.safeLog('album', LidarrLogger.buildAlbumData(addedAlbum, addedArtist, {
+    const albumLog = await this.safeLog('album', LidarrLogger.buildAlbumData(addedAlbum, addedArtist, {
       albumTitle: requestData.title,
       albumMbid: requestData.mbid,
       artistName: requestData.artist,
-      monitored: true,
-      searchTriggered: false
+      monitored: false,
+      searchTriggered: false,
+      operationState: 'reconciling'
     }), requestData);
 
     return {
@@ -86,6 +87,7 @@ class AlbumOrchestrator {
       searchTriggered: false,
       searchRequested: true,
       reconciliationQueued: true,
+      activityId: albumLog?.lastID || null,
       percentComplete: 0,
       message: `\"${addedAlbum.title || requestData.title}\" by \"${addedArtist.artistName || requestData.artist}\" added and search queued`
     };
@@ -154,12 +156,13 @@ class AlbumOrchestrator {
   async safeLog(type, data, requestData) {
     try {
       if (type === 'artist') {
-        await this.logger.logArtist(data, { success: true, requestData });
+        return await this.logger.logArtist(data, { success: true, requestData });
       } else {
-        await this.logger.logAlbum(data, { success: true, requestData });
+        return await this.logger.logAlbum(data, { success: true, requestData });
       }
     } catch (error) {
       console.warn(`Failed to record ${type} addition log:`, error.message);
+      return null;
     }
   }
 

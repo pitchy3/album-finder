@@ -180,7 +180,11 @@ router.post("/add", ensureAuthenticated, async (req, res) => {
         artistMbid: artistInfo.foreignArtistId,
         artistId: result.artistId,
         albumMbid: mbid,
-        searchAlreadyTriggered: result.searchTriggered
+        searchAlreadyTriggered: result.searchTriggered,
+        activityId: result.activityId,
+        onStateChange: result.activityId
+          ? state => logger.updateAlbumState(result.activityId, state)
+          : undefined
       });
       return result;
     });
@@ -303,7 +307,7 @@ router.post("/retry-download", ensureAuthenticated, async (req, res) => {
 
     console.log(`\n🔄 Retrying download: "${albumTitle}" by "${artistName}" (Log ID: ${logId})`);
 
-    const { albumService, artistService } = getServices();
+    const { albumService, artistService, albumReconciler } = getServices();
     const logger = new LidarrLogger(req);
 
     let albumInfo;
@@ -363,61 +367,43 @@ router.post("/retry-download", ensureAuthenticated, async (req, res) => {
       throw new Error(`Artist not found with ID: ${albumInfo.artistId}`);
     }
 
-    // Step 3: Enable monitoring if needed
-    let monitoringUpdated = false;
-    if (!albumInfo.monitored) {
-      console.log(`👁️  Album is not monitored, enabling monitoring`);
-      try {
-        await albumService.updateMonitoring(albumInfo, true);
-        monitoringUpdated = true;
-        albumInfo.monitored = true;
-        console.log(`✅ Album monitoring enabled successfully`);
-      } catch (monitoringError) {
-        console.log(`⚠️  Warning: Failed to update monitoring: ${monitoringError.message}`);
-        console.log(`🔍 Continuing with search trigger anyway`);
-      }
-    } else {
-      console.log(`✅ Album is already monitored`);
-    }
-
-    // Step 4: Trigger album search (most important part)
-    console.log(`🔍 Triggering album search for album ID: ${albumInfo.id}`);
-    const searchTriggered = await albumService.triggerSearch(albumInfo.id);
-    
-    if (!searchTriggered) {
-      throw new Error("Failed to trigger album search in Lidarr");
-    }
-
-    console.log(`✅ Successfully triggered album search for: ${albumInfo.title}`);
-
-    // Step 5: Log the retry attempt to database
+    // Record the request as pending. The same reconciler used by initial adds
+    // waits out any artist refresh, verifies monitoring, and only then searches.
     const albumData = LidarrLogger.buildAlbumData(albumInfo, artistDetails, {
-      monitored: albumInfo.monitored || monitoringUpdated,
-      searchTriggered: true
+      monitored: false,
+      searchTriggered: false,
+      operationState: 'reconciling'
     });
 
-    await logger.logAlbum(albumData, {
+    const retryLog = await logger.logAlbum(albumData, {
       success: true,
       requestData: { 
         retryFrom: logId,
         originalAlbumTitle: albumTitle,
         originalArtistName: artistName,
-        retryReason: 'manual_retry',
-        monitoringUpdated: monitoringUpdated
+        retryReason: 'manual_retry'
       }
     });
 
-    console.log(`✅ Retry operation completed successfully`);
+    albumReconciler.enqueue({
+      artistMbid: artistDetails.foreignArtistId,
+      artistId: artistDetails.id,
+      albumMbid: albumInfo.foreignAlbumId || albumMbid,
+      forceSearch: true,
+      activityId: retryLog?.lastID,
+      onStateChange: retryLog?.lastID
+        ? state => logger.updateAlbumState(retryLog.lastID, state)
+        : undefined
+    });
 
-    // Return success response
     return {
       success: true,
-      message: `Download retry triggered successfully for "${albumInfo.title}"`,
+      state: 'reconciling',
+      message: `Download retry queued for "${albumInfo.title}"`,
       albumId: albumInfo.id,
       albumTitle: albumInfo.title,
-      searchTriggered: true,
-      monitored: albumInfo.monitored || monitoringUpdated,
-      monitoringUpdated: monitoringUpdated
+      searchTriggered: false,
+      monitored: false
     };
 
   }, async (error) => {

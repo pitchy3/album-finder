@@ -115,4 +115,120 @@ describe('AlbumReconciler', () => {
     expect(albumService.updateMonitoring).toHaveBeenCalledTimes(2);
     expect(albumService.triggerSearchStrict).toHaveBeenCalledTimes(1);
   });
+
+  it('reports success only after monitoring remains stable', async () => {
+    albumService.hasActiveArtistRefresh.mockResolvedValue(false);
+    albumService.findInLibraryStrict.mockResolvedValue({
+      id: 10, monitored: true, statistics: { percentOfTracks: 0 }
+    });
+    const onStateChange = jest.fn();
+    const reconciler = new AlbumReconciler(albumService, {
+      pollInterval: 1, maxAttempts: 5, stablePasses: 2, retentionMs: 1
+    });
+
+    await reconciler.enqueue({
+      artistMbid: 'artist-1', artistId: 5, albumMbid: 'album-1', onStateChange
+    });
+    await reconciler.waitFor('artist-1');
+
+    expect(albumService.hasActiveArtistRefresh).toHaveBeenCalledTimes(2);
+    expect(onStateChange).toHaveBeenCalledTimes(1);
+    expect(onStateChange).toHaveBeenCalledWith(expect.objectContaining({
+      operationState: 'search_queued', monitored: true, success: true
+    }));
+  });
+
+  it('reports a failed state when reconciliation times out', async () => {
+    albumService.hasActiveArtistRefresh.mockResolvedValue(true);
+    const onStateChange = jest.fn();
+    const reconciler = new AlbumReconciler(albumService, {
+      pollInterval: 1, maxAttempts: 1, stablePasses: 2, retentionMs: 1
+    });
+
+    await reconciler.enqueue({
+      artistMbid: 'artist-1', artistId: 5, albumMbid: 'album-1', onStateChange
+    });
+    await reconciler.waitFor('artist-1');
+
+    expect(onStateChange).toHaveBeenCalledWith(expect.objectContaining({
+      operationState: 'failed', success: false
+    }));
+  });
+
+  it('starts fresh search and notification state for an explicit retry', async () => {
+    albumService.hasActiveArtistRefresh.mockResolvedValue(false);
+    albumService.findInLibraryStrict.mockResolvedValue({
+      id: 10, monitored: true, statistics: { percentOfTracks: 0 }
+    });
+    const firstState = jest.fn();
+    const retryState = jest.fn();
+    const reconciler = new AlbumReconciler(albumService, {
+      pollInterval: 1, maxAttempts: 5, stablePasses: 1, retentionMs: 100
+    });
+
+    await reconciler.enqueue({
+      artistMbid: 'artist-1', artistId: 5, albumMbid: 'album-1', onStateChange: firstState
+    });
+    await reconciler.waitFor('artist-1');
+    await reconciler.enqueue({
+      artistMbid: 'artist-1', artistId: 5, albumMbid: 'album-1',
+      forceSearch: true, onStateChange: retryState
+    });
+    await reconciler.waitFor('artist-1');
+
+    expect(albumService.triggerSearchStrict).toHaveBeenCalledTimes(2);
+    expect(retryState).toHaveBeenCalledWith(expect.objectContaining({ operationState: 'search_queued' }));
+  });
+
+  it('reports failure only for albums that did not reconcile', async () => {
+    albumService.hasActiveArtistRefresh.mockResolvedValue(false);
+    albumService.findInLibraryStrict.mockImplementation(async mbid => mbid === 'good'
+      ? { id: 10, monitored: true, statistics: { percentOfTracks: 0 } }
+      : null);
+    const goodState = jest.fn();
+    const missingState = jest.fn();
+    const reconciler = new AlbumReconciler(albumService, {
+      pollInterval: 1, maxAttempts: 1, stablePasses: 2, retentionMs: 1
+    });
+
+    await reconciler.enqueue({
+      artistMbid: 'artist-1', artistId: 5, albumMbid: 'good', onStateChange: goodState
+    });
+    await reconciler.enqueue({
+      artistMbid: 'artist-1', artistId: 5, albumMbid: 'missing', onStateChange: missingState
+    });
+    await reconciler.waitFor('artist-1');
+
+    expect(goodState).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+    expect(goodState).not.toHaveBeenCalledWith(expect.objectContaining({ success: false }));
+    expect(missingState).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
+  });
+
+  it('restores the activity callback for a persisted job', async () => {
+    albumService.hasActiveArtistRefresh.mockResolvedValue(false);
+    albumService.findInLibraryStrict.mockResolvedValue({
+      id: 10, monitored: true, statistics: { percentOfTracks: 0 }
+    });
+    const store = {
+      getAlbumReconciliationJobs: jest.fn().mockResolvedValue([{
+        artist_mbid: 'artist-1', artist_id: 5, album_mbid: 'album-1',
+        activity_id: 42, search_triggered: 0
+      }]),
+      saveAlbumReconciliationJob: jest.fn().mockResolvedValue(),
+      deleteAlbumReconciliationJob: jest.fn().mockResolvedValue(),
+      updateAlbumAdditionState: jest.fn().mockResolvedValue()
+    };
+    const reconciler = new AlbumReconciler(albumService, {
+      store,
+      cache: { clearByPrefix: jest.fn() },
+      pollInterval: 1, maxAttempts: 3, stablePasses: 1, retentionMs: 1
+    });
+
+    await reconciler.ready;
+    await reconciler.waitFor('artist-1');
+
+    expect(store.updateAlbumAdditionState).toHaveBeenCalledWith(42, expect.objectContaining({
+      operationState: 'search_queued', success: true
+    }));
+  });
 });

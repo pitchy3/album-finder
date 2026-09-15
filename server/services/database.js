@@ -216,6 +216,7 @@ class Database {
         release_date TEXT,
         monitored BOOLEAN DEFAULT TRUE,
         search_triggered BOOLEAN DEFAULT FALSE,
+        operation_state TEXT DEFAULT 'accepted',
         success BOOLEAN DEFAULT TRUE,
         error_message TEXT,
         ip_address TEXT,
@@ -232,6 +233,7 @@ class Database {
         artist_mbid TEXT NOT NULL,
         artist_id INTEGER,
         album_mbid TEXT NOT NULL,
+        activity_id INTEGER,
         search_triggered BOOLEAN DEFAULT FALSE,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (artist_mbid, album_mbid)
@@ -266,7 +268,12 @@ class Database {
 	
     await this.addColumnsIfNotExist('album_additions', [
       { name: 'downloaded', type: 'BOOLEAN' },
-      { name: 'root_folder_used', type: 'TEXT' }
+      { name: 'root_folder_used', type: 'TEXT' },
+      { name: 'operation_state', type: "TEXT DEFAULT 'accepted'" }
+    ]);
+
+    await this.addColumnsIfNotExist('album_reconciliation_jobs', [
+      { name: 'activity_id', type: 'INTEGER' }
     ]);
 
     await this.addColumnsIfNotExist('auth_events', [
@@ -479,13 +486,14 @@ class Database {
     try {
       const timestamp = tz.formatForDatabase(tz.now());
       
-      await this.run(`
+      return await this.run(`
         INSERT INTO album_additions (
           timestamp, user_id, username, email, album_title, album_mbid, 
           artist_name, artist_mbid, lidarr_album_id, lidarr_artist_id, 
           release_date, monitored, search_triggered, success, error_message,
-          ip_address, user_agent, request_data, downloaded, root_folder_used
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ip_address, user_agent, request_data, downloaded, root_folder_used,
+          operation_state
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         timestamp,
         data.userId || null,
@@ -506,7 +514,8 @@ class Database {
         data.userAgent || null,
         data.requestData || null,
         data.downloaded || null,
-        data.rootFolderUsed || null
+        data.rootFolderUsed || null,
+        data.operationState || 'accepted'
       ]);
     } catch (error) {
       console.error('⚠️ Error logging album addition:', error.message);
@@ -517,12 +526,16 @@ class Database {
     if (!this.isInitialized) return;
     return this.run(`
       INSERT INTO album_reconciliation_jobs
-        (artist_mbid, artist_id, album_mbid, search_triggered)
-      VALUES (?, ?, ?, ?)
+        (artist_mbid, artist_id, album_mbid, activity_id, search_triggered)
+      VALUES (?, ?, ?, ?, ?)
       ON CONFLICT(artist_mbid, album_mbid) DO UPDATE SET
         artist_id = excluded.artist_id,
-        search_triggered = MAX(search_triggered, excluded.search_triggered)
-    `, [data.artistMbid, data.artistId || null, data.albumMbid, data.searchTriggered ? 1 : 0]);
+        activity_id = COALESCE(excluded.activity_id, activity_id),
+        search_triggered = CASE WHEN ? THEN 0 ELSE MAX(search_triggered, excluded.search_triggered) END
+    `, [
+      data.artistMbid, data.artistId || null, data.albumMbid, data.activityId || null,
+      data.searchTriggered ? 1 : 0, data.forceSearch ? 1 : 0
+    ]);
   }
 
   async getAlbumReconciliationJobs() {
@@ -536,6 +549,24 @@ class Database {
       'DELETE FROM album_reconciliation_jobs WHERE artist_mbid = ? AND album_mbid = ?',
       [artistMbid, albumMbid]
     );
+  }
+
+  async updateAlbumAdditionState(id, data) {
+    if (!this.isInitialized || !id) return;
+
+    return this.run(`
+      UPDATE album_additions
+      SET operation_state = ?, monitored = ?, search_triggered = ?,
+          success = ?, error_message = ?
+      WHERE id = ?
+    `, [
+      data.operationState,
+      data.monitored ? 1 : 0,
+      data.searchTriggered ? 1 : 0,
+      data.success !== false ? 1 : 0,
+      data.errorMessage || null,
+      id
+    ]);
   }
 
   // Log authentication events with timezone-aware timestamps

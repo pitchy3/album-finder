@@ -233,7 +233,7 @@ router.get("/albums", ensureAuthenticated, async (req, res) => {
       SELECT 
         id, timestamp, user_id, album_title, album_mbid, artist_name, 
         artist_mbid, lidarr_album_id, lidarr_artist_id, monitored, 
-        search_triggered, success, error_message, downloaded
+        search_triggered, operation_state, success, error_message, downloaded
       FROM album_additions 
       WHERE timestamp >= ?
       ORDER BY timestamp DESC 
@@ -307,7 +307,7 @@ router.get("/albums/downloaded", ensureAuthenticated, async (req, res) => {
       SELECT 
         id, timestamp, user_id, album_title, album_mbid, artist_name, 
         artist_mbid, lidarr_album_id, lidarr_artist_id, monitored, 
-        search_triggered, success, error_message, downloaded
+        search_triggered, operation_state, success, error_message, downloaded
       FROM album_additions 
       WHERE timestamp >= ? AND downloaded = 1
       ORDER BY timestamp DESC 
@@ -380,7 +380,7 @@ router.get("/albums/pending", ensureAuthenticated, async (req, res) => {
       SELECT 
         id, timestamp, user_id, album_title, album_mbid, artist_name, 
         artist_mbid, lidarr_album_id, lidarr_artist_id, monitored, 
-        search_triggered, success, error_message, downloaded
+        search_triggered, operation_state, success, error_message, downloaded
       FROM album_additions 
       WHERE timestamp >= ? AND (downloaded = 0 OR downloaded IS NULL) AND success = 1
       ORDER BY timestamp DESC 
@@ -494,7 +494,7 @@ router.get("/export/:type", ensureAuthenticated, async (req, res) => {
           SELECT 
             timestamp, user_id, username, email, album_title, album_mbid, 
             artist_name, artist_mbid, lidarr_album_id, lidarr_artist_id, 
-            monitored, search_triggered, success, error_message, ip_address, downloaded
+            monitored, search_triggered, operation_state, success, error_message, ip_address, downloaded
           FROM album_additions 
           WHERE timestamp >= ?
           ORDER BY timestamp DESC
