@@ -42,7 +42,7 @@ jest.mock('../../../services/lidarr/artistService', () => ({
 jest.mock('../../../services/lidarr/albumService', () => ({
   AlbumService: class MockAlbumService {
     getAllWithCoverArt() {
-      return Promise.resolve(new Map([[
+      const albums = [[
         'known-album',
         {
           inLibrary: true,
@@ -53,7 +53,19 @@ jest.mock('../../../services/lidarr/albumService', () => ({
           albumType: 'Album',
           secondaryTypes: []
         }
-      ]]));
+      ]];
+      if (global.mockLidarrAlbumWithoutCover) {
+        albums.push(['album-without-cover', {
+          inLibrary: false,
+          fullyAvailable: false,
+          percentComplete: 0,
+          title: 'Album Without Cover',
+          coverUrl: null,
+          albumType: 'Album',
+          secondaryTypes: []
+        }]);
+      }
+      return Promise.resolve(new Map(albums));
     }
   }
 }));
@@ -70,6 +82,7 @@ describe('MusicBrainz catalog with Lidarr status overlay', () => {
     app.use('/api/musicbrainz', musicbrainzRoutes);
     global.fetch.mockReset();
     global.mockExactLidarrArtist = null;
+    global.mockLidarrAlbumWithoutCover = false;
   });
 
   it('serves an existing artist entirely from Lidarr without contacting MusicBrainz', async () => {
@@ -79,6 +92,7 @@ describe('MusicBrainz catalog with Lidarr status overlay', () => {
       foreignArtistId: 'artist-mbid',
       monitored: false
     };
+    global.mockLidarrAlbumWithoutCover = true;
 
     const response = await request(app)
       .get('/api/musicbrainz/release-group/stream')
@@ -87,6 +101,7 @@ describe('MusicBrainz catalog with Lidarr status overlay', () => {
 
     expect(response.status).toBe(200);
     expect(response.text).toContain('Known Album');
+    expect(response.text).toContain('Album Without Cover');
     expect(response.text).toContain('"source":"lidarr"');
     expect(response.text).not.toContain('"degraded":true');
     expect(global.fetch).not.toHaveBeenCalled();
