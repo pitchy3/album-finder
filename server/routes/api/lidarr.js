@@ -27,12 +27,13 @@ const { AlbumService } = require("../../services/lidarr/albumService");
 const { ArtistService } = require("../../services/lidarr/artistService");
 const { AlbumOrchestrator } = require("../../services/lidarr/albumOrchestrator");
 const { LidarrLogger } = require("../../services/lidarr/lidarrLogger");
+const { AlbumReconciler } = require("../../services/lidarr/albumReconciler");
 const lidarrConfig = require("../../config/lidarr");
 
 const router = express.Router();
 
 // Initialize services (singleton pattern)
-let lidarrClient, albumService, artistService;
+let lidarrClient, albumService, artistService, albumReconciler;
 const artistAdditionLocks = new Map();
 
 async function withArtistAdditionLock(artistMbid, operation) {
@@ -65,8 +66,9 @@ function getServices() {
     lidarrClient = new LidarrClient();
     albumService = new AlbumService(lidarrClient);
     artistService = new ArtistService(lidarrClient);
+    albumReconciler = new AlbumReconciler(albumService);
   }
-  return { lidarrClient, albumService, artistService };
+  return { lidarrClient, albumService, artistService, albumReconciler };
 }
 
 /**
@@ -141,7 +143,7 @@ router.post("/add", ensureAuthenticated, async (req, res) => {
       console.log(`   Custom folder: ${rootFolder}`);
     }
 
-    const { albumService, artistService } = getServices();
+    const { albumService, artistService, albumReconciler } = getServices();
     const logger = new LidarrLogger(req);
     const orchestrator = new AlbumOrchestrator(albumService, artistService, logger);
 
@@ -174,6 +176,12 @@ router.post("/add", ensureAuthenticated, async (req, res) => {
       }
 
       cache.clearByPrefix('lidarr');
+      albumReconciler.enqueue({
+        artistMbid: artistInfo.foreignArtistId,
+        artistId: result.artistId,
+        albumMbid: mbid,
+        searchAlreadyTriggered: result.searchTriggered
+      });
       return result;
     });
   });

@@ -173,6 +173,39 @@ class AlbumService {
   }
 
   /**
+   * Check whether Lidarr is still running or waiting to run an artist refresh.
+   * Album mutations made during that refresh can be overwritten by the
+   * refresh's monitoring policy, so callers must reconcile after it is quiet.
+   */
+  async hasActiveArtistRefresh(artistId) {
+    if (!artistId) return false;
+
+    const response = await this.client.get('command', {
+      page: 1,
+      pageSize: 100,
+      sortKey: 'queuedAt',
+      sortDirection: 'descending'
+    });
+    const commands = Array.isArray(response) ? response : response?.records || [];
+    const activeStatuses = new Set(['queued', 'started', 'running']);
+
+    return commands.some(command => {
+      const name = (command.name || command.commandName || '').toLowerCase();
+      const status = (command.status || '').toLowerCase();
+      const body = command.body || {};
+      const artistIds = Array.isArray(body.artistIds)
+        ? body.artistIds
+        : body.artistId != null
+          ? [body.artistId]
+          : [];
+
+      return name === 'refreshartist' &&
+        activeStatuses.has(status) &&
+        artistIds.map(Number).includes(Number(artistId));
+    });
+  }
+
+  /**
    * Enrich album with status information
    * Adds inLibrary, fullyAvailable, and percentComplete fields
    * 

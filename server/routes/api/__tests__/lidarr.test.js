@@ -58,6 +58,12 @@ jest.mock('../../../services/configEncryption', () => ({
   getDecryptedLidarrApiKey: jest.fn(() => 'test-api-key')
 }));
 
+jest.mock('../../../services/lidarr/albumReconciler', () => ({
+  AlbumReconciler: jest.fn().mockImplementation(() => ({
+    enqueue: jest.fn()
+  }))
+}));
+
 describe('Lidarr API Routes', () => {
   let app;
   let fetchCallCount = 0;
@@ -193,7 +199,7 @@ describe('Lidarr API Routes', () => {
           const body = JSON.parse(options.body);
           expect(body).toMatchObject({
             monitored: true,
-            addOptions: { searchForNewAlbum: true },
+            addOptions: { searchForNewAlbum: false },
             artist: {
               rootFolderPath: '/music',
               qualityProfileId: 1,
