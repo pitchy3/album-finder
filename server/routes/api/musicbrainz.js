@@ -32,8 +32,9 @@ function getLidarrServices() {
 }
 
 // Updated processBatch - uses pre-built Lidarr map for instant lookups
-async function processBatch(releases, artistName, lidarrAlbumsMap, categories) {
+async function processBatch(releases, artistName, lidarrAlbumsMap, categories, options = {}) {
   console.log(`📄 Processing batch of ${releases.length} releases...`);
+  const { allowExternalCoverArt = true } = options;
   
   // Prefer Lidarr's cover when the album exists there; otherwise fetch the
   // MusicBrainz release-group cover. A partially populated Lidarr artist must
@@ -42,6 +43,10 @@ async function processBatch(releases, artistName, lidarrAlbumsMap, categories) {
     const lidarrInfo = lidarrAlbumsMap.get(release.id || release.foreignAlbumId);
     if (lidarrInfo?.coverUrl) {
       return lidarrInfo.coverUrl;
+    }
+
+    if (!allowExternalCoverArt) {
+      return null;
     }
 
       try {
@@ -439,7 +444,8 @@ router.get("/release-group/stream", ensureAuthenticated, async (req, res) => {
             lidarrReleases,
             existingArtist.artistName,
             lidarrAlbumsMap,
-            categories
+            categories,
+            { allowExternalCoverArt: false }
           )).slice(0, searchLimit);
 
           sendEvent('artist-status', {
