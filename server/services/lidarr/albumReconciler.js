@@ -13,6 +13,9 @@ class AlbumReconciler {
     this.pollInterval = options.pollInterval ?? lidarrConfig.reconciliation.pollInterval;
     this.maxAttempts = options.maxAttempts ?? lidarrConfig.reconciliation.maxAttempts;
     this.stablePasses = options.stablePasses ?? lidarrConfig.reconciliation.stablePasses;
+    this.protectionPollInterval = options.protectionPollInterval ??
+      lidarrConfig.reconciliation.protectionPollInterval;
+    this.protectionWindow = options.protectionWindow ?? lidarrConfig.reconciliation.protectionWindow;
     this.retentionMs = options.retentionMs ?? lidarrConfig.reconciliation.retentionMs;
     this.artists = new Map();
     this.store = options.store || database;
@@ -56,6 +59,7 @@ class AlbumReconciler {
     }
 
     state.artistId = artistId || state.artistId;
+    state.protectUntil = Date.now() + this.protectionWindow;
     state.generation += 1;
     const prior = state.albums.get(albumMbid);
     state.albums.set(albumMbid, {
@@ -100,9 +104,13 @@ class AlbumReconciler {
     let stableCount = 0;
     let lastProcessedGeneration = -1;
     let completed = false;
+    let reachedStableState = false;
+    let attempt = 0;
 
     try {
-      for (let attempt = 0; attempt < this.maxAttempts; attempt += 1) {
+      while ((!reachedStableState && attempt < this.maxAttempts) ||
+        (reachedStableState && Date.now() < state.protectUntil)) {
+        attempt += 1;
         const generation = state.generation;
         lastProcessedGeneration = generation;
         let refreshActive;
@@ -126,15 +134,49 @@ class AlbumReconciler {
 
         if (stableCount >= this.stablePasses) {
           await this.notifySuccess(state);
-          await Promise.all(reconciledAlbumMbids.map(albumMbid =>
-            this.store.deleteAlbumReconciliationJob(artistMbid, albumMbid)
-          ));
-          this.cache.clearByPrefix('lidarr');
-          completed = true;
-          return;
+          reachedStableState = true;
+
+          if (Date.now() >= state.protectUntil) {
+            await Promise.all(reconciledAlbumMbids.map(albumMbid =>
+              this.store.deleteAlbumReconciliationJob(artistMbid, albumMbid)
+            ));
+            this.cache.clearByPrefix('lidarr');
+            completed = true;
+            return;
+          }
+
+          // A newly accepted artist refresh may not be visible in Lidarr's
+          // command queue immediately. Keep the durable desired state alive
+          // and periodically reassert it throughout the protection window.
+          stableCount = 0;
         }
 
-        await this.delay();
+        await this.delay(reachedStableState ? this.protectionPollInterval : this.pollInterval);
+      }
+
+      if (reachedStableState) {
+        stableCount = 0;
+        for (let finalAttempt = 0; finalAttempt < this.maxAttempts; finalAttempt += 1) {
+          const refreshActive = await this.albumService.hasActiveArtistRefresh(state.artistId);
+          if (refreshActive) {
+            stableCount = 0;
+            await this.delay();
+            continue;
+          }
+
+          const reconciled = await this.reconcileAlbums(state);
+          stableCount = reconciled ? stableCount + 1 : 0;
+          if (stableCount >= this.stablePasses) {
+            await this.notifySuccess(state);
+            await Promise.all([...state.albums.keys()].map(albumMbid =>
+              this.store.deleteAlbumReconciliationJob(artistMbid, albumMbid)
+            ));
+            this.cache.clearByPrefix('lidarr');
+            completed = true;
+            return;
+          }
+          await this.delay();
+        }
       }
 
       console.error(`Lidarr reconciliation timed out for artist ${artistMbid}`);
@@ -247,9 +289,9 @@ class AlbumReconciler {
     }
   }
 
-  delay() {
+  delay(interval = this.pollInterval) {
     return new Promise(resolve => {
-      const timer = setTimeout(resolve, this.pollInterval);
+      const timer = setTimeout(resolve, interval);
       timer.unref?.();
     });
   }

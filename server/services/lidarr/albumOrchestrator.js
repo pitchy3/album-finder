@@ -103,52 +103,30 @@ class AlbumOrchestrator {
    * @returns {Promise<Object>} Success response
    */
   async monitorAndSearchAlbum(album, artist, requestData) {
-    // Update monitoring if needed
-    if (!album.monitored) {
-      console.log(`👁️ Enabling monitoring for ${album.title}`);
-      await this.albumService.updateMonitoring(album, true);
-      album.monitored = true;
-    }
-
-    // Trigger search if not complete
     const percentComplete = album.statistics?.percentOfTracks || 0;
-    const searchTriggered = percentComplete < 100 
-      ? await this.albumService.triggerSearchStrict(album.id)
-      : false;
-
-    if (searchTriggered) {
-      console.log(`🔍 Search triggered for ${album.title}`);
-    } else if (percentComplete === 100) {
-      console.log(`✅ Album ${album.title} already complete`);
-    }
-
-    // Log success to database
     const albumData = LidarrLogger.buildAlbumData(album, artist, {
-      monitored: true,
-      searchTriggered
+      monitored: false,
+      searchTriggered: false,
+      operationState: 'reconciling'
     });
 
-    await this.safeLog('album', albumData, requestData);
-
-    // Return success response
-    const statusMsg = searchTriggered
-      ? 'added and search triggered'
-      : percentComplete === 100 
-        ? 'already complete' 
-        : 'added successfully';
+    const albumLog = await this.safeLog('album', albumData, requestData);
 
     return {
       success: true,
-      state: percentComplete === 100 ? 'complete' : 'queued',
+      state: 'queued',
       id: artist.id,
       artistId: artist.id,
       artistCreated: false,
       title: album.title,
       artist: artist.artistName,
-      message: `"${album.title}" by "${artist.artistName}" ${statusMsg}`,
+      message: `"${album.title}" by "${artist.artistName}" queued for monitoring verification`,
       albumId: album.id,
-      monitored: album.monitored,
-      searchTriggered,
+      monitored: false,
+      searchTriggered: false,
+      searchRequested: percentComplete < 100,
+      reconciliationQueued: true,
+      activityId: albumLog?.lastID || null,
       percentComplete
     };
   }

@@ -127,7 +127,8 @@ describe('AlbumOrchestrator', () => {
   describe('monitorAndSearchAlbum', () => {
     const artist = { id: 5, artistName: 'Test Artist', foreignArtistId: 'artist-mbid' };
 
-    it('idempotently monitors and searches an existing incomplete album', async () => {
+    it('defers monitoring and search for an existing incomplete album', async () => {
+      logger.logAlbum.mockResolvedValue({ lastID: 99 });
       const album = {
         id: 10, title: 'Test Album', monitored: false,
         statistics: { percentOfTracks: 25 }
@@ -137,14 +138,16 @@ describe('AlbumOrchestrator', () => {
 
       const result = await orchestrator.monitorAndSearchAlbum(album, artist, requestData);
 
-      expect(albumService.updateMonitoring).toHaveBeenCalledWith(album, true);
-      expect(albumService.triggerSearchStrict).toHaveBeenCalledWith(10);
+      expect(albumService.updateMonitoring).not.toHaveBeenCalled();
+      expect(albumService.triggerSearchStrict).not.toHaveBeenCalled();
       expect(result).toMatchObject({
-        success: true, state: 'queued', artistCreated: false, percentComplete: 25
+        success: true, state: 'queued', artistCreated: false, percentComplete: 25,
+        monitored: false, searchTriggered: false, reconciliationQueued: true
       });
+      expect(result.activityId).toBe(99);
     });
 
-    it('returns complete without searching a fully downloaded album', async () => {
+    it('defers monitoring without searching a fully downloaded album', async () => {
       const album = {
         id: 10, title: 'Test Album', monitored: true,
         statistics: { percentOfTracks: 100 }
@@ -153,10 +156,11 @@ describe('AlbumOrchestrator', () => {
       const result = await orchestrator.monitorAndSearchAlbum(album, artist, requestData);
 
       expect(albumService.triggerSearchStrict).not.toHaveBeenCalled();
-      expect(result.state).toBe('complete');
+      expect(result.state).toBe('queued');
+      expect(result.searchRequested).toBe(false);
     });
 
-    it('propagates a failed search request instead of reporting success', async () => {
+    it('does not issue a search before reconciliation', async () => {
       const album = {
         id: 10, title: 'Test Album', monitored: true,
         statistics: { percentOfTracks: 0 }
@@ -165,7 +169,7 @@ describe('AlbumOrchestrator', () => {
 
       await expect(orchestrator.monitorAndSearchAlbum(
         album, artist, requestData
-      )).rejects.toThrow('search failed');
+      )).resolves.toMatchObject({ state: 'queued', searchTriggered: false });
     });
   });
 });

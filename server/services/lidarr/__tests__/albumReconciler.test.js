@@ -32,7 +32,8 @@ describe('AlbumReconciler', () => {
       pollInterval: 1,
       maxAttempts: 10,
       stablePasses: 2,
-      retentionMs: 1
+      retentionMs: 1,
+      protectionWindow: 0
     });
 
     await reconciler.enqueue({
@@ -68,7 +69,8 @@ describe('AlbumReconciler', () => {
       pollInterval: 2,
       maxAttempts: 20,
       stablePasses: 3,
-      retentionMs: 1
+      retentionMs: 1,
+      protectionWindow: 0
     });
 
     const first = reconciler.enqueue({
@@ -104,7 +106,8 @@ describe('AlbumReconciler', () => {
       pollInterval: 1,
       maxAttempts: 10,
       stablePasses: 2,
-      retentionMs: 1
+      retentionMs: 1,
+      protectionWindow: 0
     });
 
     await reconciler.enqueue({
@@ -123,7 +126,8 @@ describe('AlbumReconciler', () => {
     });
     const onStateChange = jest.fn();
     const reconciler = new AlbumReconciler(albumService, {
-      pollInterval: 1, maxAttempts: 5, stablePasses: 2, retentionMs: 1
+      pollInterval: 1, maxAttempts: 5, stablePasses: 2, retentionMs: 1,
+      protectionWindow: 0
     });
 
     await reconciler.enqueue({
@@ -142,7 +146,8 @@ describe('AlbumReconciler', () => {
     albumService.hasActiveArtistRefresh.mockResolvedValue(true);
     const onStateChange = jest.fn();
     const reconciler = new AlbumReconciler(albumService, {
-      pollInterval: 1, maxAttempts: 1, stablePasses: 2, retentionMs: 1
+      pollInterval: 1, maxAttempts: 1, stablePasses: 2, retentionMs: 1,
+      protectionWindow: 0
     });
 
     await reconciler.enqueue({
@@ -163,7 +168,8 @@ describe('AlbumReconciler', () => {
     const firstState = jest.fn();
     const retryState = jest.fn();
     const reconciler = new AlbumReconciler(albumService, {
-      pollInterval: 1, maxAttempts: 5, stablePasses: 1, retentionMs: 100
+      pollInterval: 1, maxAttempts: 5, stablePasses: 1, retentionMs: 100,
+      protectionWindow: 0
     });
 
     await reconciler.enqueue({
@@ -188,7 +194,8 @@ describe('AlbumReconciler', () => {
     const goodState = jest.fn();
     const missingState = jest.fn();
     const reconciler = new AlbumReconciler(albumService, {
-      pollInterval: 1, maxAttempts: 1, stablePasses: 2, retentionMs: 1
+      pollInterval: 1, maxAttempts: 1, stablePasses: 2, retentionMs: 1,
+      protectionWindow: 0
     });
 
     await reconciler.enqueue({
@@ -221,7 +228,8 @@ describe('AlbumReconciler', () => {
     const reconciler = new AlbumReconciler(albumService, {
       store,
       cache: { clearByPrefix: jest.fn() },
-      pollInterval: 1, maxAttempts: 3, stablePasses: 1, retentionMs: 1
+      pollInterval: 1, maxAttempts: 3, stablePasses: 1, retentionMs: 1,
+      protectionWindow: 0
     });
 
     await reconciler.ready;
@@ -230,5 +238,72 @@ describe('AlbumReconciler', () => {
     expect(store.updateAlbumAdditionState).toHaveBeenCalledWith(42, expect.objectContaining({
       operationState: 'search_queued', success: true
     }));
+  });
+
+  it('reasserts monitoring when Lidarr changes it after initial verification', async () => {
+    albumService.hasActiveArtistRefresh.mockResolvedValue(false);
+    let monitored = true;
+    albumService.findInLibraryStrict.mockImplementation(async () => ({
+      id: 10, monitored, statistics: { percentOfTracks: 0 }
+    }));
+    albumService.updateMonitoring.mockImplementation(async () => {
+      monitored = true;
+      return { id: 10, monitored: true };
+    });
+    const reconciler = new AlbumReconciler(albumService, {
+      pollInterval: 1,
+      protectionPollInterval: 5,
+      protectionWindow: 20,
+      maxAttempts: 5,
+      stablePasses: 1,
+      retentionMs: 1
+    });
+    const driftTimer = setTimeout(() => { monitored = false; }, 3);
+
+    await reconciler.enqueue({
+      artistMbid: 'artist-1', artistId: 5, albumMbid: 'album-1'
+    });
+    await reconciler.waitFor('artist-1');
+    clearTimeout(driftTimer);
+
+    expect(albumService.updateMonitoring).toHaveBeenCalled();
+    expect(monitored).toBe(true);
+  });
+
+  it('does not finalize while a refresh is still active at protection expiry', async () => {
+    let commandCheck = 0;
+    let monitored = true;
+    albumService.hasActiveArtistRefresh.mockImplementation(async () => {
+      commandCheck += 1;
+      if (commandCheck === 2) {
+        monitored = false;
+        return true;
+      }
+      return false;
+    });
+    albumService.findInLibraryStrict.mockImplementation(async () => ({
+      id: 10, monitored, statistics: { percentOfTracks: 0 }
+    }));
+    albumService.updateMonitoring.mockImplementation(async () => {
+      monitored = true;
+      return { id: 10, monitored: true };
+    });
+    const reconciler = new AlbumReconciler(albumService, {
+      pollInterval: 1,
+      protectionPollInterval: 5,
+      protectionWindow: 3,
+      maxAttempts: 5,
+      stablePasses: 1,
+      retentionMs: 1
+    });
+
+    await reconciler.enqueue({
+      artistMbid: 'artist-1', artistId: 5, albumMbid: 'album-1'
+    });
+    await reconciler.waitFor('artist-1');
+
+    expect(commandCheck).toBeGreaterThanOrEqual(3);
+    expect(albumService.updateMonitoring).toHaveBeenCalled();
+    expect(monitored).toBe(true);
   });
 });
