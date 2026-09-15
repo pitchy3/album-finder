@@ -24,6 +24,10 @@ jest.mock('../../../services/lidarr/lidarrClient', () => ({
 
 jest.mock('../../../services/lidarr/artistService', () => ({
   ArtistService: class MockArtistService {
+    findExactByName() {
+      return Promise.resolve(global.mockExactLidarrArtist || null);
+    }
+
     findByMbid() {
       return Promise.resolve({
         id: 7,
@@ -65,6 +69,27 @@ describe('MusicBrainz catalog with Lidarr status overlay', () => {
     app = express();
     app.use('/api/musicbrainz', musicbrainzRoutes);
     global.fetch.mockReset();
+    global.mockExactLidarrArtist = null;
+  });
+
+  it('serves an existing artist entirely from Lidarr without contacting MusicBrainz', async () => {
+    global.mockExactLidarrArtist = {
+      id: 7,
+      artistName: 'Test Artist',
+      foreignArtistId: 'artist-mbid',
+      monitored: false
+    };
+
+    const response = await request(app)
+      .get('/api/musicbrainz/release-group/stream')
+      .query({ artist: 'Test Artist', limit: 50 })
+      .timeout(5000);
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('Known Album');
+    expect(response.text).toContain('"source":"lidarr"');
+    expect(response.text).not.toContain('"degraded":true');
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it('falls back to the Lidarr catalog when the initial MusicBrainz request fails', async () => {
