@@ -118,25 +118,47 @@ describe('AlbumCard', () => {
     expect(mockOnAddToLidarr).not.toHaveBeenCalled();
   });
 
-  it('should not offer to add an album that is queued in Lidarr', () => {
+  it('should disable another request while a search request is being processed', () => {
     renderComponent({
       ...mockAlbum,
       inLidarr: true,
       addState: 'queued'
     });
 
-    expect(screen.getByText('🔎 In Lidarr (Search queued)')).toBeDisabled();
+    expect(screen.getByText('🔎 Search requested…')).toBeDisabled();
     expect(screen.queryByText('➕ Add to Lidarr')).not.toBeInTheDocument();
   });
 
-  it('should show download progress separately from library membership', () => {
-    renderComponent({
+  it('should allow another search for a monitored album with no downloaded tracks', () => {
+    const album = {
       ...mockAlbum,
       inLidarr: true,
-      percentComplete: 42
-    });
+      monitored: true,
+      percentComplete: 0
+    };
+    renderComponent(album, { artistInLidarr: true });
 
-    expect(screen.getByText('⬇ Downloading – 42%')).toBeDisabled();
+    const button = screen.getByText('🔎 Monitored — Search again');
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+    expect(mockOnAddToLidarr).toHaveBeenCalledWith(album, null);
+  });
+
+  it('should allow another search for a partially downloaded album', () => {
+    const album = {
+      ...mockAlbum,
+      monitored: true,
+      inLidarr: true,
+      percentComplete: 42
+    };
+    renderComponent({
+      ...album
+    }, { artistInLidarr: true });
+
+    const button = screen.getByText('🔎 42% downloaded — Search again');
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+    expect(mockOnAddToLidarr).toHaveBeenCalledWith(album, null);
   });
 
   it('should allow retry after an add failure', () => {
