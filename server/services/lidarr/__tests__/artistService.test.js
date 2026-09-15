@@ -241,4 +241,24 @@ describe('ArtistService', () => {
       expect(result).toBeNull();
     });
   });
+
+  describe('findExactByName', () => {
+    it('matches case-insensitively without accepting partial names', async () => {
+      mockClient.get.mockResolvedValueOnce([
+        { id: 1, artistName: 'Area-7' },
+        { id: 2, artistName: 'AREA 7' }
+      ]);
+
+      await expect(artistService.findExactByName('area 7')).resolves.toEqual({
+        id: 2,
+        artistName: 'AREA 7'
+      });
+    });
+
+    it('returns null for a partial match', async () => {
+      mockClient.get.mockResolvedValueOnce([{ id: 1, artistName: 'Area-7' }]);
+
+      await expect(artistService.findExactByName('Area')).resolves.toBeNull();
+    });
+  });
 });

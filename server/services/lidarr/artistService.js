@@ -119,6 +119,22 @@ class ArtistService {
              normalized.includes(name);
     }) || null;
   }
+
+  /**
+   * Find an artist by an exact, case-insensitive name match.
+   *
+   * Artist browsing uses this before contacting MusicBrainz so an existing
+   * Lidarr artist can be served entirely from Lidarr. Avoid fuzzy matching
+   * here: a query such as "Area" must not resolve to "Area-7".
+   */
+  async findExactByName(searchName) {
+    const artists = await this.getAll();
+    const normalized = searchName.toLowerCase().trim();
+
+    return artists.find(artist =>
+      artist.artistName?.toLowerCase().trim() === normalized
+    ) || null;
+  }
 }
 
 module.exports = { ArtistService };

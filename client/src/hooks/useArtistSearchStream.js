@@ -103,10 +103,7 @@ export function useArtistSearchStream() {
         console.log("✅ Stream complete:", data);
         setLoading(false);
         setProgress(prev => ({ ...prev, hasMore: false }));
-        setWarning(data.degraded
-          ? 'MusicBrainz is temporarily unavailable. Showing albums currently known to Lidarr; additional releases may be missing.'
-          : null
-        );
+        setWarning(null);
         eventSource.close();
       });
 
