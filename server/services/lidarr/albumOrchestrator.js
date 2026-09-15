@@ -45,7 +45,9 @@ class AlbumOrchestrator {
       monitored: true,
       addOptions: {
         ...(album.addOptions || {}),
-        searchForNewAlbum: true
+        // Search only after AlbumReconciler verifies that the artist refresh
+        // can no longer overwrite this album's monitored state.
+        searchForNewAlbum: false
       }
     };
 
@@ -68,7 +70,7 @@ class AlbumOrchestrator {
       albumMbid: requestData.mbid,
       artistName: requestData.artist,
       monitored: true,
-      searchTriggered: true
+      searchTriggered: false
     }), requestData);
 
     return {
@@ -81,8 +83,9 @@ class AlbumOrchestrator {
       artist: addedArtist.artistName || requestData.artist,
       albumId: addedAlbum.id,
       monitored: true,
-      searchTriggered: true,
+      searchTriggered: false,
       searchRequested: true,
+      reconciliationQueued: true,
       percentComplete: 0,
       message: `\"${addedAlbum.title || requestData.title}\" by \"${addedArtist.artistName || requestData.artist}\" added and search queued`
     };

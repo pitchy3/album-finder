@@ -60,7 +60,7 @@ describe('AlbumOrchestrator', () => {
       expect(albumService.add).toHaveBeenCalledWith(expect.objectContaining({
         monitored: true,
         artist: preparedArtist,
-        addOptions: expect.objectContaining({ searchForNewAlbum: true })
+        addOptions: expect.objectContaining({ searchForNewAlbum: false })
       }));
       expect(result).toMatchObject({
         success: true,
@@ -68,7 +68,8 @@ describe('AlbumOrchestrator', () => {
         artistCreated: true,
         artistId: 5,
         albumId: 10,
-        searchRequested: true
+        searchRequested: true,
+        reconciliationQueued: true
       });
       expect(logger.logArtist).toHaveBeenCalled();
       expect(logger.logAlbum).toHaveBeenCalled();

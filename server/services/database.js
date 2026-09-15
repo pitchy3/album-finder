@@ -227,6 +227,17 @@ class Database {
       )
     `);
 
+    await this.run(`
+      CREATE TABLE IF NOT EXISTS album_reconciliation_jobs (
+        artist_mbid TEXT NOT NULL,
+        artist_id INTEGER,
+        album_mbid TEXT NOT NULL,
+        search_triggered BOOLEAN DEFAULT FALSE,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (artist_mbid, album_mbid)
+      )
+    `);
+
     // Auth events table
     await this.run(`
       CREATE TABLE IF NOT EXISTS auth_events (
@@ -500,6 +511,31 @@ class Database {
     } catch (error) {
       console.error('⚠️ Error logging album addition:', error.message);
     }
+  }
+
+  async saveAlbumReconciliationJob(data) {
+    if (!this.isInitialized) return;
+    return this.run(`
+      INSERT INTO album_reconciliation_jobs
+        (artist_mbid, artist_id, album_mbid, search_triggered)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(artist_mbid, album_mbid) DO UPDATE SET
+        artist_id = excluded.artist_id,
+        search_triggered = MAX(search_triggered, excluded.search_triggered)
+    `, [data.artistMbid, data.artistId || null, data.albumMbid, data.searchTriggered ? 1 : 0]);
+  }
+
+  async getAlbumReconciliationJobs() {
+    if (!this.isInitialized) return [];
+    return this.all('SELECT * FROM album_reconciliation_jobs ORDER BY created_at ASC');
+  }
+
+  async deleteAlbumReconciliationJob(artistMbid, albumMbid) {
+    if (!this.isInitialized) return;
+    return this.run(
+      'DELETE FROM album_reconciliation_jobs WHERE artist_mbid = ? AND album_mbid = ?',
+      [artistMbid, albumMbid]
+    );
   }
 
   // Log authentication events with timezone-aware timestamps

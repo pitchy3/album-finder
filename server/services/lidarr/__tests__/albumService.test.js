@@ -427,4 +427,30 @@ describe('AlbumService', () => {
       expect(result.get('mbid-1').coverUrl).toBe('http://example.com/banner.jpg');
     });
   });
+
+  describe('hasActiveArtistRefresh', () => {
+    it('finds queued refreshes for the requested artist in paged command results', async () => {
+      mockClient.get.mockResolvedValueOnce({
+        records: [{
+          name: 'RefreshArtist',
+          status: 'queued',
+          body: { artistIds: [5] }
+        }]
+      });
+
+      await expect(albumService.hasActiveArtistRefresh(5)).resolves.toBe(true);
+      expect(mockClient.get).toHaveBeenCalledWith('command', expect.objectContaining({
+        pageSize: 100
+      }));
+    });
+
+    it('ignores completed refreshes and refreshes for other artists', async () => {
+      mockClient.get.mockResolvedValueOnce([
+        { name: 'RefreshArtist', status: 'completed', body: { artistIds: [5] } },
+        { name: 'RefreshArtist', status: 'started', body: { artistId: 9 } }
+      ]);
+
+      await expect(albumService.hasActiveArtistRefresh(5)).resolves.toBe(false);
+    });
+  });
 });

@@ -25,6 +25,15 @@ module.exports = {
     backoffMs: 1000
   },
 
+  // Keep explicitly selected albums monitored after Lidarr finishes the
+  // asynchronous artist refresh started by the first album addition.
+  reconciliation: {
+    pollInterval: 2000,
+    maxAttempts: 300,
+    stablePasses: 2,
+    retentionMs: 60 * 60 * 1000
+  },
+
   // Cache TTLs (seconds)
   cache: {
     albumLookup: 300,     // 5 minutes
