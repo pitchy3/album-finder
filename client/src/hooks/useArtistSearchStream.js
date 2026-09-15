@@ -207,7 +207,7 @@ export function useArtistSearchStream() {
               monitored: response.monitored ?? true,
               fullyAvailable: complete,
               percentComplete,
-              addState: complete ? 'complete' : 'queued'
+              addState: complete ? 'complete' : null
             }
           : album
       )
