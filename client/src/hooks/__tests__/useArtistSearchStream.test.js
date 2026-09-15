@@ -105,7 +105,7 @@ describe('useArtistSearchStream album addition state', () => {
     expect(result.current.results).toEqual([]);
   });
 
-  it('exposes a warning when the catalog falls back to Lidarr', () => {
+  it('does not show a MusicBrainz warning for a Lidarr catalog response', () => {
     const { result } = renderHook(() => useArtistSearchStream());
 
     act(() => {
@@ -121,7 +121,7 @@ describe('useArtistSearchStream album addition state', () => {
       });
     });
 
-    expect(result.current.warning).toContain('MusicBrainz is temporarily unavailable');
+    expect(result.current.warning).toBeNull();
     expect(result.current.loading).toBe(false);
   });
 
