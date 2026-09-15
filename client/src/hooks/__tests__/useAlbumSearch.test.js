@@ -78,7 +78,7 @@ describe('useAlbumSearch', () => {
     expect(result.current.results[0]).toMatchObject({
       inLidarr: true,
       fullyAvailable: false,
-      addState: 'queued'
+      addState: null
     });
   });
 
