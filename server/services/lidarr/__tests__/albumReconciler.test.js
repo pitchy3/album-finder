@@ -269,4 +269,41 @@ describe('AlbumReconciler', () => {
     expect(albumService.updateMonitoring).toHaveBeenCalled();
     expect(monitored).toBe(true);
   });
+
+  it('does not finalize while a refresh is still active at protection expiry', async () => {
+    let commandCheck = 0;
+    let monitored = true;
+    albumService.hasActiveArtistRefresh.mockImplementation(async () => {
+      commandCheck += 1;
+      if (commandCheck === 2) {
+        monitored = false;
+        return true;
+      }
+      return false;
+    });
+    albumService.findInLibraryStrict.mockImplementation(async () => ({
+      id: 10, monitored, statistics: { percentOfTracks: 0 }
+    }));
+    albumService.updateMonitoring.mockImplementation(async () => {
+      monitored = true;
+      return { id: 10, monitored: true };
+    });
+    const reconciler = new AlbumReconciler(albumService, {
+      pollInterval: 1,
+      protectionPollInterval: 5,
+      protectionWindow: 3,
+      maxAttempts: 5,
+      stablePasses: 1,
+      retentionMs: 1
+    });
+
+    await reconciler.enqueue({
+      artistMbid: 'artist-1', artistId: 5, albumMbid: 'album-1'
+    });
+    await reconciler.waitFor('artist-1');
+
+    expect(commandCheck).toBeGreaterThanOrEqual(3);
+    expect(albumService.updateMonitoring).toHaveBeenCalled();
+    expect(monitored).toBe(true);
+  });
 });
