@@ -181,6 +181,7 @@ router.post("/add", ensureAuthenticated, async (req, res) => {
         artistId: result.artistId,
         albumMbid: mbid,
         searchAlreadyTriggered: result.searchTriggered,
+        activityId: result.activityId,
         onStateChange: result.activityId
           ? state => logger.updateAlbumState(result.activityId, state)
           : undefined
@@ -389,6 +390,7 @@ router.post("/retry-download", ensureAuthenticated, async (req, res) => {
       artistId: artistDetails.id,
       albumMbid: albumInfo.foreignAlbumId || albumMbid,
       forceSearch: true,
+      activityId: retryLog?.lastID,
       onStateChange: retryLog?.lastID
         ? state => logger.updateAlbumState(retryLog.lastID, state)
         : undefined
