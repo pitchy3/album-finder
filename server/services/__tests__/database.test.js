@@ -97,6 +97,22 @@ describe('Database Service', () => {
       const logs = await database.all('SELECT * FROM album_additions');
       expect(logs).toHaveLength(1);
       expect(logs[0].album_title).toBe('Test Album');
+      expect(logs[0].operation_state).toBe('accepted');
+    });
+
+    it('updates an album addition after reconciliation', async () => {
+      const result = await database.logAlbumAddition({ albumTitle: 'Test Album' });
+      await database.updateAlbumAdditionState(result.lastID, {
+        operationState: 'search_queued',
+        monitored: true,
+        searchTriggered: true,
+        success: true
+      });
+
+      const log = await database.get('SELECT * FROM album_additions WHERE id = ?', [result.lastID]);
+      expect(log).toEqual(expect.objectContaining({
+        operation_state: 'search_queued', monitored: 1, search_triggered: 1, success: 1
+      }));
     });
   });
 
