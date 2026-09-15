@@ -58,6 +58,10 @@ class LidarrLogger {
     });
   }
 
+  async updateAlbumState(id, state) {
+    return database.updateAlbumAdditionState(id, state);
+  }
+
   static buildAlbumData(album, artist, options = {}) {
     return {
       albumTitle: album?.title || options.albumTitle || null,
@@ -69,7 +73,8 @@ class LidarrLogger {
       releaseDate: album?.releaseDate || options.releaseDate || null,
       rootFolderUsed: artist?.path || options.rootFolderUsed || null,
       monitored: album?.monitored ?? options.monitored ?? true,
-      searchTriggered: options.searchTriggered ?? false
+      searchTriggered: options.searchTriggered ?? false,
+      operationState: options.operationState || 'accepted'
     };
   }
 
