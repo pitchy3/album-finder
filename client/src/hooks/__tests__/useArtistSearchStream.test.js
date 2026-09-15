@@ -33,7 +33,7 @@ describe('useArtistSearchStream album addition state', () => {
     global.EventSource = MockEventSource;
   });
 
-  it('promotes the artist to ready and keeps a queued album incomplete', () => {
+  it('promotes the artist to ready and restores retry for an incomplete album', () => {
     const { result } = renderHook(() => useArtistSearchStream());
 
     act(() => {
@@ -84,7 +84,7 @@ describe('useArtistSearchStream album addition state', () => {
       inLidarr: true,
       fullyAvailable: false,
       percentComplete: 0,
-      addState: 'queued'
+      addState: null
     });
   });
 
