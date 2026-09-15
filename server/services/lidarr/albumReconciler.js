@@ -20,19 +20,27 @@ class AlbumReconciler {
     this.ready = this.restorePendingJobs();
   }
 
-  async enqueue({ artistMbid, artistId, albumMbid, searchAlreadyTriggered = false }) {
+  async enqueue({
+    artistMbid, artistId, albumMbid, searchAlreadyTriggered = false,
+    forceSearch = false, onStateChange
+  }) {
     if (!artistMbid || !albumMbid) {
       throw new Error('Artist and album MusicBrainz IDs are required for reconciliation');
     }
 
     await this.ready;
     await this.store.saveAlbumReconciliationJob({
-      artistMbid, artistId, albumMbid, searchTriggered: searchAlreadyTriggered
+      artistMbid, artistId, albumMbid, searchTriggered: searchAlreadyTriggered, forceSearch
     });
-    this.addDesired({ artistMbid, artistId, albumMbid, searchAlreadyTriggered });
+    this.addDesired({
+      artistMbid, artistId, albumMbid, searchAlreadyTriggered, forceSearch, onStateChange
+    });
   }
 
-  addDesired({ artistMbid, artistId, albumMbid, searchAlreadyTriggered = false }) {
+  addDesired({
+    artistMbid, artistId, albumMbid, searchAlreadyTriggered = false,
+    forceSearch = false, onStateChange
+  }) {
     let state = this.artists.get(artistMbid);
     if (!state) {
       state = {
@@ -50,7 +58,10 @@ class AlbumReconciler {
     state.generation += 1;
     const prior = state.albums.get(albumMbid);
     state.albums.set(albumMbid, {
-      searchTriggered: prior?.searchTriggered || searchAlreadyTriggered
+      searchTriggered: forceSearch ? false : prior?.searchTriggered || searchAlreadyTriggered,
+      onStateChange: onStateChange || prior?.onStateChange,
+      notifiedState: forceSearch ? undefined : prior?.notifiedState,
+      reconciled: false
     });
 
     if (state.cleanupTimer) {
@@ -108,6 +119,7 @@ class AlbumReconciler {
         stableCount = reconciled && generation === state.generation ? stableCount + 1 : 0;
 
         if (stableCount >= this.stablePasses) {
+          await this.notifySuccess(state);
           await Promise.all(reconciledAlbumMbids.map(albumMbid =>
             this.store.deleteAlbumReconciliationJob(artistMbid, albumMbid)
           ));
@@ -120,8 +132,11 @@ class AlbumReconciler {
       }
 
       console.error(`Lidarr reconciliation timed out for artist ${artistMbid}`);
+      await this.notifySuccess(state, true);
+      await this.notifyFailure(state, 'Lidarr reconciliation timed out');
     } catch (error) {
       console.error(`Lidarr reconciliation failed for artist ${artistMbid}:`, error);
+      await this.notifyFailure(state, error.message);
     } finally {
       state.running = false;
       state.cleanupTimer = setTimeout(() => {
@@ -144,6 +159,7 @@ class AlbumReconciler {
     let allMonitored = true;
 
     for (const [albumMbid, desired] of state.albums) {
+      desired.reconciled = false;
       try {
         let album = await this.albumService.findInLibraryStrict(albumMbid);
         if (!album) {
@@ -163,6 +179,7 @@ class AlbumReconciler {
         }
 
         const percentComplete = album.statistics?.percentOfTracks || 0;
+        desired.percentComplete = percentComplete;
         if (!desired.searchTriggered && percentComplete < 100) {
           await this.albumService.triggerSearchStrict(album.id);
           desired.searchTriggered = true;
@@ -173,6 +190,8 @@ class AlbumReconciler {
             searchTriggered: true
           });
         }
+        desired.reconciled = true;
+
       } catch (error) {
         allMonitored = false;
         console.warn(`Unable to reconcile album ${albumMbid}:`, error.message);
@@ -180,6 +199,45 @@ class AlbumReconciler {
     }
 
     return allMonitored;
+  }
+
+  async notifySuccess(state, onlyReconciled = false) {
+    for (const desired of state.albums.values()) {
+      if (onlyReconciled && !desired.reconciled) continue;
+      const operationState = desired.percentComplete >= 100 ? 'complete' : 'search_queued';
+      if (desired.notifiedState === operationState) continue;
+
+      await this.notify(desired, {
+        operationState,
+        monitored: true,
+        searchTriggered: desired.searchTriggered,
+        success: true,
+        errorMessage: null
+      });
+      desired.notifiedState = operationState;
+    }
+  }
+
+  async notifyFailure(state, message) {
+    for (const desired of state.albums.values()) {
+      if (desired.reconciled) continue;
+      await this.notify(desired, {
+        operationState: 'failed',
+        monitored: false,
+        searchTriggered: desired.searchTriggered,
+        success: false,
+        errorMessage: message
+      });
+      desired.notifiedState = 'failed';
+    }
+  }
+
+  async notify(desired, state) {
+    try {
+      await desired.onStateChange?.(state);
+    } catch (error) {
+      console.warn('Unable to update album reconciliation status:', error.message);
+    }
   }
 
   delay() {
