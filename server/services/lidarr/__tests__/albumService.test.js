@@ -259,6 +259,7 @@ describe('AlbumService', () => {
       const album = {
         id: 1,
         title: 'Test',
+        monitored: true,
         statistics: { percentOfTracks: 75 }
       };
 
@@ -279,6 +280,30 @@ describe('AlbumService', () => {
 
       expect(result.percentComplete).toBe(0);
       expect(result.fullyAvailable).toBe(false);
+    });
+
+    it('does not treat an unmonitored zero-file Lidarr row as requested', () => {
+      const result = albumService.enrichAlbumStatus({
+        id: 1,
+        title: 'Discovered but not selected',
+        monitored: false,
+        statistics: { percentOfTracks: 0 }
+      });
+
+      expect(result.inLibrary).toBe(false);
+      expect(result.fullyAvailable).toBe(false);
+    });
+
+    it('keeps an unmonitored album with downloaded files in the library', () => {
+      const result = albumService.enrichAlbumStatus({
+        id: 1,
+        title: 'Downloaded album',
+        monitored: false,
+        statistics: { percentOfTracks: 100 }
+      });
+
+      expect(result.inLibrary).toBe(true);
+      expect(result.fullyAvailable).toBe(true);
     });
 
     it('should handle album not in library', () => {
@@ -394,8 +419,28 @@ describe('AlbumService', () => {
       });
       expect(result.get('mbid-2')).toMatchObject({
         title: 'Album 2',
+        inLibrary: true,
         fullyAvailable: false,
         coverUrl: 'http://example.com/cover2.jpg'
+      });
+    });
+
+    it('keeps an unmonitored zero-file release visible but addable', async () => {
+      mockClient.get.mockResolvedValueOnce([{
+        id: 2,
+        foreignAlbumId: 'unrequested-mbid',
+        title: 'Not requested',
+        monitored: false,
+        statistics: { percentOfTracks: 0, trackCount: 8, trackFileCount: 0 }
+      }]);
+
+      const result = await albumService.getAllWithCoverArt(1);
+
+      expect(result.get('unrequested-mbid')).toMatchObject({
+        inLibrary: false,
+        monitored: false,
+        fullyAvailable: false,
+        percentComplete: 0
       });
     });
 
