@@ -53,7 +53,6 @@ export default function AlbumCard({
       isFullyDownloaded ||
       album.addState === 'complete' ||
       album.addState === 'adding' ||
-      album.addState === 'queued' ||
       artistCreationState === 'creating'
     ) {
       return; // Button should be disabled, but extra safety
@@ -82,7 +81,7 @@ export default function AlbumCard({
   const getButtonState = () => {
     if (album.addState === 'adding') {
       return {
-        text: '⏳ Adding to Lidarr…',
+        text: album.inLidarr ? '⏳ Requesting search…' : '⏳ Adding to Lidarr…',
         disabled: true,
         className: preferences.darkMode
           ? 'bg-yellow-700 text-yellow-300 cursor-not-allowed'
@@ -107,15 +106,6 @@ export default function AlbumCard({
         className: preferences.darkMode
           ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
           : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-      };
-    }
-    if (album.addState === 'queued') {
-      return {
-        text: '🔎 Search requested…',
-        disabled: true,
-        className: preferences.darkMode
-          ? 'bg-blue-900/50 text-blue-300 cursor-not-allowed'
-          : 'bg-blue-100 text-blue-800 cursor-not-allowed'
       };
     }
     if (album.inLidarr) {
