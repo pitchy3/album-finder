@@ -17,6 +17,25 @@ describe('Database Service', () => {
     await database.run('DELETE FROM query_log');
     await database.run('DELETE FROM artist_additions');
     await database.run('DELETE FROM album_additions');
+    await database.run('DELETE FROM album_reconciliation_jobs');
+  });
+
+  describe('album reconciliation jobs', () => {
+    it('persists, updates, and removes deferred work', async () => {
+      await database.saveAlbumReconciliationJob({
+        artistMbid: 'artist-mbid', artistId: 1, albumMbid: 'album-mbid', searchTriggered: false
+      });
+      await database.saveAlbumReconciliationJob({
+        artistMbid: 'artist-mbid', artistId: 1, albumMbid: 'album-mbid', searchTriggered: true
+      });
+
+      const jobs = await database.getAlbumReconciliationJobs();
+      expect(jobs).toHaveLength(1);
+      expect(jobs[0].search_triggered).toBe(1);
+
+      await database.deleteAlbumReconciliationJob('artist-mbid', 'album-mbid');
+      await expect(database.getAlbumReconciliationJobs()).resolves.toEqual([]);
+    });
   });
 
   describe('logQuery', () => {
