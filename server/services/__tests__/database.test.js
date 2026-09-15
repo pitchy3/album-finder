@@ -35,11 +35,12 @@ describe('Database Service', () => {
 
       await database.saveAlbumReconciliationJob({
         artistMbid: 'artist-mbid', artistId: 1, albumMbid: 'album-mbid',
-        searchTriggered: false, forceSearch: true
+        searchTriggered: false, forceSearch: true, activityId: 42
       });
       const resetJobs = await database.getAlbumReconciliationJobs();
       expect(resetJobs).toHaveLength(1);
       expect(resetJobs[0].search_triggered).toBe(0);
+      expect(resetJobs[0].activity_id).toBe(42);
 
       await database.deleteAlbumReconciliationJob('artist-mbid', 'album-mbid');
       await expect(database.getAlbumReconciliationJobs()).resolves.toEqual([]);
