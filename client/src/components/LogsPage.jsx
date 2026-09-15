@@ -173,6 +173,14 @@ const StatusBadge = ({ log, selectedFilter, darkMode, getStatusColor, getAuthEve
   const isAlbumAddition = ['albums', 'albums-downloaded', 'albums-pending'].includes(selectedFilter);
   const isArtistAddition = selectedFilter === 'artists';
 
+  if (isAlbumAddition && log.operation_state === 'reconciling') {
+    return <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(300, true)}`}>Reconciling</span>;
+  }
+
+  if (isAlbumAddition && log.operation_state === 'search_queued') {
+    return <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(200, true)}`}>Search queued</span>;
+  }
+
   if (isAuthEvent) {
     return (
       <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getAuthEventColor(log.event_type, darkMode)}`}>
@@ -212,7 +220,8 @@ const StatusBadge = ({ log, selectedFilter, darkMode, getStatusColor, getAuthEve
 };
 
 const RetryButton = ({ log, onRetry, darkMode, retrying }) => {
-  const canRetry = log.lidarr_album_id && (log.success !== false || !log.downloaded);
+  const canRetry = log.lidarr_album_id && log.operation_state !== 'reconciling' &&
+    (log.success !== false || !log.downloaded);
   
   if (!canRetry) return null;
 
@@ -323,13 +332,16 @@ const DetailSection = ({ log, selectedFilter, darkMode, lidarrUrl, onRetry, retr
             />
           )}
           
-          {log.monitored !== undefined && (
+          {log.monitored !== undefined && log.operation_state !== 'reconciling' && (
             <div>
               <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Monitored:</span>
               <span className={`ml-2 ${log.monitored ? 'text-green-400' : 'text-red-400'}`}>
                 {log.monitored ? 'Yes' : 'No'}
               </span>
             </div>
+          )}
+          {log.operation_state === 'reconciling' && (
+            <DetailItem label="Monitoring" value="Waiting for Lidarr refresh" />
           )}
           {log.downloaded !== undefined && (
             <div>
@@ -635,8 +647,8 @@ const LogsPage = ({ onBack }) => {
           box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         `;
         notification.innerHTML = `
-          <h4 style="margin: 0 0 8px 0; color: #060;">Download Retry Triggered!</h4>
-          <p style="margin: 4px 0;">"${log.album_title}" download has been triggered in Lidarr</p>
+          <h4 style="margin: 0 0 8px 0; color: #060;">Download Retry Queued</h4>
+          <p style="margin: 4px 0;">"${log.album_title}" will be searched after Lidarr monitoring is verified</p>
           <button onclick="this.parentElement.remove()" style="margin-top: 8px; padding: 4px 8px; background: #060; color: white; border: none; border-radius: 4px; cursor: pointer;">Close</button>
         `;
         document.body.appendChild(notification);
