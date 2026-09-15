@@ -93,8 +93,10 @@ export async function addToLidarr(album, rootFolder = null) {
     console.log("✅ Add to Lidarr successful:", data);
 
     createNotificationDiv(
-      'Album Added Successfully!',
-      `"${data?.title || album.title}" has been added to Lidarr`,
+      album.inLidarr ? 'Album Search Requested!' : 'Album Added Successfully!',
+      album.inLidarr
+        ? `A new search for "${data?.title || album.title}" has been requested`
+        : `"${data?.title || album.title}" has been added to Lidarr`,
       false
     );
     return { success: true, data };

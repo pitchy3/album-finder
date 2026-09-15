@@ -46,8 +46,15 @@ export default function AlbumCard({
   };
   
   const handleAddClick = () => {  
-    // Check if album is already in Lidarr
-    if (album.inLidarr || album.addState === 'adding' || artistCreationState === 'creating') {
+    // Completed albums and requests already being processed are not
+    // actionable. An incomplete album already monitored by Lidarr is
+    // intentionally actionable so the user can request another search.
+    if (
+      isFullyDownloaded ||
+      album.addState === 'complete' ||
+      album.addState === 'adding' ||
+      artistCreationState === 'creating'
+    ) {
       return; // Button should be disabled, but extra safety
     }
     
@@ -74,7 +81,7 @@ export default function AlbumCard({
   const getButtonState = () => {
     if (album.addState === 'adding') {
       return {
-        text: '⏳ Adding to Lidarr…',
+        text: album.inLidarr ? '⏳ Requesting search…' : '⏳ Adding to Lidarr…',
         disabled: true,
         className: preferences.darkMode
           ? 'bg-yellow-700 text-yellow-300 cursor-not-allowed'
@@ -102,15 +109,12 @@ export default function AlbumCard({
       };
     }
     if (album.inLidarr) {
-      const isDownloading = album.percentComplete > 0 && album.percentComplete < 100;
       return {
-        text: isDownloading
-          ? `⬇ Downloading – ${Math.round(album.percentComplete)}%`
-          : '🔎 In Lidarr (Search queued)',
-        disabled: true,
-        className: preferences.darkMode
-          ? 'bg-blue-900/50 text-blue-300 cursor-not-allowed'
-          : 'bg-blue-100 text-blue-800 cursor-not-allowed'
+        text: album.percentComplete > 0
+          ? `🔎 ${Math.round(album.percentComplete)}% downloaded — Search again`
+          : '🔎 Monitored — Search again',
+        disabled: false,
+        className: 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 hover:shadow-lg'
       };
     }
 
