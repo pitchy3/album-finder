@@ -22,7 +22,7 @@ class AlbumReconciler {
 
   async enqueue({
     artistMbid, artistId, albumMbid, searchAlreadyTriggered = false,
-    forceSearch = false, onStateChange
+    forceSearch = false, activityId, onStateChange
   }) {
     if (!artistMbid || !albumMbid) {
       throw new Error('Artist and album MusicBrainz IDs are required for reconciliation');
@@ -30,16 +30,17 @@ class AlbumReconciler {
 
     await this.ready;
     await this.store.saveAlbumReconciliationJob({
-      artistMbid, artistId, albumMbid, searchTriggered: searchAlreadyTriggered, forceSearch
+      artistMbid, artistId, albumMbid, activityId,
+      searchTriggered: searchAlreadyTriggered, forceSearch
     });
     this.addDesired({
-      artistMbid, artistId, albumMbid, searchAlreadyTriggered, forceSearch, onStateChange
+      artistMbid, artistId, albumMbid, searchAlreadyTriggered, forceSearch, activityId, onStateChange
     });
   }
 
   addDesired({
     artistMbid, artistId, albumMbid, searchAlreadyTriggered = false,
-    forceSearch = false, onStateChange
+    forceSearch = false, activityId, onStateChange
   }) {
     let state = this.artists.get(artistMbid);
     if (!state) {
@@ -59,6 +60,7 @@ class AlbumReconciler {
     const prior = state.albums.get(albumMbid);
     state.albums.set(albumMbid, {
       searchTriggered: forceSearch ? false : prior?.searchTriggered || searchAlreadyTriggered,
+      activityId: activityId || prior?.activityId,
       onStateChange: onStateChange || prior?.onStateChange,
       notifiedState: forceSearch ? undefined : prior?.notifiedState,
       reconciled: false
@@ -82,7 +84,11 @@ class AlbumReconciler {
       artistMbid: job.artist_mbid,
       artistId: job.artist_id,
       albumMbid: job.album_mbid,
-      searchAlreadyTriggered: Boolean(job.search_triggered)
+      searchAlreadyTriggered: Boolean(job.search_triggered),
+      activityId: job.activity_id,
+      onStateChange: job.activity_id
+        ? state => this.store.updateAlbumAdditionState(job.activity_id, state)
+        : undefined
     }));
   }
 
@@ -187,6 +193,7 @@ class AlbumReconciler {
             artistMbid: state.artistMbid,
             artistId: state.artistId,
             albumMbid,
+            activityId: desired.activityId,
             searchTriggered: true
           });
         }
