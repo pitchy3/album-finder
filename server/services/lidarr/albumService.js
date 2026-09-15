@@ -214,10 +214,13 @@ class AlbumService {
    */
   enrichAlbumStatus(album) {
     const percentOfTracks = album.statistics?.percentOfTracks || 0;
+    const requested = album.monitored === true || percentOfTracks > 0;
     
     return {
       ...album,
-      inLibrary: !!album.id,
+      // Lidarr creates database rows for every release discovered during an
+      // artist refresh. A row ID therefore means "known", not "requested".
+      inLibrary: requested,
       fullyAvailable: percentOfTracks === 100,
       percentComplete: percentOfTracks
     };
@@ -261,6 +264,7 @@ class AlbumService {
       if (!album.foreignAlbumId) return;
 
       const percentComplete = album.statistics?.percentOfTracks || 0;
+      const requested = album.monitored === true || percentComplete > 0;
       
       // Extract cover art URL from Lidarr response
       let coverUrl = null;
@@ -270,7 +274,7 @@ class AlbumService {
       }
       
       albumsMap.set(album.foreignAlbumId, {
-        inLibrary: true,
+        inLibrary: requested,
         fullyAvailable: percentComplete === 100,
         percentComplete,
         lidarrId: album.id,
