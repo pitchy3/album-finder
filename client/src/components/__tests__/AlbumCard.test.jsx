@@ -118,14 +118,14 @@ describe('AlbumCard', () => {
     expect(mockOnAddToLidarr).not.toHaveBeenCalled();
   });
 
-  it('should disable another request while a search request is being processed', () => {
+  it('should disable another request while the retry request is in flight', () => {
     renderComponent({
       ...mockAlbum,
       inLidarr: true,
-      addState: 'queued'
+      addState: 'adding'
     });
 
-    expect(screen.getByText('🔎 Search requested…')).toBeDisabled();
+    expect(screen.getByText('⏳ Requesting search…')).toBeDisabled();
     expect(screen.queryByText('➕ Add to Lidarr')).not.toBeInTheDocument();
   });
 
