@@ -216,6 +216,7 @@ class Database {
         release_date TEXT,
         monitored BOOLEAN DEFAULT TRUE,
         search_triggered BOOLEAN DEFAULT FALSE,
+        operation_state TEXT DEFAULT 'accepted',
         success BOOLEAN DEFAULT TRUE,
         error_message TEXT,
         ip_address TEXT,
@@ -266,7 +267,8 @@ class Database {
 	
     await this.addColumnsIfNotExist('album_additions', [
       { name: 'downloaded', type: 'BOOLEAN' },
-      { name: 'root_folder_used', type: 'TEXT' }
+      { name: 'root_folder_used', type: 'TEXT' },
+      { name: 'operation_state', type: "TEXT DEFAULT 'accepted'" }
     ]);
 
     await this.addColumnsIfNotExist('auth_events', [
@@ -479,13 +481,14 @@ class Database {
     try {
       const timestamp = tz.formatForDatabase(tz.now());
       
-      await this.run(`
+      return await this.run(`
         INSERT INTO album_additions (
           timestamp, user_id, username, email, album_title, album_mbid, 
           artist_name, artist_mbid, lidarr_album_id, lidarr_artist_id, 
           release_date, monitored, search_triggered, success, error_message,
-          ip_address, user_agent, request_data, downloaded, root_folder_used
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ip_address, user_agent, request_data, downloaded, root_folder_used,
+          operation_state
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         timestamp,
         data.userId || null,
@@ -506,7 +509,8 @@ class Database {
         data.userAgent || null,
         data.requestData || null,
         data.downloaded || null,
-        data.rootFolderUsed || null
+        data.rootFolderUsed || null,
+        data.operationState || 'accepted'
       ]);
     } catch (error) {
       console.error('⚠️ Error logging album addition:', error.message);
@@ -521,8 +525,11 @@ class Database {
       VALUES (?, ?, ?, ?)
       ON CONFLICT(artist_mbid, album_mbid) DO UPDATE SET
         artist_id = excluded.artist_id,
-        search_triggered = MAX(search_triggered, excluded.search_triggered)
-    `, [data.artistMbid, data.artistId || null, data.albumMbid, data.searchTriggered ? 1 : 0]);
+        search_triggered = CASE WHEN ? THEN 0 ELSE MAX(search_triggered, excluded.search_triggered) END
+    `, [
+      data.artistMbid, data.artistId || null, data.albumMbid,
+      data.searchTriggered ? 1 : 0, data.forceSearch ? 1 : 0
+    ]);
   }
 
   async getAlbumReconciliationJobs() {
@@ -536,6 +543,24 @@ class Database {
       'DELETE FROM album_reconciliation_jobs WHERE artist_mbid = ? AND album_mbid = ?',
       [artistMbid, albumMbid]
     );
+  }
+
+  async updateAlbumAdditionState(id, data) {
+    if (!this.isInitialized || !id) return;
+
+    return this.run(`
+      UPDATE album_additions
+      SET operation_state = ?, monitored = ?, search_triggered = ?,
+          success = ?, error_message = ?
+      WHERE id = ?
+    `, [
+      data.operationState,
+      data.monitored ? 1 : 0,
+      data.searchTriggered ? 1 : 0,
+      data.success !== false ? 1 : 0,
+      data.errorMessage || null,
+      id
+    ]);
   }
 
   // Log authentication events with timezone-aware timestamps
