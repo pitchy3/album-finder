@@ -31,6 +31,8 @@ module.exports = {
     pollInterval: 2000,
     maxAttempts: 300,
     stablePasses: 2,
+    protectionPollInterval: 15000,
+    protectionWindow: 60 * 60 * 1000,
     retentionMs: 60 * 60 * 1000
   },
 
