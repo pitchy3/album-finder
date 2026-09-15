@@ -265,6 +265,7 @@ describe('LidarrLogger', () => {
         releaseDate: '2024-01-01',
         rootFolderUsed: '/music/TestArtist',
         monitored: true,
+        operationState: 'accepted',
         searchTriggered: false
       });
     });
