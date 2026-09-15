@@ -154,14 +154,29 @@ class AlbumReconciler {
         await this.delay(reachedStableState ? this.protectionPollInterval : this.pollInterval);
       }
 
-      if (reachedStableState && await this.reconcileAlbums(state)) {
-        await this.notifySuccess(state);
-        await Promise.all([...state.albums.keys()].map(albumMbid =>
-          this.store.deleteAlbumReconciliationJob(artistMbid, albumMbid)
-        ));
-        this.cache.clearByPrefix('lidarr');
-        completed = true;
-        return;
+      if (reachedStableState) {
+        stableCount = 0;
+        for (let finalAttempt = 0; finalAttempt < this.maxAttempts; finalAttempt += 1) {
+          const refreshActive = await this.albumService.hasActiveArtistRefresh(state.artistId);
+          if (refreshActive) {
+            stableCount = 0;
+            await this.delay();
+            continue;
+          }
+
+          const reconciled = await this.reconcileAlbums(state);
+          stableCount = reconciled ? stableCount + 1 : 0;
+          if (stableCount >= this.stablePasses) {
+            await this.notifySuccess(state);
+            await Promise.all([...state.albums.keys()].map(albumMbid =>
+              this.store.deleteAlbumReconciliationJob(artistMbid, albumMbid)
+            ));
+            this.cache.clearByPrefix('lidarr');
+            completed = true;
+            return;
+          }
+          await this.delay();
+        }
       }
 
       console.error(`Lidarr reconciliation timed out for artist ${artistMbid}`);
