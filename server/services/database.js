@@ -233,6 +233,7 @@ class Database {
         artist_mbid TEXT NOT NULL,
         artist_id INTEGER,
         album_mbid TEXT NOT NULL,
+        activity_id INTEGER,
         search_triggered BOOLEAN DEFAULT FALSE,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (artist_mbid, album_mbid)
@@ -269,6 +270,10 @@ class Database {
       { name: 'downloaded', type: 'BOOLEAN' },
       { name: 'root_folder_used', type: 'TEXT' },
       { name: 'operation_state', type: "TEXT DEFAULT 'accepted'" }
+    ]);
+
+    await this.addColumnsIfNotExist('album_reconciliation_jobs', [
+      { name: 'activity_id', type: 'INTEGER' }
     ]);
 
     await this.addColumnsIfNotExist('auth_events', [
@@ -521,13 +526,14 @@ class Database {
     if (!this.isInitialized) return;
     return this.run(`
       INSERT INTO album_reconciliation_jobs
-        (artist_mbid, artist_id, album_mbid, search_triggered)
-      VALUES (?, ?, ?, ?)
+        (artist_mbid, artist_id, album_mbid, activity_id, search_triggered)
+      VALUES (?, ?, ?, ?, ?)
       ON CONFLICT(artist_mbid, album_mbid) DO UPDATE SET
         artist_id = excluded.artist_id,
+        activity_id = COALESCE(excluded.activity_id, activity_id),
         search_triggered = CASE WHEN ? THEN 0 ELSE MAX(search_triggered, excluded.search_triggered) END
     `, [
-      data.artistMbid, data.artistId || null, data.albumMbid,
+      data.artistMbid, data.artistId || null, data.albumMbid, data.activityId || null,
       data.searchTriggered ? 1 : 0, data.forceSearch ? 1 : 0
     ]);
   }
