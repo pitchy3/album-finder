@@ -412,6 +412,62 @@ router.get("/release-group/stream", ensureAuthenticated, async (req, res) => {
       totalRequested: searchLimit,
       batchSize: 100 
     });
+
+    // Existing artists are browsed exclusively from Lidarr. Besides avoiding
+    // an unnecessary MusicBrainz request, this keeps Lidarr's metadata profile
+    // authoritative for which releases should be shown.
+    const services = getLidarrServices();
+    if (services) {
+      try {
+        const existingArtist = await services.artistService.findExactByName(artist);
+
+        if (existingArtist) {
+          artistInLidarr = true;
+          lidarrArtistId = existingArtist.id;
+          const albumsMapFromService = await services.albumService.getAllWithCoverArt(lidarrArtistId);
+          albumsMapFromService.forEach((value, key) => lidarrAlbumsMap.set(key, value));
+
+          const lidarrReleases = Array.from(lidarrAlbumsMap.entries()).map(([mbid, albumInfo]) => ({
+            id: mbid,
+            title: albumInfo.title,
+            'first-release-date': albumInfo.releaseDate || null,
+            'primary-type': albumInfo.albumType || 'Album',
+            'secondary-types': albumInfo.secondaryTypes || [],
+            'artist-credit': [{ name: existingArtist.artistName }]
+          }));
+          const processed = (await processBatch(
+            lidarrReleases,
+            existingArtist.artistName,
+            lidarrAlbumsMap,
+            categories
+          )).slice(0, searchLimit);
+
+          sendEvent('artist-status', {
+            artistInLidarr: true,
+            artistName: existingArtist.artistName,
+            artistMbid: existingArtist.foreignArtistId,
+            lidarrArtistId,
+            albumsInLidarr: lidarrAlbumsMap.size,
+            message: `Artist exists with ${lidarrAlbumsMap.size} albums in Lidarr`
+          });
+          sendEvent('batch', {
+            releases: processed,
+            offset: processed.length,
+            total: processed.length,
+            hasMore: false,
+            batchNumber: 1,
+            source: 'lidarr'
+          });
+          sendEvent('complete', {
+            total: processed.length,
+            source: 'lidarr'
+          });
+          return;
+        }
+      } catch (lidarrError) {
+        console.error('❌ Error checking Lidarr before MusicBrainz search:', lidarrError);
+      }
+    }
     
     // STEP 1: Find the artist's MBID first
     console.log(`🔍 Finding artist MBID for: ${artist}`);
@@ -440,8 +496,6 @@ router.get("/release-group/stream", ensureAuthenticated, async (req, res) => {
     // STEP 2: Check Lidarr status using new services
     try {
       console.log('🔍 Checking Lidarr status for artist:', artistMbid);
-      const services = getLidarrServices();
-      
       if (services) {
         const { artistService, albumService } = services;
         const existingArtist = await artistService.findByMbid(artistMbid);
