@@ -79,7 +79,7 @@ export function useAlbumSearch() {
             monitored: response.monitored ?? true,
             fullyAvailable: complete,
             percentComplete,
-            addState: complete ? 'complete' : 'queued'
+            addState: complete ? 'complete' : null
           }
         : { ...album, ...artistState };
     }));
