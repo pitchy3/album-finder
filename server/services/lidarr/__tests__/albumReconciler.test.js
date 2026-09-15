@@ -203,4 +203,32 @@ describe('AlbumReconciler', () => {
     expect(goodState).not.toHaveBeenCalledWith(expect.objectContaining({ success: false }));
     expect(missingState).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
   });
+
+  it('restores the activity callback for a persisted job', async () => {
+    albumService.hasActiveArtistRefresh.mockResolvedValue(false);
+    albumService.findInLibraryStrict.mockResolvedValue({
+      id: 10, monitored: true, statistics: { percentOfTracks: 0 }
+    });
+    const store = {
+      getAlbumReconciliationJobs: jest.fn().mockResolvedValue([{
+        artist_mbid: 'artist-1', artist_id: 5, album_mbid: 'album-1',
+        activity_id: 42, search_triggered: 0
+      }]),
+      saveAlbumReconciliationJob: jest.fn().mockResolvedValue(),
+      deleteAlbumReconciliationJob: jest.fn().mockResolvedValue(),
+      updateAlbumAdditionState: jest.fn().mockResolvedValue()
+    };
+    const reconciler = new AlbumReconciler(albumService, {
+      store,
+      cache: { clearByPrefix: jest.fn() },
+      pollInterval: 1, maxAttempts: 3, stablePasses: 1, retentionMs: 1
+    });
+
+    await reconciler.ready;
+    await reconciler.waitFor('artist-1');
+
+    expect(store.updateAlbumAdditionState).toHaveBeenCalledWith(42, expect.objectContaining({
+      operationState: 'search_queued', success: true
+    }));
+  });
 });
