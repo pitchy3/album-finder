@@ -40,6 +40,7 @@ describe('AlbumReconciler', () => {
       artistId: 5,
       albumMbid: 'album-1'
     });
+    await reconciler.waitFor('artist-1');
 
     expect(albumService.updateMonitoring).toHaveBeenCalledTimes(1);
     expect(albumService.triggerSearchStrict).toHaveBeenCalledWith(10);
@@ -79,6 +80,7 @@ describe('AlbumReconciler', () => {
     });
 
     await Promise.all([first, second]);
+    await reconciler.waitFor('artist-1');
 
     expect(monitored.get('album-1')).toBe(true);
     expect(monitored.get('album-2')).toBe(true);
@@ -108,6 +110,7 @@ describe('AlbumReconciler', () => {
     await reconciler.enqueue({
       artistMbid: 'artist-1', artistId: 5, albumMbid: 'album-1'
     });
+    await reconciler.waitFor('artist-1');
 
     expect(albumService.updateMonitoring).toHaveBeenCalledTimes(2);
     expect(albumService.triggerSearchStrict).toHaveBeenCalledTimes(1);
