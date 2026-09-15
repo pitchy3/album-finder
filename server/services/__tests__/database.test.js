@@ -38,6 +38,7 @@ describe('Database Service', () => {
         searchTriggered: false, forceSearch: true
       });
       const resetJobs = await database.getAlbumReconciliationJobs();
+      expect(resetJobs).toHaveLength(1);
       expect(resetJobs[0].search_triggered).toBe(0);
 
       await database.deleteAlbumReconciliationJob('artist-mbid', 'album-mbid');
