@@ -1,7 +1,12 @@
 const { AlbumReconciler } = require('../../services/lidarr/albumReconciler');
 
 describe('selected-album reconciliation workflow', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('protects four rapid selections through a delayed refresh and searches only incomplete albums', async () => {
+    jest.useFakeTimers();
     const albums = new Map([
       ['album-1', { id: 1, foreignAlbumId: 'album-1', monitored: false, percent: 100 }],
       ['album-2', { id: 2, foreignAlbumId: 'album-2', monitored: false, percent: 100 }],
@@ -69,6 +74,7 @@ describe('selected-album reconciliation workflow', () => {
       albumMbid,
       activityId: index + 10
     })));
+    await jest.advanceTimersByTimeAsync(100);
     await reconciler.waitFor('artist-1');
 
     expect(delayedRefreshApplied).toBe(true);
