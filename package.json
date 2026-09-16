@@ -27,7 +27,7 @@
     "test:performance": "cd server && npm run test:performance",
     "test:load": "artillery run load-tests/config.yml",
     "test:smoke": "playwright test smoke.spec.js",
-    "test:coverage": "npm run test:server -- --coverage && npm run test:client -- --coverage",
+    "test:coverage": "npm --prefix server run test:coverage && npm --prefix client run test:coverage",
     "test:watch": "npm run test:server -- --watch",
     "test:all": "npm run test && npm run test:e2e"
   },
