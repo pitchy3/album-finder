@@ -8,7 +8,10 @@ class ProgressiveRateLimiter {
   constructor() {
     this.failureCounts = new Map();
     this.lockoutExpiry = new Map();
-    setInterval(() => this.cleanup(), 60 * 60 * 1000);
+    this.cleanupTimer = setInterval(() => this.cleanup(), 60 * 60 * 1000);
+    // Housekeeping must not keep short-lived processes such as tests and
+    // maintenance commands alive after their actual work is complete.
+    this.cleanupTimer.unref?.();
   }
 
   async recordFailure(identifier) {

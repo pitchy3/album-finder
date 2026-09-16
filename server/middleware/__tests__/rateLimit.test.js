@@ -27,6 +27,10 @@ describe('Rate Limiting Middleware', () => {
       progressiveLimiter.lockoutExpiry.clear();
     });
 
+    it('does not keep the process alive solely for cleanup', () => {
+      expect(progressiveLimiter.cleanupTimer.hasRef()).toBe(false);
+    });
+
     describe('recordFailure', () => {
       it('should record first failure without lockout', async () => {
         const lockoutSeconds = await progressiveLimiter.recordFailure('test-user-1');
