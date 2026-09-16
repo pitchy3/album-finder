@@ -28,6 +28,25 @@ describe('Rate Limit Service', () => {
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
+  it('spaces concurrent requests instead of releasing them together', async () => {
+    config.rateLimit.musicbrainzDelay = 30;
+    const starts = [];
+    global.fetch.mockImplementation(async () => {
+      starts.push(Date.now());
+      return { ok: true };
+    });
+
+    await Promise.all([
+      rateLimitedFetch('https://musicbrainz.org/concurrent-1'),
+      rateLimitedFetch('https://musicbrainz.org/concurrent-2'),
+      rateLimitedFetch('https://musicbrainz.org/concurrent-3')
+    ]);
+
+    expect(starts).toHaveLength(3);
+    expect(starts[1] - starts[0]).toBeGreaterThanOrEqual(30);
+    expect(starts[2] - starts[1]).toBeGreaterThanOrEqual(30);
+  });
+
   it('should include User-Agent header', async () => {
     global.fetch.mockResolvedValue({ ok: true });
     
